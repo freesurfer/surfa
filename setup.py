@@ -1,23 +1,32 @@
 #!/usr/bin/env python
 
-import os
 import re
+import numpy
 import pathlib
-import setuptools
 import packaging.version
 
+import setuptools
+from setuptools.extension import Extension
 
-# the freesurfer python packages
+from Cython.Build import cythonize
+
+
 packages = [
     'surfa',
 ]
 
-# todoc
+# base source directory
 base_dir = pathlib.Path(__file__).parent.resolve()
 
 # get required dependencies
 with open(base_dir.joinpath('requirements.txt')) as file:
     requirements = [line for line in file.read().splitlines() if not line.startswith('#')]
+
+# ...
+ext_modules = cythonize([
+        Extension('surfa.image.interp', ['surfa/image/interp.pyx']),
+    ],
+    compiler_directives={'language_level' : '3'})
 
 # extract the current version
 init_file = base_dir.joinpath('surfa/__init__.py')
@@ -30,6 +39,7 @@ version = match.group(1)
 if isinstance(packaging.version.parse(version), packaging.version.LegacyVersion):
     raise RuntimeError(f'Invalid version string {version}.')
 
+# run setup
 setuptools.setup(
     name='surfa',
     version=version,
@@ -38,5 +48,12 @@ setuptools.setup(
     author_email='freesurfer@nmr.mgh.harvard.edu',
     url='https://github.com/freesurfer/surfa',
     packages=setuptools.find_packages(include=packages),
+    ext_modules=ext_modules,
+    include_dirs=[numpy.get_include()],
     install_requires=requirements,
+    classifiers=[
+        'Development Status :: 3 - Alpha',
+        'License :: OSI Approved :: MIT License',
+        'Programming Language :: Python :: 3',
+    ],
 )

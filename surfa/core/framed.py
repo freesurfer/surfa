@@ -152,8 +152,13 @@ class FramedArray:
     def astype(self, dtype, copy=True, order='K'):
         """
         Copy of the array, cast to a specified type.
+
+        TODO might need to change the dtype equivolence to check
+        for abstract comparisons
         """
-        return self.new(self.data.astype(dtype=dtype, order=order, copy=copy))
+        if dtype == self.dtype and not copy:
+            return self
+        return self.new(self.data.astype(dtype=dtype, order=order))
 
     def _shape_changed(self):
         """
