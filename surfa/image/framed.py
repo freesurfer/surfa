@@ -222,7 +222,7 @@ class FramedImage(FramedArray):
             voxsize=voxsize)
         return self.__class__(data, geometry=target_geom, metadata=self.metadata)
 
-    def reshape(self, shape):
+    def reshape(self, shape, copy=True):
         """
         Returns a volume fit to a given shape. Image will be centered in the conformed volume.
         """
@@ -230,6 +230,9 @@ class FramedImage(FramedArray):
             raise NotImplementedError
         if self.nframes > 1:
             raise NotImplementedError
+
+        if np.array_equal(self.baseshape, shape):
+            return self.copy() if copy else self
 
         delta = (np.array(shape) - np.array(self.baseshape)) / 2
         low = np.floor(delta).astype(int)

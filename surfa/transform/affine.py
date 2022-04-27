@@ -101,12 +101,7 @@ class Affine:
         Affine
             Inverted affine transform.
         """
-        inv_space = None if self.space is None else self.space.inverse()
-        aff = Affine(
-            np.linalg.inv(self.matrix),
-            source=self.target,
-            target=self.source,
-            space=inv_space)
+        aff = Affine(np.linalg.inv(self.matrix))
         return aff
 
     def det(self):
@@ -186,7 +181,7 @@ def affine_equal(a, b, matrix_only=False, tol=0.0):
     if matrix_only:
         return True
 
-    if not transform.geometry.image_geometry_equal(a.source, b.source) or
+    if not transform.geometry.image_geometry_equal(a.source, b.source) or \
        not transform.geometry.image_geometry_equal(a.target, b.target):
         return False
 
@@ -283,24 +278,28 @@ def compose_affine(
 
     if translation is None:
         translation = np.zeros(ndim)
+    translation = np.asarray(translation)
     check_array(translation, shape=ndim, name='translation')
 
     if rotation is None:
         rotation = np.zeros(3) if ndim == 3 else np.zeros(1)
     if np.isscalar(rotation) and ndim == 2:
         rotation = [rotation]
+    rotation = np.asarray(rotation)
     check_array(rotation, shape=(3 if ndim == 3 else 1), name='rotation')
 
     if scale is None:
         scale = np.ones(ndim)
     elif np.isscalar(scale):
         scale = np.repeat(scale, ndim).astype('float32')
-    check_array(translation, shape=ndim, name='scale')
+    scale = np.asarray(scale)
+    check_array(scale, shape=ndim, name='scale')
 
     if shear is None:
         shear = np.zeros(3) if ndim == 3 else np.zeros(1)
     if np.isscalar(shear) and ndim == 2:
         shear = [shear]
+    shear = np.asarray(shear)
     check_array(shear, shape=(3 if ndim == 3 else 1), name='shear')
 
     T = np.eye(ndim + 1)

@@ -1,5 +1,4 @@
 from .affine import Affine
-from .affine import LinearTransform
 from .affine import affine_equal
 from .affine import identity
 from .affine import compose_affine

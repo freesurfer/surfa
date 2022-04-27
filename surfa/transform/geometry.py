@@ -6,6 +6,7 @@ from surfa.core.array import check_array
 from surfa.transform.space import cast_space
 from surfa.transform.affine import Affine
 from surfa.transform.affine import cast_affine
+from surfa.transform.orientation import rotation_matrix_to_orientation
 from surfa.transform.orientation import orientation_to_rotation_matrix
 
 
@@ -332,6 +333,10 @@ class ImageGeometry:
         if aff is None:
             raise TOERR
         return aff
+
+    @property
+    def orientation(self):
+        return rotation_matrix_to_orientation(self.rotation)
 
 
 def decompose_centered_affine(shape, affine):
