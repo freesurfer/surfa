@@ -22,16 +22,16 @@ class ImageGeometry:
         modification.
 
         Parameters
-        ------------
-        shape : tuple of ints
+        ----------
+        shape : array_like
             Associated 2D or 3D image shape.
-        voxsize : float or tuple of floats
+        voxsize : scalar or float
             Voxel size in millimeters.
         rotation : (3, 3) float
             Voxel-to-world rotation matrix. If provide, cannot also provide `vox2world`.
-        center : tuple of floats
+        center : array_like float
             World coordinate of the image center. If provide, cannot also provide `vox2world`.
-        shear : tuple of floats
+        shear : (3,) float
             Image shear. If provide, cannot also provide `vox2world`.
         vox2world : (4, 4) float or Affine
             Complete Voxel-to-world transform matrix.
@@ -48,7 +48,6 @@ class ImageGeometry:
         self._valid_coord_shapes = ([2], [3]) if self._ndim == 2 else [3]
 
         # set image shape (this will be read-only)
-        # TODO why is shape float when checking
         self._shape = pad_vector_length(shape, 3, 1)
 
         # init internal parameters
@@ -76,16 +75,15 @@ class ImageGeometry:
         same unless recomputation is necessary.
 
         Parameters
-        ------------
-        voxsize : float or tuple of floats
+        ----------
+        voxsize : scalar or float
             Voxel size in millimeters.
-        rotation : (3, 3) float or str
-            Voxel-to-world rotation matrix or orientation string. If provided,
-            cannot also provide `vox2world`.
-        center : tuple of floats
-            World coordinate of image center. If provided, cannot also provide `vox2world`.
-        shear : tuple of floats
-            Image shear. If provided, cannot also provide `vox2world`.
+        rotation : (3, 3) float
+            Voxel-to-world rotation matrix. If provide, cannot also provide `vox2world`.
+        center : array_like float
+            World coordinate of the image center. If provide, cannot also provide `vox2world`.
+        shear : (3,) float
+            Image shear. If provide, cannot also provide `vox2world`.
         vox2world : (4, 4) float or Affine
             Complete Voxel-to-world transform matrix.
         """
@@ -102,11 +100,15 @@ class ImageGeometry:
 
         if vox2world is None:
 
+            # default voxel sizes
+            if voxsize is None:
+                voxsize = np.ones(3) if self.voxsize is None else self.voxsize
+
             # get current values if not specified
-            voxsize = self.voxsize if voxsize is None else voxsize
             rotation = self.rotation if rotation is None else rotation
             center = self.center if center is None else center
             shear = self.shear if shear is None else shear
+
 
             # default orientation differs for 2D
             if rotation is None:
@@ -114,8 +116,7 @@ class ImageGeometry:
 
             if isinstance(rotation, str):
                 # allow for orientation to be specified by name
-                # TODO this should be 3s automatically...
-                rotation = orientation_to_rotation_matrix(rotation)[:3, :3]
+                rotation = orientation_to_rotation_matrix(rotation)
             else:
                 # double check rotation matrix
                 rotation = np.ascontiguousarray(np.array(rotation, dtype='float'))
@@ -123,7 +124,7 @@ class ImageGeometry:
 
             if center is None:
                 # set default world center coordinate
-                center = np.repeat(0.0, 3)  # TODO why not zeros....
+                center = np.zeros(3)
             else:
                 # sanity checks on the center coordinate
                 center = np.array(center, dtype='float')
@@ -141,11 +142,11 @@ class ImageGeometry:
 
             # ensure that affine matrix and linear components are mutually exclusive options
             if rotation is not None:
-                raise ValueError('Rotation and vox2world matrix cannot both be specified when computing geometry.')
+                raise ValueError('rotation and vox2world matrix cannot both be specified when computing geometry')
             if center is not None:
-                raise ValueError('Center and vox2world matrix cannot both be specified when computing geometry.')
+                raise ValueError('center and vox2world matrix cannot both be specified when computing geometry')
             if shear is not None:
-                raise ValueError('Shear and vox2world matrix cannot both be specified when computing geometry.')
+                raise ValueError('shear and vox2world matrix cannot both be specified when computing geometry')
 
             # compute scale, rotation, center, and shear
             vox2world = cast_affine(vox2world)
@@ -156,11 +157,7 @@ class ImageGeometry:
             if voxsize is None:
                 voxsize = scale
             elif not np.allclose(scale, voxsize, atol=1e-3, rtol=0.0):
-                raise TOERR
-
-        # default voxel sizes (ADD TO SECTION 1 TODOOO1!!)
-        if voxsize is None:
-            voxsize = np.ones(3) if self.voxsize is None else self.voxsize
+                raise ValueError(f'voxel size {voxsize} differs substantially from the computed vox2world scale {scale}')
 
         # now we have enough information to compute the missing affine (MOVE THIS ABOVE AS WELL)
         if vox2world is None:
@@ -182,7 +179,7 @@ class ImageGeometry:
         # element data has been modified. if users in-place modify the vox2world matrix, for
         # example, we have no way of knowing to update the other affine parameters. the safest
         # bet for now is to prevent direct array manipulation, which shouldn't cause much problem.
-        self._vox2world.writeable = False
+        self._vox2world._writeable = False
         self._shape.flags.writeable = False
         self._voxsize.flags.writeable = False
         self._rotation.flags.writeable = False
@@ -192,6 +189,18 @@ class ImageGeometry:
     def reshape(self, shape, copy=True):
         """
         Change the geometry image shape while preserving parameters.
+
+        Parameters
+        ----------
+        shape : array_like
+            Target image base shape.
+        copy : bool
+            Return copy if geometry already matched shape.
+
+        Returns
+        -------
+        ImageGeometry
+            Reshaped image geometry.
         """
         shape = pad_vector_length(shape, 3, 1, copy=False)
 
@@ -210,7 +219,7 @@ class ImageGeometry:
 
     def copy(self):
         """
-        TODO test to make sure _affines are fully copied...
+        Create a copy of the image geometry.
         """
         return deepcopy(self)
 
@@ -258,14 +267,14 @@ class ImageGeometry:
     @property
     def shear(self):
         """
-        TODOC
+        Image shear.
         """
         return self._shear
 
     @property
     def vox2world(self):
         """
-        Voxel-to-world affine transform matrix.
+        Affine transform that maps voxel (image) to world coordinates.
         """
         return self._vox2world
 
@@ -275,7 +284,10 @@ class ImageGeometry:
 
     @property
     def world2vox(self):
-        func = lambda : self.vox2world.inverse()
+        """
+        Affine transform that maps world to voxel (image) coordinates.
+        """
+        func = lambda : self.vox2world.inv()
         return self._retrieve_or_compute_affine('wv', func)
 
     @world2vox.setter
@@ -285,43 +297,69 @@ class ImageGeometry:
 
     @property
     def vox2surf(self):
+        """
+        Affine transform that maps voxel (image) to surface coordinates.
+        """
         def func():
-            rot = orientation_to_rotation_matrix('LIA')[:3, :3]
+            rot = orientation_to_rotation_matrix('LIA')
             return compose_centered_affine(self.shape, self.voxsize, rot, np.zeros(3), np.zeros(3))
         return self._retrieve_or_compute_affine('vs', func)
 
     @property
     def world2surf(self):
+        """
+        Affine transform that maps world to surface coordinates.
+        """
         func = lambda : self.vox2surf @ self.world2vox
         return self._retrieve_or_compute_affine('ws', func)
 
     @property
     def surf2vox(self):
-        func = lambda : self.vox2surf.inverse()
+        """
+        Affine transform that maps surface to voxel (image) coordinates.
+        """
+        func = lambda : self.vox2surf.inv()
         return self._retrieve_or_compute_affine('sv', func)
 
     @property
     def surf2world(self):
+        """
+        Affine transform that maps surface to world coordinates.
+        """
         func = lambda : self.vox2world @ self.surf2vox
         return self._retrieve_or_compute_affine('sw', func)
 
     def _retrieve_or_compute_affine(self, name, func):
         """
+        Internal utility to compute and cache affine matrices when called.
         """
         retrieved = self._affines.get(name)
         if retrieved is not None:
             return retrieved
         computed = func()
-        computed.writeable = False
+        computed._writeable = False
         self._affines[name] = computed
         return computed
 
     def affine(self, source, target):
         """
         Retrieve an affine transform based on the source and target space.
+
+        Parameters
+        ----------
+        source : Space
+            Source coordinate space.
+        target : Space
+            Target coordinate space.
+
+        Returns
+        -------
+        Affine
+            Retrieved affine.
         """
         a = str(cast_space(source))[0]
         b = str(cast_space(target))[0]
+        # lets use the first character of the space for a quick lookup
         aff = {
             'vw': self.vox2world,
             'vs': self.vox2surf,
@@ -331,19 +369,34 @@ class ImageGeometry:
             'sw': self.surf2world,
         }.get(f'{a}{b}')
         if aff is None:
-            raise TOERR
+            raise ValueError(f'cannot find geometry affine for key {a}{b} - this is bug, not a user error')
         return aff
 
     @property
     def orientation(self):
+        """
+        Orientation string of rotation matrix.
+        """
         return rotation_matrix_to_orientation(self.rotation)
 
 
 def decompose_centered_affine(shape, affine):
     """
-    TODOC
+    Decompose an image-to-world affine into geometry parameters.
+
+    Parameters
+    ----------
+    shape : array_like
+        Shape of target image.
+    affine : Affine
+        Image-to-world affine to decompose.
+
+    Returns
+    -------
+    tuple
+        Tuple containing (voxelsize, rotation matrix, world-center, shear) parameters.
     """
-    center = np.matmul(affine.matrix, np.append(shape / 2, 1))[:3]
+    center = np.matmul(affine.matrix, np.append(np.asarray(shape) / 2, 1))[:3]
     q, r = np.linalg.qr(affine.matrix[:3, :3])
     di = np.diag_indices(3)
     voxsize = np.abs(r[di])
@@ -357,7 +410,26 @@ def decompose_centered_affine(shape, affine):
 
 def compose_centered_affine(shape, voxsize, rotation, center, shear):
     """
-    TODOC
+    Compose an image-to-world affine from geometry parameters.
+
+    Parameters
+    ----------
+    shape : array_like
+        Shape of target image.
+    voxsize : float or tuple of floats
+        Voxel size in millimeters.
+    rotation : (3, 3) float or str
+        Voxel-to-world rotation matrix or orientation string. If provided,
+        cannot also provide `vox2world`.
+    center : tuple of floats
+        World coordinate of image center. If provided, cannot also provide `vox2world`.
+    shear : tuple of floats
+        Image shear. If provided, cannot also provide `vox2world`.
+
+    Returns
+    -------
+    Affine
+        Composed image-to-world  affine.
     """
     matshear = np.eye(3)
     matshear[0, 1] = shear[0]
@@ -370,9 +442,9 @@ def compose_centered_affine(shape, voxsize, rotation, center, shear):
     return Affine(affine)
 
 
-def cast_image_geometry(obj, allow_none=True):
+def cast_image_geometry(obj, allow_none=True, copy=False):
     """
-    Cast object to `ImageGeometry`.
+    Cast object to `ImageGeometry` type.
 
     Parameters
     ----------
@@ -380,32 +452,24 @@ def cast_image_geometry(obj, allow_none=True):
         Object to cast.
     allow_none : bool
         Allow for `None` to be successfully passed and returned by cast.
+    copy : bool
+        Return copy if object is already the correct type.
 
     Returns
     -------
     ImageGeometry or None
         Casted image geometry.
     """
-    if isinstance(obj, ImageGeometry):
-        return obj
-
-    if getattr(obj, '__geometry__'):
-        return obj.__geometry__()
-
     if obj is None and allow_none:
         return obj
 
-    raise ValueError('Cannot convert type %s to ImageGeometry.' % type(obj).__name__)
+    if getattr(obj, '__geometry__', None) is not None:
+        obj = obj.__geometry__()
 
+    if isinstance(obj, ImageGeometry):
+        return obj.copy() if copy else obj
 
-def retrieve_image_geometry(obj):
-    """
-    TODOC
-    """
-    if obj is None or isinstance(obj, ImageGeometry):
-        return obj
-
-    raise ValueError('Cannot retrieve ImageGeometry from type %s.' % type(obj).__name__)
+    raise ValueError('cannot convert type %s to ImageGeometry' % type(obj).__name__)
 
 
 def image_geometry_equal(a, b, tol=0.0):
@@ -422,7 +486,7 @@ def image_geometry_equal(a, b, tol=0.0):
     Returns
     -------
     bool
-        Returns True if the image geometries are equal.
+        True if the image geometries are equal.
     """
     try:
         a = cast_image_geometry(a, allow_none=False)
@@ -433,10 +497,10 @@ def image_geometry_equal(a, b, tol=0.0):
     matches = (
         np.allclose(a.shape, b.shape, atol=tol, rtol=0.0),
         np.allclose(a.voxsize, b.voxsize, atol=tol, rtol=0.0),
-        np.allclose(a.affine, b.affine, atol=tol, rtol=0.0),
         np.allclose(a.center, b.center, atol=tol, rtol=0.0),
         np.allclose(a.rotation, b.rotation, atol=tol, rtol=0.0),
-        np.allclose(a.shear, b.shear, atol=tol, rtol=0.0)
+        np.allclose(a.shear, b.shear, atol=tol, rtol=0.0),
+        np.allclose(a.vox2world.matrix, b.vox2world.matrix, atol=tol, rtol=0.0),
     )
 
     if not all(matches):

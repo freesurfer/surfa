@@ -4,6 +4,7 @@ import numpy as np
 
 from surfa import transform
 from surfa.core.array import check_array
+from surfa.transform.space import cast_space
 
 
 class Affine:
@@ -11,40 +12,132 @@ class Affine:
     def __init__(self, matrix, source=None, target=None, space=None):
         """
         N-D linear transform, represented by an (N, N) affine matrix, that
-        tracks source/target geometries and coordinate spaces.
+        tracks source and target geometries as well as coordinate space.
 
         Parameters
         ----------
-        matrix : (N, N) or (N, N+1) float.
+        matrix : (N, N) or (N, N+1) float
             2D or 3D linear transformation matrix.
+        source : castable ImageGeometry
+            Transform source (or moving) image geometry.
+        target : castable ImageGeometry
+            Transform target (or fixed) image geometry.
+        space : Space
+            Coordinate space of the transform.
         """
-        self.matrix = matrix
+        # init internal parameters
+        self._matrix = None
+        self._space = None
+        self._source = None
+        self._target = None
+
+        # set the actual values
+        self.matrix = matrix        
+        self.space = space
+        self.source = source
+        self.target = target
+
+    @property
+    def _writeable(self):
+        """
+        Internal flag to determine whether or not the affine data can be
+        modified. This is useful for cases like image geometries, which
+        are represented by derivative affines that should not be changed.
+        """
+        return self.matrix.flags.writeable
+
+    @_writeable.setter
+    def _writeable(self, value):
+        self.matrix.flags.writeable = value
+
+    def _check_writeability(self):
+        """
+        Internal utility for ensuring that the affine is set as writeable.
+        """
+        if not self._writeable:
+            raise ValueError('affine is read-only, use affine.copy() to duplicate before editing')
 
     @property
     def matrix(self):
+        """
+        The (N, N) affine matrix array.
+        """
         return self._matrix
     
     @matrix.setter
     def matrix(self, mat):
-        mat = np.ascontiguousarray(mat, dtype='float')
+        # check writeable
+        if self.matrix is not None:
+            self._check_writeability()
 
         # check input shape
+        mat = np.ascontiguousarray(mat, dtype='float')
         check_array(mat, ndim=2, name='affine matrix')
         ndim = mat.shape[-1] - 1
         if ndim not in (2, 3) or mat.shape[0] not in (ndim, ndim + 1):
-            raise ValueError('An N-D affine must be initialized with matrix of shape (N, N+1)'
-                             f'or (N+1, N+1), where N is 2 or 3, but got shape {mat.shape}.')
+            raise ValueError('an N-D affine must be initialized with matrix of shape (N, N+1) '
+                             f'or (N+1, N+1), where N is 2 or 3, but got shape {mat.shape}')
 
         # conform to square matrix
         square = np.eye(ndim + 1)
         square[: square.shape[0], :] = mat
         self._matrix = square
 
+    @property
+    def space(self):
+        """
+        Coordinate space of the transform.
+        """
+        return self._space
+    
+    @space.setter
+    def space(self, value):
+        self._check_writeability()
+        self._space = cast_space(value, copy=True)
+
+    @property
+    def source(self):
+        """
+        Source (or moving) image geometry.
+        """
+        return self._source
+    
+    @source.setter
+    def source(self, value):
+        self._check_writeability()
+        self._source = transform.cast_image_geometry(value, copy=True)
+
+    @property
+    def target(self):
+        """
+        Target (or fixed) image geometry.
+        """
+        return self._target
+    
+    @target.setter
+    def target(self, value):
+        self._check_writeability()
+        self._target = transform.cast_image_geometry(value, copy=True)
+
+    def save(self, filename):
+        """
+        Save affine transform to file.
+
+        Parameters
+        ----------
+        filename : str
+            Target filename.
+        """
+        from surfa.io.affine import save_affine
+        save_affine(self, filename)
+
     def copy(self):
         """
-        Return a deep copy of the affine transform.
+        Return a copy of the affine.
         """
-        return copy.deepcopy(self)
+        aff = copy.deepcopy(self)
+        aff._writeable = True
+        return aff
 
     @property
     def ndim(self):
@@ -55,12 +148,11 @@ class Affine:
 
     def __matmul__(self, other):
         """
-        Matrix multiplication of affine matrices. Geometry and space information
-        is transferred appropriately.
+        Matrix multiplication of affine matrices.
         """
         other = cast_affine(other, allow_none=False)
         if self.ndim != other.ndim:
-            raise ValueError(f'Cannot multiply {self.ndim}D and {other.ndim}D affines together.')
+            raise ValueError(f'cannot multiply {self.ndim}D and {other.ndim}D affines together')
         matrix = np.matmul(self.matrix, other.matrix)
         return Affine(matrix)
 
@@ -89,10 +181,9 @@ class Affine:
         if points.ndim == 1:
             points = points[np.newaxis]
         points = np.c_[points, np.ones(points.shape[0])].T
-        # TODO: make sure not to always return contiguous somehow
         return np.ascontiguousarray(np.dot(self.matrix, points).T.squeeze()[..., :-1])
 
-    def inverse(self):
+    def inv(self):
         """
         Compute the inverse linear transform, reversing source and target information.
 
@@ -101,8 +192,8 @@ class Affine:
         Affine
             Inverted affine transform.
         """
-        aff = Affine(np.linalg.inv(self.matrix))
-        return aff
+        inv = np.linalg.inv(self.matrix)
+        return Affine(inv, source=self.target, target=self.source, space=self.space)
 
     def det(self):
         """
@@ -128,7 +219,7 @@ class Affine:
         Returns
         -------
         tuple
-            Tuple of translation, rotation, scale, and shear transform components.
+            Tuple of (translation, rotation, scale, shear) transform components.
         """
         translation = self.matrix[: self.ndim, -1]
 
@@ -149,6 +240,73 @@ class Affine:
             shear = np.array([shear_mat[0, 1], shear_mat[0, 2], shear_mat[1, 2]])
 
         return (translation, rotation, scale, shear)
+
+    def convert(self, source=None, target=None, space=None, copy=True):
+        """
+        Convert affine for a new coordinate space. Since original geometry and coordinate
+        information is required for conversion, an error will be thrown if the source,
+        target, and space have not been defined for the transform.
+
+        Parameters
+        ----------
+        source, target : ImageGeometry, Image, or Surface
+            Transform source and target image geometries.
+        source : castable ImageGeometry
+            Transform source (or moving) image geometry.
+        target : castable ImageGeometry
+            Transform target (or fixed) image geometry.
+        space : Space
+            Coordinate space of the transform.
+        copy : bool
+            Return copy of object if conditions are already satisfied.
+
+        Returns
+        -------
+        float
+            Converted affine transform.
+        """
+        source = self.source if source is None else transform.cast_image_geometry(source)
+        target = self.target if target is None else transform.cast_image_geometry(target)
+        space = self.space if space is None else cast_space(space)
+
+        same_space = space == self.space
+        same_source = transform.geometry.image_geometry_equal(source, self.source)
+        same_target = transform.geometry.image_geometry_equal(target, self.target)
+
+        # just return self if no changes are needed
+        if all((same_space, same_source, same_target)):
+            return self.copy() if copy else self
+
+        # can't convert if we don't have original coordinate information
+        if self.source is None or self.target is None or self.space is None:
+            raise RuntimeError('original coordinate space, source, and target '
+                               'information must be defined for affine conversion')
+
+        if same_source and same_target:
+            # just a simple conversion of transform coordinate space, without
+            # changing source and target information
+            a = self.target.affine(self.space, space)
+            b = self.source.affine(space, self.space)
+            affine = a @ self @ b
+        else:
+            # if source and target info is changing, we need to recompute the
+            # transform by first converting it to universal world-space
+            if self.space == 'world':
+                affine = self.copy()
+            else:
+                a = self.target.affine(self.space, 'world')
+                b = self.source.affine('world', self.space)
+                affine = a @ self @ b
+            # now convert into the desired coordinate space
+            if space != 'world':
+                a = target.affine('world', space)
+                b = source.affine(space, 'world')
+                affine = a @ affine @ b
+
+        # the matrix multiplication above should propogate space and geometry info
+        # correctly, but in a few cases, the matmul is skipped, so let's just return
+        # a new affine object with the correct information
+        return Affine(affine.matrix, source=source, target=target, space=space)
 
 
 def affine_equal(a, b, matrix_only=False, tol=0.0):
@@ -191,7 +349,7 @@ def affine_equal(a, b, matrix_only=False, tol=0.0):
     return True
 
 
-def cast_affine(obj, allow_none=True):
+def cast_affine(obj, allow_none=True, copy=False):
     """
     Cast object to `Affine` transform.
 
@@ -201,22 +359,24 @@ def cast_affine(obj, allow_none=True):
         Object to cast.
     allow_none : bool
         Allow for `None` to be successfully passed and returned by cast.
+    copy : bool
+        Return copy of object if type already matches.
 
     Returns
     -------
     Affine or None
         Casted affine transform.
     """
-    if isinstance(obj, Affine):
-        return obj
-
     if obj is None and allow_none:
         return obj
 
     if isinstance(obj, np.ndarray):
         return Affine(obj)
 
-    raise ValueError('Cannot convert type %s to Affine.' % type(obj).__name__)
+    if isinstance(obj, Affine):
+        return obj.copy() if copy else obj
+
+    raise ValueError('cannot convert type %s to affine' % type(obj).__name__)
 
 
 def identity(ndim=3, **kwargs):
@@ -274,7 +434,7 @@ def compose_affine(
         Composed affine transform.
     """
     if ndim not in (2, 3):
-        raise ValueError(f'Affine transform must be 2D or 3D, got ndim {ndim}.')
+        raise ValueError(f'affine transform must be 2D or 3D, got ndim {ndim}')
 
     if translation is None:
         translation = np.zeros(ndim)
@@ -342,7 +502,7 @@ def rotation_matrix_to_angles(matrix, degrees=True):
     # matrix must be square
     check_array(matrix, ndim=2, name='rotation matrix')
     if matrix.shape[0] != matrix.shape[1]:
-        raise ValueError('N-D rotation matrix must be square.')
+        raise ValueError('N-D rotation matrix must be square')
 
     if ndim == 2:
         rotation = np.arctan2(matrix[1][0], matrix[1][1])
@@ -357,10 +517,8 @@ def rotation_matrix_to_angles(matrix, degrees=True):
             ]
         )
     else:
-        raise ValueError(
-            'Expected (N, N) rotation matrix, where N is 2 or 3, '
-            f'but got N of {ndim}.'
-        )
+        raise ValueError('expected (N, N) rotation matrix, where N is 2 or 3, '
+                        f'but got N of {ndim}')
 
     if degrees:
         rotation = np.degrees(rotation)
@@ -404,9 +562,7 @@ def angles_to_rotation_matrix(rotation, degrees=True):
         rz = np.array([[c, s, 0], [-s, c, 0], [0, 0, 1]], dtype='float')
         matrix = rx @ ry @ rz
     else:
-        raise ValueError(
-            f'Expected 1 (2D) or 3 (3D) rotation angles, got {num_angles}.'
-        )
+        raise ValueError(f'expected 1 (2D) or 3 (3D) rotation angles, got {num_angles}')
 
     return matrix
 

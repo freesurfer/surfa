@@ -4,7 +4,7 @@ class Space:
         """
         Coordinate space representation. Supported spaces are:
 
-            - image: Voxel coordinate space.
+            - voxel: Voxel (or image) coordinate space.
             - world: Universal world-space generally represented in RAS orientation.
             - surface: Surface or mesh coordinate space, dependent on base image geometry.
 
@@ -22,10 +22,10 @@ class Space:
         elif name in ('s', 'surf', 'surface'):
             name = 'surface'
         # voxel or image space
-        elif name in ('i', 'image', 'img', 'vox', 'voxel'):
-            name = 'image'
+        elif name in ('i', 'image', 'img', 'v', 'vox', 'voxel'):
+            name = 'voxel'
         else:
-            raise ValueError(f'Unknown space {name}.')
+            raise ValueError(f'unknown space: {name}')
 
         self._name = name
 
@@ -42,12 +42,24 @@ class Space:
     def __repr__(self):
         return f"sf.Space('{self.name}')"
 
+    def __str__(self):
+        return self.name
+
+    def copy(self):
+        """
+        Create a copy of the space.
+        """
+        return Space(self.name)
+
     @property
     def name(self):
+        """
+        Primary coordinate system name.
+        """
         return self._name
 
 
-def cast_space(obj, allow_none=True):
+def cast_space(obj, allow_none=True, copy=False):
     """
     Cast object to coordinate `Space`.
 
@@ -63,13 +75,13 @@ def cast_space(obj, allow_none=True):
     Space or None
         Casted coordinate space.
     """
-    if isinstance(obj, Space):
-        return obj
-
     if obj is None and allow_none:
         return obj
 
     if isinstance(obj, str):
         return Space(obj)
 
-    raise ValueError('Cannot convert type %s to Space.' % type(obj).__name__)
+    if isinstance(obj, Space):
+        return obj.copy() if copy else obj
+
+    raise ValueError('cannot convert type %s to Space object' % type(obj).__name__)
