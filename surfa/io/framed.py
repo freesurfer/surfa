@@ -9,7 +9,7 @@ from surfa.io.utils import read_bytes
 from surfa.io.utils import write_bytes
 from surfa.io.utils import check_file_readability
 from surfa.transform import ImageGeometry
-from surfa.array.utils import ensure_vector_size
+from surfa.core.array import pad_vector_length
 
 
 def load_volume(filename, fmt=None):
@@ -96,11 +96,11 @@ def load_framed_array(filename, atype, fmt=None):
     if fmt is None:
         iop = protocol.find_protocol_by_extension(array_io_protocols, filename)
         if iop is None:
-            raise ValueError(f'Cannot determine file format from extension for {filename}.')
+            raise ValueError(f'cannot determine file format from extension for {filename}')
     else:
         iop = protocol.find_protocol_by_name(array_io_protocols, fmt)
         if iop is None:
-            raise ValueError(f'Unknown file format {fmt}.')
+            raise ValueError(f'unknown file format {fmt}')
 
     return iop().load(filename, atype)
 
@@ -122,11 +122,11 @@ def save_framed_array(arr, filename, fmt=None):
     if fmt is None:
         iop = protocol.find_protocol_by_extension(array_io_protocols, filename)
         if iop is None:
-            raise ValueError(f'Cannot determine file format from extension for {filename}.')
+            raise ValueError(f'cannot determine file format from extension for {filename}')
     else:
         iop = protocol.find_protocol_by_name(array_io_protocols, fmt)
         if iop is None:
-            raise ValueError(f'Unknown file format {fmt}.')
+            raise ValueError(f'unknown file format {fmt}')
         filename = iop.enforce_extension(filename)
 
     iop().save(arr, filename)
@@ -164,7 +164,7 @@ class MGHArrayIO(protocol.IOProtocol):
         }
         dtype = mgh_types.get(id)
         if dtype is None:
-            raise NotImplementedError(f'Unsupported MGH data type ID {id}.')
+            raise NotImplementedError(f'unsupported MGH data type ID: {id}')
         return np.dtype(dtype)
 
     def load(self, filename, atype):
@@ -252,8 +252,7 @@ class MGHArrayIO(protocol.IOProtocol):
 
                 # embedded lookup table
                 elif tag == fsio.tags.old_colortable:
-                    # TODO implement this correctly
-                    print('Warning: not reading embedded colortable')
+                    arr.labels = fsio.read_binary_lookup_table(file)
 
                 # phase encode direction
                 elif tag == fsio.tags.pedir:
@@ -293,23 +292,21 @@ class MGHArrayIO(protocol.IOProtocol):
 
             # determine supported dtype to save as
             type_map = {
-                'uint8': 0,
-                'int32': 1,
-                'float': 3,
-                'short': 4,
+                np.uint8: 0,
+                np.int32: 1,
+                np.floating: 3,
+                np.int16: 4,
             }
-            dtype_id = next(
-                (i for dt, i in type_map.items() if np.issubdtype(dt, arr.dtype)), None
-            )
+            dtype_id = next((i for dt, i in type_map.items() if np.issubdtype(arr.dtype, dt)), None)
             if dtype_id is None:
-                raise ValueError(f'Writing dtype {arr.dtype.name} to MGH format is not supported.')
+                raise ValueError(f'writing dtype {arr.dtype.name} to MGH format is not supported')
 
             # sanity check on the array size
             ndim = arr.data.ndim
             if ndim < 1:
-                raise ValueError(f'Cannot save scalar value to MGH file format.')
+                raise ValueError(f'cannot save scalar value to MGH file format')
             if ndim > 4:
-                raise ValueError(f'Cannot save array with more than 4 dims to MGH format, but got {ndim}D array.')
+                raise ValueError(f'cannot save array with more than 4 dims to MGH format, but got {ndim}D array')
 
             # shape must always be a length-4 vector, so let's pad with ones
             shape = np.ones(4)
@@ -344,16 +341,14 @@ class MGHArrayIO(protocol.IOProtocol):
             write_bytes(file, arr.metadata.get('ti', 0.0), '>f4')
 
             # compute FOV
-            volsize = ensure_vector_size(arr.baseshape, 1, 3)
+            volsize = pad_vector_length(arr.baseshape, 3, 1)
             fov = max(arr.geom.voxsize * volsize) if is_image else arr.shape[0]
             write_bytes(file, fov, '>f4')
 
             # write lookup table tag
-            if arr.lut is not None:
-                # TODO implement this
-                print('Warning: not writing embedded colortable')
-                # fsio.write_tag(file, fsio.tags.old_colortable)
-                # fsio.write_binary_lookup_table(file, ?)
+            if arr.labels is not None:
+                fsio.write_tag(file, fsio.tags.old_colortable)
+                fsio.write_binary_lookup_table(file, arr.labels)
 
             # phase encode direction
             pedir = arr.metadata.get('phase-encode-direction', 'UNKNOWN')
@@ -381,7 +376,7 @@ class NiftiArrayIO(protocol.IOProtocol):
         try:
             import nibabel as nib
         except ImportError:
-            raise ImportError('The `nibabel` python package must be installed for nifti IO.')
+            raise ImportError('the `nibabel` python package must be installed for nifti IO')
         self.nib = nib
 
     def load(self, filename, atype):
@@ -391,7 +386,7 @@ class NiftiArrayIO(protocol.IOProtocol):
         Parameters
         ----------
         filename : str
-            File path to read.
+            File path read.
         atype : class
             FramedArray subclass to load.
 
@@ -437,7 +432,7 @@ class ImageSliceIO(protocol.IOProtocol):
         try:
             from PIL import Image
         except ImportError:
-            raise ImportError(f'The `pillow` python package must be installed for {self.name} IO.')
+            raise ImportError(f'the `pillow` python package must be installed for {self.name} IO')
         self.Image = Image
 
     def save(self, arr, filename):

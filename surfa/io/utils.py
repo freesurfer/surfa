@@ -12,11 +12,11 @@ def check_file_readability(filename):
         Path to file.
     """
     if os.path.isdir(filename):
-        raise ValueError(f'{filename} is a directory, not a file.')
+        raise ValueError(f'{filename} is a directory, not a file')
     if not os.path.isfile(filename):
-        raise FileNotFoundError(f'{filename} is not a file.')
+        raise FileNotFoundError(f'{filename} is not a file')
     if not os.access(filename, os.R_OK):
-        raise PermissionError(f'{filename} is not a readable file.')
+        raise PermissionError(f'{filename} is not a readable file')
 
 
 def read_int(file, size=4, signed=True, byteorder='big'):

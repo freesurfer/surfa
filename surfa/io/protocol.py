@@ -32,13 +32,13 @@ class IOProtocol:
         """
         File load function to be implemented for each subclass.
         """
-        raise NotImplementedError(f'Loading {self.name} files is not supported.')
+        raise NotImplementedError(f'loading {self.name} files is not supported')
 
     def save(self, obj, filename):
         """
         File save function to be implemented for each subclass.
         """
-        raise NotImplementedError(f'Saving {self.name} files is not supported.')
+        raise NotImplementedError(f'saving {self.name} files is not supported')
 
 
 def find_protocol_by_name(protocols, fmt):
