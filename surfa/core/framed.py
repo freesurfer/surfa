@@ -52,6 +52,18 @@ class FramedArray:
         self._metadata = {}
         self.metadata = metadata
 
+    def new(self, data):
+        """
+        Return a new instance of the array with updated data. Metadata is preserved.
+        """
+        return self.__class__(data=data, metadata=self.metadata)
+
+    def copy(self):
+        """
+        Return a deep copy of the instance.
+        """
+        return deepcopy(self)
+
     def __repr__(self):
         """
         Print out some basic information regarding shape and dtype. Should keep it simple.
@@ -214,18 +226,6 @@ class FramedArray:
         Event hook that is called when the internal data array shape is updated.
         """
         pass
-
-    def copy(self):
-        """
-        Return a deep copy of the instance.
-        """
-        return deepcopy(self)
-
-    def new(self, data):
-        """
-        Return a new instance of the array with updated data. Metadata is not replaced.
-        """
-        return self.__class__(data=data, metadata=self.metadata)
 
     def save(self, filename):
         """

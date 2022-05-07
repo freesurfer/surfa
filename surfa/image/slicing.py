@@ -3,6 +3,20 @@ import numpy as np
 
 def sane_slicing(shape, index_expression):
     """
+    Clean up an index expression such that the result is a tuple with
+    the proper number of dimensions and slicings to match a target shape.
+
+    Parameters
+    ----------
+    shape : tuple of int
+        Target array shape.
+    index_expression : tuple
+        Numpy-style index expression.
+
+    Returns
+    -------
+    index_expression : tuple
+        Cleaned index expression.
     """
     ndim = len(shape)
     slicing = [None] * len(shape)
@@ -44,6 +58,18 @@ def sane_slicing(shape, index_expression):
 
 def slicing_parameters(index_expression):
     """
+    Convert a slicing index expression to a tuple of start and stop coordinates.
+    This assumes the expression has been cleaned with `sane_slicing()`.
+
+    Parameters
+    ----------
+    index_expression : tuple
+        Numpy-style index expression.
+
+    Returns
+    -------
+    tuple of int
+        tuple of (start, stop) coordinates represented by the slicing.
     """
     start = []
     step = []

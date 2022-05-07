@@ -33,31 +33,31 @@ def interpolate(source, target_shape, method, affine=None, disp=None, rotation='
         Interpolated image array.
     """
     if affine is None and disp is None:
-        raise ValueError('Interpolation requires an affine transform and/or displacement field.')
+        raise ValueError('interpolation requires an affine transform and/or displacement field')
 
     if method not in ('linear', 'nearest'):
-        raise ValueError(f'Interp method must be linear or nearest, but got {method}.')
+        raise ValueError(f'interp method must be linear or nearest, but got {method}')
 
     if not isinstance(source, np.ndarray):
-        raise ValueError(f'Source data must a numpy array, but got input of type {source.__class__.__name__}.')
+        raise ValueError(f'source data must a numpy array, but got input of type {source.__class__.__name__}')
 
     if source.ndim != 4:
-        raise ValueError(f'Source data must be 4D, but got input of shape {target_shape}.')
+        raise ValueError(f'source data must be 4D, but got input of shape {target_shape}')
 
     target_shape = tuple(target_shape)
     if len(target_shape) != 3:
-        raise ValueError(f'Interpolated target shape must be 3D, but got {target_shape}.')
+        raise ValueError(f'interpolated target shape must be 3D, but got {target_shape}')
 
     if rotation not in ('center', 'corner'):
-        raise ValueError("Rotation must be 'center' or 'corner'.")
+        raise ValueError("rotation must be 'center' or 'corner'")
 
     # check affine
     use_affine = affine is not None
     if use_affine:
         if not isinstance(affine, np.ndarray):
-            raise ValueError(f'Affine must a numpy array, but got input of type {source.__class__.__name__}.')
+            raise ValueError(f'affine must a numpy array, but got input of type {source.__class__.__name__}')
         if not np.array_equal(affine.shape, (4, 4)):
-            raise ValueError(f'Affine must be 4x4, but got input of shape {affine.shape}.')
+            raise ValueError(f'affine must be 4x4, but got input of shape {affine.shape}')
         # ensure the rotation is around the image corner when applying the affine
         if rotation == 'center':
             center = np.eye(4, dtype=np.float32)
@@ -70,9 +70,9 @@ def interpolate(source, target_shape, method, affine=None, disp=None, rotation='
     use_disp = disp is not None
     if use_disp:
         if not isinstance(disp, np.ndarray):
-            raise ValueError(f'Source data must a numpy array, but got input of type {source.__class__.__name__}.')
+            raise ValueError(f'source data must a numpy array, but got input of type {source.__class__.__name__}')
         if not np.array_equal(disp.shape, target_shape):
-            raise ValueError(f'Displacement field shape {disp.shape} must match target shape {target_shape}.')
+            raise ValueError(f'displacement field shape {disp.shape} must match target shape {target_shape}')
 
     if not source.flags.c_contiguous and not source.flags.f_contiguous:
         # TODO figure out what would cause this

@@ -2,14 +2,17 @@ import os
 import numpy as np
 import gzip
 
-import surfa as sf
+from surfa.core.array import pad_vector_length
+from surfa.core import FramedArray
+from surfa.image import Volume
+from surfa.image import Slice
+from surfa.image.framed import FramedImage
+from surfa.transform import ImageGeometry
 from surfa.io import fsio
 from surfa.io import protocol
 from surfa.io.utils import read_bytes
 from surfa.io.utils import write_bytes
 from surfa.io.utils import check_file_readability
-from surfa.transform import ImageGeometry
-from surfa.core.array import pad_vector_length
 
 
 def load_volume(filename, fmt=None):
@@ -29,7 +32,7 @@ def load_volume(filename, fmt=None):
     Volume
         Loaded volume.
     """
-    return load_framed_array(filename=filename, atype=sf.Volume, fmt=fmt)
+    return load_framed_array(filename=filename, atype=Volume, fmt=fmt)
 
 
 def load_slice(filename, fmt=None):
@@ -49,7 +52,7 @@ def load_slice(filename, fmt=None):
     Slice
         Loaded slice.
     """
-    return load_framed_array(filename=filename, atype=sf.Slice, fmt=fmt)
+    return load_framed_array(filename=filename, atype=Slice, fmt=fmt)
 
 
 def load_overlay(filename, fmt=None):
@@ -69,7 +72,7 @@ def load_overlay(filename, fmt=None):
     Overlay
         Loaded overlay.
     """
-    return load_framed_array(filename=filename, atype=sf.Overlay, fmt=fmt)
+    return load_framed_array(filename=filename, atype=Overlay, fmt=fmt)
 
 
 def load_framed_array(filename, atype, fmt=None):
@@ -232,7 +235,7 @@ class MGHArrayIO(protocol.IOProtocol):
             fov = read_bytes(file, dtype='>f4')
  
             # update image-specific information
-            if isinstance(arr, sf.image.FramedImage):
+            if isinstance(arr, FramedImage):
                 arr.geom.update(**geom_params)
                 arr.metadata.update(scan_params)
 
@@ -320,7 +323,7 @@ class MGHArrayIO(protocol.IOProtocol):
 
             # write geometry, if valid
             unused_header_space = 254
-            is_image = isinstance(arr, sf.image.FramedImage)
+            is_image = isinstance(arr, FramedImage)
             write_bytes(file, is_image, '>u2')
             if is_image:
                 write_bytes(file, arr.geom.voxsize, '>f4')
@@ -398,7 +401,7 @@ class NiftiArrayIO(protocol.IOProtocol):
         nii = self.nib.load(filename)
         data = nii.get_data()
         arr = atype(data)
-        if isinstance(arr, sf.image.FramedImage):
+        if isinstance(arr, FramedImage):
             matrix = nii.get_affine()
             voxsize = nii.header['pixdim'][1:4]
             arr.geom.update(vox2world=matrix, voxsize=voxsize)
@@ -415,7 +418,7 @@ class NiftiArrayIO(protocol.IOProtocol):
         filename : str
             Target file path.
         """
-        isimage = isinstance(arr, sf.image.FramedImage)
+        isimage = isinstance(arr, FramedImage)
         matrix = arr.geom.vox2world.matrix if isimage else np.eye(4)
         nii = self.nib.Nifti1Image(arr.data, matrix)
         if is_image:
@@ -440,7 +443,7 @@ class ImageSliceIO(protocol.IOProtocol):
 
     def load(self, filename):
         image = np.asarray(self.Image.open(filename))
-        return sf.Slice(image)
+        return Slice(image)
 
 
 class JPEGArrayIO(ImageSliceIO):

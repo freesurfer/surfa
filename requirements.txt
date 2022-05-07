@@ -1,1 +1,4 @@
+cython
 numpy
+Pillow
+nibabel

@@ -13,6 +13,11 @@ from Cython.Build import cythonize
 
 packages = [
     'surfa',
+    'surfa.core',
+    'surfa.transform',
+    'surfa.image',
+    'surfa.io',
+    'surfa.vis',
 ]
 
 # base source directory
@@ -22,7 +27,7 @@ base_dir = pathlib.Path(__file__).parent.resolve()
 with open(base_dir.joinpath('requirements.txt')) as file:
     requirements = [line for line in file.read().splitlines() if not line.startswith('#')]
 
-# ...
+# build cython modules
 ext_modules = cythonize([
         Extension('surfa.image.interp', ['surfa/image/interp.pyx']),
     ],
@@ -47,7 +52,7 @@ setuptools.setup(
     author='Andrew Hoopes',
     author_email='freesurfer@nmr.mgh.harvard.edu',
     url='https://github.com/freesurfer/surfa',
-    packages=setuptools.find_packages(include=packages),
+    packages=packages,
     ext_modules=ext_modules,
     include_dirs=[numpy.get_include()],
     install_requires=requirements,

@@ -1,7 +1,6 @@
 import os
 import numpy as np
 
-import surfa as sf
 from surfa.io import fsio
 from surfa.io import protocol
 from surfa.io import check_file_readability

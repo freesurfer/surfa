@@ -370,11 +370,11 @@ def cast_affine(obj, allow_none=True, copy=False):
     if obj is None and allow_none:
         return obj
 
-    if isinstance(obj, np.ndarray):
-        return Affine(obj)
-
     if isinstance(obj, Affine):
         return obj.copy() if copy else obj
+
+    if getattr(obj, '__array__', None) is not None:
+        return Affine(np.array(obj))
 
     raise ValueError('cannot convert type %s to affine' % type(obj).__name__)
 
