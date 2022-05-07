@@ -14,12 +14,12 @@ def conform_ndim(arr, ndim):
 
     Returns
     -------
-    np.ndarray:
+    np.ndarray
         Conformed array.
     """
     arr = np.asarray(arr)
     if arr.ndim > ndim:
-        raise ValueError(f'Cannot conform array of shape {arr.shape} to {ndmi}D.')
+        raise ValueError(f'cannot conform array of shape {arr.shape} to {ndmi}D')
     for _ in range(ndim - arr.ndim):
         arr = np.expand_dims(arr, axis=-1)
     return arr
@@ -37,17 +37,19 @@ def pad_vector_length(arr, length, fill, copy=True):
         Target length of array.
     fill : scalar
         All added elements will be assigned this value.
+    copy : bool
+        Return copy if input vector has correct length.
 
     Returns
     -------
-    np.ndarray:
+    np.ndarray
         Padded array.
     """
-    arr = np.asarray(arr)  # TODO
+    arr = np.asarray(arr)
     if arr.ndim != 1:
-        raise ValueError(f'Array of length {len(arr)} cannot be cut to length {length}.')
+        raise ValueError(f'array of length {len(arr)} cannot be cut to length {length}')
     if len(arr) > length:
-        raise ValueError(f'Input to pad_vector_length() must be 1D, but got {arr.ndim}D array input.')
+        raise ValueError(f'input to pad_vector_length() must be 1D, but got {arr.ndim}D array input')
     if len(arr) != length:
         arr = np.concatenate([arr, np.repeat(fill, length - len(arr))])
     elif copy:
@@ -87,13 +89,13 @@ def check_array(arr, dtype=None, ndim=None, shape=None, name=None):
         dtypes = [dtype] if np.isscalar(dtype) else dtype
         if not any(np.issubdtype(dt, arr.dtype) for dt in dtypes):
             reqs = list_string(dtypes)
-            raise ValueError(f'{name} must have dtype {reqs}, but got {arr.dtype}.')
+            raise ValueError(f'{name} must have dtype {reqs}, but got {arr.dtype}')
 
     if ndim is not None:
         ndims = [ndim] if np.isscalar(ndim) else ndim
         if not any(nd == arr.ndim for nd in ndims):
             reqs = list_string(ndims)
-            raise ValueError(f'{name} must be {reqs} dimensional, but got {arr.ndim} ndims.')
+            raise ValueError(f'{name} must be {reqs} dimensional, but got {arr.ndim} ndims')
 
     if shape is not None:
         if np.isscalar(shape):
@@ -102,4 +104,4 @@ def check_array(arr, dtype=None, ndim=None, shape=None, name=None):
         shapes = [tuple(s) for s in shapes]
         if not any(s == arr.shape for s in shapes):
             reqs = list_string(shapes)
-            raise ValueError(f'{name} must have shape {reqs}, but got shape {arr.shape}.')
+            raise ValueError(f'{name} must have shape {reqs}, but got shape {arr.shape}')

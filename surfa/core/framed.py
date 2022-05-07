@@ -1,37 +1,46 @@
-import copy
+from copy import deepcopy
 import numpy as np
 
 from surfa.core.array import conform_ndim
+from surfa.core.labels import LabelLookup
 
 
 class FramedArray:
-    """
-    Abstract class defining an ND array with data frames and additional meta information. This is
-    the base type for volumes, slices, and overlays, which represent 3D, 2D, and 1D objects,
-    respectively. This class should only be used as an internal base class and never be initialized
-    directly.
-
-    A `FramedArray` contains two distinct properties: buffer data and associated metadata. The data
-    is always represented internally as a numpy array with an explicit number of dimensions. ND arrays
-    can be optionally stacked along the last dimension, which represents individual 'data frames'. For
-    example, a single-frame 3D `FramedArray` (defined as a `Volume`) might be of shape `(64, 64, 64)`,
-    while a multi-frame `Volume` with the same 'base shape' might be `(64, 64, 64, 3)`. The frame axis
-    is designed to represent a non-spatial dimension.
-
-    The internal data buffer is wrapped, such that the `FramedArray` can be treated much like a numpy
-    array. It can be manipulated with standard math and assignment operators, and it will be automatically
-    converted to a numpy ndarray object if necessary.
-    """
 
     def __init__(self, basedim, data, metadata=None):
         """
+        Abstract class defining an ND array with data frames and additional meta information. This is
+        the base type for volumes, slices, and overlays, which represent 3D, 2D, and 1D objects,
+        respectively. This class should only be used as an internal base class and never be initialized
+        directly.
+
+        A `FramedArray` contains two distinct properties: buffer data and associated metadata. The data
+        is always represented internally as a numpy array with an explicit number of dimensions. ND arrays
+        can be optionally stacked along the last dimension, which represents individual 'data frames'. For
+        example, a single-frame 3D `FramedArray` (defined as a `Volume`) might be of shape `(64, 64, 64)`,
+        while a multi-frame `Volume` with the same 'base shape' might be `(64, 64, 64, 3)`. The frame axis
+        is designed to represent a non-spatial dimension.
+
+        The internal data buffer is wrapped, such that the `FramedArray` can be treated much like a numpy
+        array. It can be manipulated with standard math and assignment operators, and it will be automatically
+        converted to a numpy ndarray object if necessary.
+
         The input data is not copied, and the array should have ndims equal to the subclass' basedim (or
         basedim + 1). Any extra dimension is assumed to represent data frames.
+
+        Parameters
+        ----------
+        basedim : int
+            Array to pad.
+        data : array_like
+            Internal data array.
+        metadata : dict
+            Dictionary containing arbitrary array metadata.
         """
 
         # ensure abstract class isn't being used directly
         if not isinstance(basedim, int):
-            raise TypeError('FramedArray cannot be initialized without setting a valid basedim.')
+            raise TypeError('FramedArray cannot be initialized without setting a valid basedim')
 
         # set internal base dimension
         self._basedim = basedim
@@ -39,16 +48,42 @@ class FramedArray:
         # set data array
         self.data = data
 
-        # set metadata dictionary
+        # initialize and set the private metadata dictionary
         self._metadata = {}
-        if metadata is not None:
-            self._metadata.update(metadata)
+        self.metadata = metadata
 
     def __repr__(self):
         """
         Print out some basic information regarding shape and dtype. Should keep it simple.
         """
         return f'sf.{self.__class__.__name__}(shape={self.shape}, dtype={self.dtype})'
+
+    @property
+    def metadata(self):
+        """
+        Metadata dictionary.
+        """
+        return self._metadata
+
+    @metadata.setter
+    def metadata(self, value):
+        """
+        Replace the metadata dictionary. Will always make a deep copy of the new dictionary.
+        """
+        self._metadata = deepcopy(value) if value is not None else {}
+
+    @property
+    def labels(self):
+        """
+        Label lookup for segmentation data.
+        """
+        return self._metadata.get('labels')
+
+    @labels.setter
+    def labels(self, value):
+        if not isinstance(value, LabelLookup):
+            raise ValueError(f'labels expected LabelLookup object, but got object of type {type(value)}')
+        self._metadata['labels'] = value.copy()
 
     @property
     def basedim(self):
@@ -73,14 +108,14 @@ class FramedArray:
 
         # make sure a string (filename) isn't being provided for input data - a common mistake
         if isinstance(value, str):
-            raise TypeError('Unexpected string for `data` parameter. Expected a {basedim}D array.')
+            raise TypeError('unexpected string for `data` parameter. Expected a {basedim}D array')
 
         # existing arrays are not copied
         value = np.asarray(value)
 
         # run a few sanity checks on the input data shape
         if value.ndim < 1:
-            raise ValueError('Array data cannot be set to scalar.')
+            raise ValueError('array data cannot be set to scalar')
 
         # instead of throwing an error, data with fewer dimensions than
         # expected should be reshaped with added axes
@@ -94,7 +129,7 @@ class FramedArray:
 
         # throw an error if input array has more dimensions than the framed base
         if value.ndim > self._basedim + 1:
-            raise ValueError(f'Array data cannot be set from data with {value.ndim} dims.')
+            raise ValueError(f'array data cannot be set from data with {value.ndim} dims')
 
         # check for shape changes, so we can update geometry if necessary
         current = getattr(self, '_data', None)
@@ -151,10 +186,24 @@ class FramedArray:
 
     def astype(self, dtype, copy=True, order='K'):
         """
-        Copy of the array, cast to a specified type.
+        Copy of the array, casted to a specified type.
 
-        TODO might need to change the dtype equivolence to check
-        for abstract comparisons
+        Parameters
+        ----------
+        dtype : np.dtype
+            Target datatype.
+        copy : bool
+            Return copy if array already has matching datatype.
+        order : {‘C’, ‘F’, ‘A’, ‘K’}
+            Controls the memory layout order of the result. ‘C’ means C order, ‘F’ means
+            Fortran order, ‘A’ means ‘F’ order if all the arrays are Fortran contiguous, ‘C’
+            order otherwise, and ‘K’ means as close to the order the array elements appear
+            in memory as possible.
+
+        Returns
+        -------
+        arr : FramedArray
+            Array with target datatype.
         """
         if dtype == self.dtype and not copy:
             return self
@@ -166,25 +215,11 @@ class FramedArray:
         """
         pass
 
-    @property
-    def metadata(self):
-        """
-        Metadata dictionary.
-        """
-        return self._metadata
-
-    @metadata.setter
-    def metadata(self, value):
-        """
-        Replace the metadata dictionary. Will always make a shallow copy of the new dictionary.
-        """
-        self._metadata = copy.copy(value)
-
     def copy(self):
         """
         Return a deep copy of the instance.
         """
-        return copy.deepcopy(self)
+        return deepcopy(self)
 
     def new(self, data):
         """
@@ -195,8 +230,14 @@ class FramedArray:
     def save(self, filename):
         """
         Write array to file.
+
+        Parameters
+        ----------
+        filename : str
+            Target filename to write array to.
         """
-        io.ndarray.save_nd_array(self, filename)
+        from surfa.io.framed import save_framed_array
+        save_framed_array(self, filename)
 
     def min(self, nonzero=False):
         """
@@ -216,6 +257,11 @@ class FramedArray:
     def mean(self, nonzero=False):
         """
         Compute the mean.
+
+        Parameters
+        ----------
+        nonzero : bool
+            If enabled, only consider nonzero elements.
         """
         data = self.data
         if nonzero:
@@ -225,11 +271,43 @@ class FramedArray:
     def percentile(self, percentiles, method='linear', nonzero=False):
         """
         Compute the q-th percentile of the data.
+
+        Parameters
+        ----------
+        percentiles : array_like of float
+            Percentile or sequence of percentiles to compute, which must be between 0 and 100 inclusive.
+        method : str
+            Method to use for estimating the percentile. View numpy percentile doc for more information.
+        nonzero : bool
+            If enabled, only consider nonzero elements.
+
+        Returns
+        -------
+        percentile : scalar or ndarray
+            Computes percentiles.
         """
         data = self.data
         if nonzero:
             data = data[data.nonzero()]
         return np.percentile(data, percentiles, interpolation=method)
+
+    def round(self):
+        """
+        Round the array to the nearest integer value.
+        """
+        return self.new(self.data.round())
+
+    def floor(self):
+        """
+        Floor the array to integer values.
+        """
+        return self.new(np.floor(self.data))
+
+    def ceil(self):
+        """
+        Ceil the array to integer values.
+        """
+        return self.new(np.ceil(self.data))
 
     def unique(self):
         """
@@ -237,16 +315,28 @@ class FramedArray:
         """
         return np.unique(self)
 
-    def onehot(self, mapping, dtype='uint32'):
+    def onehot(self, mapping, dtype=np.uint32):
         """
         Convert discrete labels to a one-hot encoded probabilistic map.
+
+        Parameters
+        ----------
+        mapping : array_like of int
+            List of label indices to one-hot encode. Label order is preserved.
+        dtype : np.dtype
+            Output segmentation datatype.
+
+        Returns
+        -------
+        FramedArray
+            Multi-frame one-hot segmentation array.
         """
         if self.nframes > 1:
-            raise RuntimeError(f'Cannot onehot-encode labels with more than 1 frame, but array has {self.nframes} frames.')
+            raise RuntimeError(f'cannot onehot-encode labels with more than 1 frame, but array has {self.nframes} frames')
 
         mapping = np.asarray(mapping)
         if mapping.ndim != 1:
-            raise ValueError('Label mapping must be a 1D list.')
+            raise ValueError('label mapping must be a 1D list')
 
         nlabels = len(mapping)
         inttype = np.uint16 if nlabels < np.iinfo(np.uint16).max else np.uint32
@@ -262,9 +352,19 @@ class FramedArray:
     def collapse(self, mapping=None):
         """
         Collapse a one-hot encoded probabilistic map to discrete labels.
+
+        Parameters
+        ----------
+        mapping : array_like of int
+            List of label indices that correspond to probabilistic data frames encoded.
+
+        Returns
+        -------
+        FramedArray
+            Collapsed, discrete segmentation array.
         """
         if self.nframes == 1:
-            raise RuntimeError('Cannot collapse probabilities with only 1 frame.')
+            raise RuntimeError('cannot collapse probabilities with only 1 frame')
         
         inttype = np.uint16 if self.nframes < np.iinfo(np.uint16).max else np.uint32
         seg = np.zeros(self.baseshape, dtype=inttype)
@@ -273,7 +373,7 @@ class FramedArray:
         if mapping is not None:
             mapping = np.asarray(mapping)
             if mapping.ndim != 1:
-                raise ValueError('Label mapping must be a 1D list.')
+                raise ValueError('label mapping must be a 1D list')
             seg = mapping[seg]
 
         return self.new(seg)
