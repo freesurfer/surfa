@@ -60,9 +60,37 @@ class FramedArray:
 
     def copy(self):
         """
-        Return a deep copy of the instance.
+        Return a deep copy of the object.
         """
         return deepcopy(self)
+
+    def zeros(self, dtype=None, frames=None, order='K'):
+        """
+        Return a copy of the framed array with all elements set to zero.
+
+        Parameters
+        ----------
+        dtype : np.dtype
+            Data type of new array.
+        frames : int
+            Number of frames to allocate. If `None`, the number of frames is
+            determined from the source array.
+        order : {‘C’, ‘F’, ‘K’}
+            Controls the memory layout order of the result. ‘C’ means C order, ‘F’ means
+            Fortran order, and ‘K’ means as close to the order the array elements appear
+            in memory as possible.
+
+        Returns
+        -------
+        FramedArray
+            Array with zero values.
+        """
+        nframes = frames if frames is not None else self.nframes
+        shape = (*self.baseshape, nframes)
+        dtype = dtype if dtype is not None else self.dtype
+        if order == 'K':
+            order = 'F' if self.data.flags.f_contiguous else 'C'
+        return self.new(np.zeros(shape, dtype=dtype, order=order))
 
     def __repr__(self):
         """
@@ -239,30 +267,68 @@ class FramedArray:
         from surfa.io.framed import save_framed_array
         save_framed_array(self, filename)
 
-    def min(self, nonzero=False):
+    def min(self, nonzero=False, frames=False):
         """
         Compute the minimum.
+
+        Parameters
+        ----------
+        nonzero : bool
+            If enabled, only consider nonzero elements. This is ignored if `frames=True`.
+        frames : bool
+            Compute min along frame axis.
+
+        Returns
+        -------
+        scalar or FramedArray
+            Returns scalar min value, unless `frames` is set to true, in which case a
+            new FramedArray is returned.
         """
+        if frames:
+            return self.new(self.framed_data.min(axis=-1))
         data = self.data
         if nonzero:
             data = data[data.nonzero()]
         return data.min()
 
-    def max(self):
+    def max(self, frames=False):
         """
         Compute the maximum.
+
+        Parameters
+        ----------
+        frames : bool
+            Compute max along frame axis. 
+
+        Returns
+        -------
+        scalar or FramedArray
+            Returns scalar max value, unless `frames=True`, in which case a
+            new FramedArray is returned.
         """
+        if frames:
+            return self.new(self.framed_data.max(axis=-1))
         return self.data.max()
 
-    def mean(self, nonzero=False):
+    def mean(self, nonzero=False, frames=False):
         """
         Compute the mean.
 
         Parameters
         ----------
         nonzero : bool
-            If enabled, only consider nonzero elements.
+            If enabled, only consider nonzero elements.  This is ignored if `frames=True`.
+        frames : bool
+            Compute mean along frame axis.
+
+        Returns
+        -------
+        scalar or FramedArray
+            Returns scalar mean value, unless `frames` is set to true, in which case a
+            new FramedArray is returned.
         """
+        if frames:
+            return self.new(self.framed_data.mean(axis=-1))
         data = self.data
         if nonzero:
             data = data[data.nonzero()]
@@ -290,6 +356,18 @@ class FramedArray:
         if nonzero:
             data = data[data.nonzero()]
         return np.percentile(data, percentiles, interpolation=method)
+
+    def clip(self, a_min, a_max):
+        """
+        Clip the array between low and high values.
+
+        Parameters
+        ----------
+        a_min, a_max : array_like or None
+            Minimum and maximum value. If None, clipping is not performed
+            on the corresponding edge
+        """
+        return self.new(np.clip(self.data, a_min, a_max))
 
     def round(self):
         """
