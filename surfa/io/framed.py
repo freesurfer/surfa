@@ -145,7 +145,7 @@ class MGHArrayIO(protocol.IOProtocol):
 
     def dtype_from_id(self, id):
         """
-        Convert a FreeSurfer datatype ID to a numpy dataype.
+        Convert a FreeSurfer datatype ID to a numpy datatype.
 
         Parameters
         ----------
@@ -294,7 +294,12 @@ class MGHArrayIO(protocol.IOProtocol):
 
         with fopen(filename) as file:
 
-            # TODO if int64 datatype, check whether conversion to int32 will chop values 
+            # before we map dtypes to MGZ-supported types, smartly convert int64 to int32
+            if arr.dtype == np.int64:
+                if arr.max() > np.iinfo(np.int32).max or arr.min() < np.iinfo(np.int32).min:
+                    raise ValueError('MGH files only support int32 datatypes, but int64 array ',
+                                     'contains values that exceed the integer limits of int32')
+                arr = arr.astype(np.int32)
 
             # determine supported dtype to save as (order here is very important)
             type_map = {
