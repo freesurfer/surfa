@@ -2,6 +2,8 @@ import numpy as np
 
 from surfa.io import utils as iou
 from surfa.core.labels import LabelLookup
+from surfa.transform.geometry import ImageGeometry
+from surfa.transform.geometry import cast_image_geometry
 
 
 # FreeSurfer tag ID lookup

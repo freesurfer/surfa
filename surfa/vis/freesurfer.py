@@ -148,7 +148,7 @@ def fv(*args, **kwargs):
 
     # cycle through arguments
     for arg in flatten(args):
-        fv.image(arg)
+        fv.add_image(arg)
 
     # show the window
     fv.show(background=background)
