@@ -101,3 +101,22 @@ def vmpeak():
                 if 'VmPeak' in line:
                     return int(line.split()[1])
     return None
+
+
+def fatal(message, retcode=1):
+    """
+    Prints an error message and exits or raises an exception if in interactive mode.
+
+    Parameters
+    ----------
+    message : str
+        Error message to print
+    retcode : int
+        Exit code. Defaults to 1.
+    """
+    import __main__ as main
+    if hasattr(main, '__file__'):
+        print(f'Error: {message}')
+        sys.exit(retcode)
+    else:
+        raise Exception(message)
