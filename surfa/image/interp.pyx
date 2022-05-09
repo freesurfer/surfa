@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 
 cimport cython
@@ -86,6 +87,11 @@ def interpolate(source, target_shape, method, affine=None, disp=None, rotation='
 
     # speeds up if conditionals are computed outside of function (TODO is this even true?)
     shape = np.asarray(target_shape).astype('int64')
+
+    # ensure correct byteorder
+    # TODO maybe this should be done at read-time?
+    swap_byteorder = sys.byteorder == 'little' and '>' or '<'
+    source = source.byteswap().newbyteorder() if source.dtype.byteorder == swap_byteorder else source
 
     resampled = interp_func(source, shape, affine, disp, fill, use_affine, use_disp)
     return resampled
