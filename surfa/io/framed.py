@@ -158,12 +158,13 @@ class MGHArrayIO(protocol.IOProtocol):
             Converted numpy datatype.
         """
         mgh_types = {
-            0: '>u1',  # uchar
-            1: '>i4',  # int32
-            2: '>i8',  # int64
-            3: '>f4',  # float
-            4: '>i2',  # short
-            6: '>f4',  # tensor
+            0:  '>u1',  # uchar
+            1:  '>i4',  # int32
+            2:  '>i8',  # int64
+            3:  '>f4',  # float
+            4:  '>i2',  # short
+            6:  '>f4',  # tensor
+            10: '>u2',  # ushort
         }
         dtype = mgh_types.get(id)
         if dtype is None:
@@ -293,12 +294,16 @@ class MGHArrayIO(protocol.IOProtocol):
 
         with fopen(filename) as file:
 
-            # determine supported dtype to save as
+            # TODO if int64 datatype, check whether conversion to int32 will chop values 
+
+            # determine supported dtype to save as (order here is very important)
             type_map = {
                 np.uint8: 0,
+                np.bool8: 0,
                 np.int32: 1,
                 np.floating: 3,
                 np.int16: 4,
+                np.uint16: 10,
             }
             dtype_id = next((i for dt, i in type_map.items() if np.issubdtype(arr.dtype, dt)), None)
             if dtype_id is None:
