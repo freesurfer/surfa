@@ -83,6 +83,12 @@ class Affine:
         square[: square.shape[0], :] = mat
         self._matrix = square
 
+    def __array__(self):
+        """
+        Ensure affines can be cleanly casted to np.ndarray
+        """
+        return self.matrix
+
     @property
     def space(self):
         """
