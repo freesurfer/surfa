@@ -7,7 +7,7 @@ from libc.math cimport floor
 from libc.math cimport round
 
 
-def interpolate(source, target_shape, method, affine=None, disp=None, rotation='corner'):
+def interpolate(source, target_shape, method, affine=None, disp=None, rotation='corner', fill=0):
     """
     Interpolate a 3D image given a voxel-to-voxel affine transform and/or a
     dense displacement field.
@@ -26,6 +26,8 @@ def interpolate(source, target_shape, method, affine=None, disp=None, rotation='
         Dense vector displacement field. Base shape must match target shape.
     rotation : str
         Origin of image rotation. Must be 'corner' or 'center'.
+    fill : scalar
+        Fill value for out-of-bounds voxels.
 
     Returns
     -------
@@ -85,7 +87,7 @@ def interpolate(source, target_shape, method, affine=None, disp=None, rotation='
     # speeds up if conditionals are computed outside of function (TODO is this even true?)
     shape = np.asarray(target_shape).astype('int64')
 
-    resampled = interp_func(source, shape, affine, disp, use_affine, use_disp)
+    resampled = interp_func(source, shape, affine, disp, fill, use_affine, use_disp)
     return resampled
 
 
@@ -106,11 +108,12 @@ ctypedef fused datatype:
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def interp_3d_fortran_nearest(datatype[::1, :, :, :] source,
-                               np.ndarray[np.int_t, ndim=1] target_shape,
-                               float[:, ::1] mat,
-                               float[::1, :, :, :] disp,
-                               bint use_affine,
-                               bint use_disp):
+                              np.ndarray[np.int_t, ndim=1] target_shape,
+                              float[:, ::1] mat,
+                              float[::1, :, :, :] disp,
+                              datatype fill_value,
+                              bint use_affine,
+                              bint use_disp):
 
     # dimensions of the source image
     cdef Py_ssize_t sx_max = source.shape[0]
@@ -124,7 +127,7 @@ def interp_3d_fortran_nearest(datatype[::1, :, :, :] source,
     cdef Py_ssize_t z_max = target_shape[2]
 
     # fill value
-    cdef datatype fill = 0
+    cdef datatype fill = fill_value
 
     # intermediate variables
     cdef Py_ssize_t x, y, z, f
@@ -217,11 +220,12 @@ def interp_3d_fortran_nearest(datatype[::1, :, :, :] source,
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def interp_3d_fortran_linear(datatype[::1, :, :, :] source,
-                              np.ndarray[np.int_t, ndim=1] target_shape,
-                              float[:, ::1] mat,
-                              float[::1, :, :, :] disp,
-                              bint use_affine,
-                              bint use_disp):
+                             np.ndarray[np.int_t, ndim=1] target_shape,
+                             float[:, ::1] mat,
+                             float[::1, :, :, :] disp,
+                             datatype fill_value,
+                             bint use_affine,
+                             bint use_disp):
 
     # dimensions of the source image
     cdef Py_ssize_t sx_max_idx = source.shape[0] - 1
@@ -235,7 +239,7 @@ def interp_3d_fortran_linear(datatype[::1, :, :, :] source,
     cdef Py_ssize_t z_max = target_shape[2]
 
     # fill value
-    cdef float fill = 0
+    cdef float fill = fill_value
 
     # intermediate variables
     cdef Py_ssize_t x, y, z, f
@@ -357,6 +361,7 @@ def interp_3d_contiguous_nearest(datatype[:, :, :, ::1] source,
                                  np.ndarray[np.int_t, ndim=1] target_shape,
                                  float[:, ::1] mat,
                                  float[:, :, :, ::1] disp,
+                                 datatype fill_value,
                                  bint use_affine,
                                  bint use_disp):
 
@@ -372,7 +377,7 @@ def interp_3d_contiguous_nearest(datatype[:, :, :, ::1] source,
     cdef Py_ssize_t z_max = target_shape[2]
 
     # fill value
-    cdef datatype fill = 0
+    cdef datatype fill = fill_value
 
     # intermediate variables
     cdef Py_ssize_t x, y, z, f
@@ -465,11 +470,12 @@ def interp_3d_contiguous_nearest(datatype[:, :, :, ::1] source,
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def interp_3d_contiguous_linear(datatype[:, :, :, ::1] source,
-                                 np.ndarray[np.int_t, ndim=1] target_shape,
-                                 float[:, ::1] mat,
-                                 float[:, :, :, ::1] disp,
-                                 bint use_affine,
-                                 bint use_disp):
+                                np.ndarray[np.int_t, ndim=1] target_shape,
+                                float[:, ::1] mat,
+                                float[:, :, :, ::1] disp,
+                                datatype fill_value,
+                                bint use_affine,
+                                bint use_disp):
 
     # dimensions of the source image
     cdef Py_ssize_t sx_max_idx = source.shape[0] - 1
@@ -483,7 +489,7 @@ def interp_3d_contiguous_linear(datatype[:, :, :, ::1] source,
     cdef Py_ssize_t z_max = target_shape[2]
 
     # fill value
-    cdef float fill = 0
+    cdef float fill = fill_value
 
     # intermediate variables
     cdef Py_ssize_t x, y, z, f

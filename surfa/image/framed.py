@@ -73,6 +73,29 @@ class FramedImage(FramedArray):
         """
         self._geometry = self._geometry.reshape(self.baseshape)
 
+    def smooth(self, sigma):
+        """
+        Smooth with Gaussian filter.
+
+        Parameters
+        ----------
+        sigma : sigmascalar or sequence of scalars
+            Standard deviation for Gaussian kernel.
+
+        Returns
+        -------
+        FramedImage
+            Smoothed image.
+        """
+        if np.isscalar(sigma):
+            sigma = (*np.repeat(sigma, self.basdim), 0)
+        else:
+            sigma = np.asarray(sigma, dtype='float')
+            check_array(sigma, ndim=1, shape=[[self.basedim], [self.basedim + 1]], name='sigma')
+            sigma = pad_vector_length(sigma, self.basedim + 1, 0, copy=False)
+        from scipy.ndimage import gaussian_filter
+        return self.new(gaussian_filter(self.framed_data, sigma))
+
     def __getitem__(self, index_expression):
         """
         Use crop indexing similar to numpy arrays.
@@ -160,6 +183,55 @@ class FramedImage(FramedArray):
         cropped = itype(cropped_data, geometry=geometry, metadata=self.metadata)
         return cropped
 
+    def bbox(self, margin=None):
+        """
+        Compute the bounding box of the image data greater than zero. If the image
+        has more than one frame, the bounding box will be computed across all frames.
+
+        Parameters
+        ----------
+        margin : int of sequence of int
+            Add a margin to the bounding box in units of voxels. The margin will not
+            extend beyond the base image shape.
+
+        Returns
+        -------
+        tuple of slice
+            Bounding box as an index expression.
+        """
+        mask = self.max(frames=True).data > 0
+        if not np.any(mask):
+            return tuple([slice(0, s) for s in mask.shape])
+        from scipy.ndimage import find_objects
+        cropping = find_objects(mask)[0]
+        if margin is not None:
+            margin = np.repeat(margin, self.baseshape) if np.isscalar(margin) else np.asarray(margin)
+            check_array(margin, ndim=1, shape=self.basedim, name='bbox margin')
+            if not np.issubdtype(margin.dtype, np.integer):
+                raise ValueError('only integers can be used for valid bbox margins')
+            start = [max(0, c.start - margin[i]) for i, c in enumerate(cropping)]
+            stop  = [min(self.baseshape[i], c.stop + margin[i]) for i, c in enumerate(cropping)]
+            step  = [c.step for c in cropping]
+            cropping = tuple([slice(*s) for s in zip(start, stop, step)])
+        return cropping
+
+    def crop_to_bbox(self, margin=None):
+        """
+        Crop to the bounding box of image data greater than zero.
+
+        Parameters
+        ----------
+        margin : int of sequence of int
+            Add a margin to the bounding box in units of voxels. The margin will not
+            extend beyond the base image shape.
+
+        Returns
+        -------
+        FramedImage
+            Cropped image with updated geometry.
+        """
+        return self[self.bbox(margin=margin)]
+
     def resize(self, voxsize, method='linear', copy=False):
         """
         Reslice image to a specified voxel size.
@@ -204,10 +276,11 @@ class FramedImage(FramedArray):
             rotation=self.geom.rotation,
             center=self.geom.center)
         affine = self.geom.world2vox @ target_geom.vox2world
-        interped = interpolate(self.framed_data, target_shape, method, affine.matrix)
+        interped = interpolate(source=self.framed_data, target_shape=target_shape,
+                               method=method, affine=affine.matrix)
         return self.new(interped, target_geom)
 
-    def resample_like(self, target, method='linear', copy=True):
+    def resample_like(self, target, method='linear', copy=True, fill=0):
         """
         Resample to a specified target image geometry.
 
@@ -219,6 +292,8 @@ class FramedImage(FramedArray):
             Image interpolation method.
         copy : bool
             Return copy of image even if target voxel size is already satisfied.
+        fill : scalar
+            Fill value for out-of-bounds voxels.
 
         Returns
         -------
@@ -272,15 +347,16 @@ class FramedImage(FramedArray):
                 source_slicing = tuple([slice(a, b) for a, b in zip(source_start, source_stop)])
 
                 # place data into target shape
-                target_data = np.zeros((*target_geom.shape, self.nframes), dtype=self.dtype)
+                target_data = np.full((*target_geom.shape, self.nframes), fill, dtype=self.dtype)
                 target_data[target_slicing] = self.framed_data[source_slicing]
                 return self.new(target_data, target_geom)
 
         # otherwise just do the standard interpolation with the computed affine
-        interped = interpolate(self.framed_data, target_geom.shape, method, affine.matrix)
+        interped = interpolate(source=self.framed_data, target_shape=target_geom.shape,
+                               method=method, affine=affine.matrix, fill=fill)
         return self.new(interped, target_geom)
 
-    def transform(self, affine=None, disp=None, method='linear', rotation='corner', resample=True):
+    def transform(self, affine=None, disp=None, method='linear', rotation='corner', resample=True, fill=0):
         """
         Apply a transform.
 
@@ -298,6 +374,8 @@ class FramedImage(FramedArray):
             If enabled, voxel data will be interpolated and resampled, and geometry will be set
             the target. If disabled, voxel data will not be modified, and only the geometry will
             be updated (this is not possible if a displacement field is provided).
+        fill : scalar
+            Fill value for out-of-bounds voxels.
 
         Returns
         -------
@@ -324,6 +402,7 @@ class FramedImage(FramedArray):
         if affine is not None:
             affine = cast_affine(affine)
             target_geom = self.geom
+            # TODO it should be assumed that the default affine space is 'voxel' when source and target are set
             if affine.space is not None:
                 if affine.source is not None and affine.target is not None:
                     affine = affine.convert(space='voxel', source=self)
@@ -337,7 +416,8 @@ class FramedImage(FramedArray):
         disp_data = disp.data if disp is not None else None
 
         # do the interpolation
-        interped = interpolate(self.framed_data, target_geom.shape, method, matrix, disp_data, rotation)
+        interped = interpolate(source=self.framed_data, target_shape=target_geom.shape, method=method,
+                               affine=matrix, disp=disp_data,  rotation=rotation, fill=fill)
         return self.new(interped, target_geom)
 
     def reorient(self, orientation, copy=True):
