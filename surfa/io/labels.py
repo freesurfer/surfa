@@ -69,8 +69,8 @@ class FreeSurferLookupTableIO(protocol.IOProtocol):
     LabelLookup IO protocol for FreeSurfer LUT files.
     """
 
-    name = 'lut'
-    extensions = ('.lut', '.txt')
+    name = 'ctab'
+    extensions = ('.ctab', '.lut', '.txt')
 
     def load(self, filename):
         """

@@ -122,8 +122,14 @@ class FramedImage(FramedArray):
             no longer has valid image dimensionality.
         """
 
+        # check whether the index is valid for images, if not just return the cropped
+        # data directly as a numpy ndarray
+        try:
+            sane_expression = sane_slicing(self.shape, index_expression)[:self.basedim]
+        except IndexError:
+            return self.data[index_expression]
+
         # extract the starting coordinate of the cropping
-        sane_expression = sane_slicing(self.shape, index_expression)[:self.basedim]
         start, step = slicing_parameters(sane_expression)
         start = pad_vector_length(start, 3, 0)
         step = pad_vector_length(step, 3, 1)
@@ -205,7 +211,7 @@ class FramedImage(FramedArray):
         from scipy.ndimage import find_objects
         cropping = find_objects(mask)[0]
         if margin is not None:
-            margin = np.repeat(margin, self.baseshape) if np.isscalar(margin) else np.asarray(margin)
+            margin = np.repeat(margin, self.basedim) if np.isscalar(margin) else np.asarray(margin)
             check_array(margin, ndim=1, shape=self.basedim, name='bbox margin')
             if not np.issubdtype(margin.dtype, np.integer):
                 raise ValueError('only integers can be used for valid bbox margins')
@@ -232,7 +238,7 @@ class FramedImage(FramedArray):
         """
         return self[self.bbox(margin=margin)]
 
-    def resize(self, voxsize, method='linear', copy=False):
+    def resize(self, voxsize, method='linear', copy=True):
         """
         Reslice image to a specified voxel size.
 

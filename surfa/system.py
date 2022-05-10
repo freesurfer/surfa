@@ -42,8 +42,8 @@ def run(command, silent=False, background=False, executable='/bin/bash', log=Non
         if process.stdout:
             for line in process.stdout:
                 decoded = line.decode('utf-8')
-                if logfile is not None:
-                    with open(logfile, 'a') as file:
+                if log is not None:
+                    with open(log, 'a') as file:
                         file.write(decoded)
                 sys.stdout.write(decoded)
         # wait for process to finish

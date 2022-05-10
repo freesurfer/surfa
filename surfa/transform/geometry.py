@@ -280,7 +280,7 @@ class ImageGeometry:
 
     @vox2world.setter
     def vox2world(self, value):
-        self.update(vox2world=value)
+        self.update(vox2world=value, voxsize=self.voxsize)
 
     @property
     def world2vox(self):

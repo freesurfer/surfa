@@ -297,8 +297,8 @@ class MGHArrayIO(protocol.IOProtocol):
             # before we map dtypes to MGZ-supported types, smartly convert int64 to int32
             if arr.dtype == np.int64:
                 if arr.max() > np.iinfo(np.int32).max or arr.min() < np.iinfo(np.int32).min:
-                    raise ValueError('MGH files only support int32 datatypes, but int64 array ',
-                                     'contains values that exceed the integer limits of int32')
+                    raise ValueError('MGH files only support int32 datatypes, but array cannot be ',
+                                     'casted since its values exceed the int32 integer limits')
                 arr = arr.astype(np.int32)
 
             # determine supported dtype to save as (order here is very important)
