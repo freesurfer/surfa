@@ -16,6 +16,7 @@ packages = [
     'surfa.core',
     'surfa.transform',
     'surfa.image',
+    'surfa.mesh',
     'surfa.io',
     'surfa.vis',
 ]

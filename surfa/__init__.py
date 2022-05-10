@@ -15,10 +15,13 @@ from .transform import ImageGeometry
 from .image import Volume
 from .image import Slice
 
+from .mesh import Mesh
+
 from .io import load_volume
 from .io import load_slice
 from .io import load_overlay
 from .io import load_affine
 from .io import load_label_lookup
+from .io import load_mesh
 
 from . import vis

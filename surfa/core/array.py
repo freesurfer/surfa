@@ -69,7 +69,7 @@ def check_array(arr, dtype=None, ndim=None, shape=None, name=None):
         Required base dtype.
     ndim : int
         Required array dimensionality.
-    shape : tuple of ints
+    shape : tuple of int
         Required array shape.
     name : str
         Name of checked array for optional debugging purposes.

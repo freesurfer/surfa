@@ -255,7 +255,7 @@ class FramedArray:
         """
         pass
 
-    def save(self, filename):
+    def save(self, filename, fmt=None):
         """
         Write array to file.
 
@@ -263,9 +263,11 @@ class FramedArray:
         ----------
         filename : str
             Target filename to write array to.
+        fmt : str
+            Optional file format to force.
         """
         from surfa.io.framed import save_framed_array
-        save_framed_array(self, filename)
+        save_framed_array(self, filename, fmt=fmt)
 
     def min(self, nonzero=False, frames=False):
         """

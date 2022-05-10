@@ -18,8 +18,8 @@ class Space:
         # world space, defaulted to RAS space
         if name in ('w', 'world', 'ras'):
             name = 'world'
-        # surface space
-        elif name in ('s', 'surf', 'surface'):
+        # surface or mesh space
+        elif name in ('s', 'surf', 'surface', 'm', 'mesh'):
             name = 'surface'
         # voxel or image space
         elif name in ('i', 'image', 'img', 'v', 'vox', 'voxel'):
