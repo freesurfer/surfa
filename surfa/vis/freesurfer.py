@@ -3,9 +3,11 @@ import shutil
 import tempfile
 import numpy as np
 
+from surfa import Mesh
 from surfa.system import run
 from surfa.system import collect_output
 from surfa.image import cast_image
+from surfa.mesh import cast_overlay
 
 
 class Freeview:
@@ -18,8 +20,9 @@ class Freeview:
         accessible in the shell. Images can be configured in the wrapper like so:
 
             fv = Freeview()
-            fv.images(img)
-            fv.images(seg, colormap='lut', opacity=0.5)
+            fv.add_image(img)
+            fv.add_image(seg, colormap='lut', opacity=0.5)
+            fv.add_mesh(mesh, overlay=overlay)
             fv.show()
 
         For a quicker but more limited way to wrap freeview, see the `fv()` function.
@@ -76,6 +79,64 @@ class Freeview:
         # configure the corresponding freeview argument
         self.arguments.append('-v ' + filename + _convert_kwargs_to_tags(kwargs))
 
+    def add_mesh(self, mesh, overlay=None, annot=None, **kwargs):
+        """
+        Adds an image to the freeview window. Any key/value tags allowed as a `-v` option
+        in the freeview command line can be provided as an additional argument.
+
+        Parameters
+        ----------
+        img: array_like, FramedImage, or str
+            Image or filename to load in the freeview session.
+        overlay : Overlay or sequence of Overlays
+            Load overlay on mesh data.
+        annot : Overlay or sequence of Overlays
+            Load annotation on mesh data.
+        **kwargs:
+            Additional options to append as key/values tags to the freeview volume argument.
+        """
+        # convert the input to a proper file (if it's not one already)
+        if isinstance(mesh, str):
+            if not os.path.isfile(mesh):
+                print(f'freeview error: mesh file {mesh} does not exist')
+                return
+            mesh_filename = mesh
+        elif isinstance(mesh, Mesh):
+            mesh_filename = _unique_filename('mesh', '', self.tempdir)
+            mesh.save(mesh_filename)
+            if self.debug:
+                print(f'wrote mesh to {mesh_filename}')
+        else:
+            raise ValueError(f'expected type Mesh to add_mesh, but got type {mesh.__class__.__name__}')
+
+        # extra tags for the mesh
+        tags = ''
+
+        # configure any overlays
+        if overlay is not None:
+            overlay = [overlay] if not isinstance(overlay, (list, tuple)) else overlay
+            for c in overlay:
+                c = FreeviewOverlay(c) if not isinstance(c, FreeviewOverlay) else c
+                filename = _unique_filename(c.name, '.mgz', self.tempdir)
+                c.arr.save(filename)
+                if self.debug:
+                    print(f'wrote overlay to {filename}')
+                tags += f':overlay={filename}' + c.tags()
+
+        # configure any annotations
+        if annot is not None:
+            annot = [annot] if not isinstance(annot, (list, tuple)) else annot
+            for c in annot:
+                c = FreeviewAnnot(c) if not isinstance(c, FreeviewAnnot) else c
+                filename = _unique_filename(c.name, '.annot', self.tempdir)
+                c.arr.save(filename)
+                if self.debug:
+                    print(f'wrote annotation to {filename}')
+                tags += f':annot={filename}'
+
+        # configure the corresponding freeview argument
+        self.arguments.append('-f ' + mesh_filename + tags + _convert_kwargs_to_tags(kwargs))
+
     def show(self, background=True, threads=None):
         """
         Opens the configured FreeView window.
@@ -120,15 +181,44 @@ class Freeview:
         run(command, background=background)
 
 
+class FreeviewOverlay:
+
+    def __init__(self, arr, name='overlay', threshold=None, opacity=None):
+        """
+        Configuration for freeview overlays.
+        """
+        self.arr = cast_overlay(arr, allow_none=False)
+        self.name = name
+        self.threshold = threshold
+        self.opacity = opacity
+
+    def tags(self):
+        tags = ''
+        tags += '' if self.threshold is None else f':overlay_threshold=' + ','.join(str(x) for x in config.threshold)
+        tags += '' if self.opacity is None else f':overlay_opacity={self.opacity}'
+        return tags
+
+
+class FreeviewAnnot:
+
+    def __init__(self, arr, name='annotation'):
+        """
+        Configuration for freeview annotations.
+        """
+        self.arr = cast_overlay(arr, allow_none=False)
+        self.name = name
+
+
 def fv(*args, **kwargs):
     """
     Freeview wrapper to quickly load an arbitray number of elements. Inputs
-    can be existing filenames, volumes, or numpy arrays. Lists are also supported.
-    Use the `Freeview` class directly to configure a more advanced session.
+    can be existing filenames, images, meshes, or numpy arrays. Lists
+    are also supported. Use the `Freeview` class directly to configure a
+    more advanced session.
 
     Parameters
     ----------
-    *args : array_like, FramedImage, or str
+    *args : array_like, FramedImage, Mesh, or str
         Elements to load in FreeView window.
     **kwargs
         Parameters forwarded to the Freeview constructor.
@@ -148,7 +238,10 @@ def fv(*args, **kwargs):
 
     # cycle through arguments
     for arg in flatten(args):
-        fv.add_image(arg)
+        if isinstance(arg, Mesh):
+            fv.add_mesh(arg)
+        else:
+            fv.add_image(arg)
 
     # show the window
     fv.show(background=background)
@@ -190,7 +283,7 @@ def _unique_filename(filename, extension, directory):
     Identifies a unique filename from a base string in a directory.
     """
     # make sure extension start with a dot
-    if not extension.startswith('.'):
+    if extension and not extension.startswith('.'):
         extension = f'.{extension}'
 
     # check if it's unique

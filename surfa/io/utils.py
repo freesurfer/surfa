@@ -56,7 +56,7 @@ def write_int(file, value, size=4, signed=True, byteorder='big'):
     byteorder : str
         Memory byte order.
     """
-    file.write((value).to_bytes(size, byteorder=byteorder, signed=signed))
+    file.write(value.to_bytes(size, byteorder=byteorder, signed=signed))
 
 
 def read_bytes(file, dtype, count=1):

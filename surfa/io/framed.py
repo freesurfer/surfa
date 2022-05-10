@@ -2,14 +2,17 @@ import os
 import numpy as np
 import gzip
 
-from surfa.core.array import pad_vector_length
+from surfa import Volume
+from surfa import Slice
+from surfa import Overlay
+from surfa import ImageGeometry
 from surfa.core import FramedArray
-from surfa.image import Volume
-from surfa.image import Slice
-from surfa.image.framed import FramedImage
-from surfa.transform import ImageGeometry
+from surfa.core import pad_vector_length
+from surfa.image import FramedImage
 from surfa.io import fsio
 from surfa.io import protocol
+from surfa.io.utils import read_int
+from surfa.io.utils import write_int
 from surfa.io.utils import read_bytes
 from surfa.io.utils import write_bytes
 from surfa.io.utils import check_file_readability
@@ -99,7 +102,12 @@ def load_framed_array(filename, atype, fmt=None):
     if fmt is None:
         iop = protocol.find_protocol_by_extension(array_io_protocols, filename)
         if iop is None:
-            raise ValueError(f'cannot determine file format from extension for {filename}')
+            if atype is Overlay:
+                # some freesurfer overlays do not have file extensions (another bizarre convention),
+                # so let's fallback to the 'curv' format here
+                iop = FreeSurferCurveIO
+            else:
+                raise ValueError(f'cannot determine file format from extension for {filename}')
     else:
         iop = protocol.find_protocol_by_name(array_io_protocols, fmt)
         if iop is None:
@@ -436,6 +444,194 @@ class NiftiArrayIO(protocol.IOProtocol):
         self.nib.save(nii, filename)
 
 
+class FreeSurferAnnotationIO(protocol.IOProtocol):
+    """
+    Array IO protocol for 1D mesh annotation files.
+    """
+    name = 'annot'
+    extensions = '.annot'
+
+    def labels_to_mapping(self, labels):
+        """
+        The annotation file format saves each vertex label value as a
+        bit-manipulated int32 value that represents an RGB. But, the label
+        lookup table is embedded in the file, so it's kind of a pointless
+        format that could be simply replaced by an MGH file with embedded
+        labels, like any other volumetric segmentaton. This function builds
+        a mapping to convert label RGBs to a lookup of bit-manipulated int32
+        values. Using this mapping, we can convert between a classic integer
+        segmentation and annotation-style values.
+        """
+        rgb = np.array([elt.color[:3].astype(np.int32) for elt in labels.values()])
+        idx = np.array(list(labels.keys()))
+        mapping = np.zeros(idx.max() + 1, dtype=np.int32)
+        mapping[idx] = (rgb[:, 2] << 16) + (rgb[:, 1] << 8) + rgb[:, 0]
+        return mapping
+
+    def load(self, filename, atype):
+        """
+        Read overlay from an annot file.
+
+        Parameters
+        ----------
+        filename : str
+            File path read.
+        atype : class
+            FramedArray subclass to load. When reading annot files, this
+            must be Overlay.
+
+        Returns
+        -------
+        Overlay
+            Array object loaded from file.
+        """
+        if atype is not Overlay:
+            raise ValueError('annotation files can only be loaded as 1D overlays')
+
+        with open(filename, 'rb') as file:
+
+            nvertices = read_bytes(file, '>i4')
+            data = np.zeros(nvertices, dtype=np.int32)
+
+            value_map = read_bytes(file, '>i4', nvertices * 2)
+            vnos = value_map[0::2]
+            vals = value_map[1::2]
+            data[vnos] = vals
+
+            tag, length = fsio.read_tag(file)
+            if tag is None or tag != fsio.tags.old_colortable:
+                raise ValueError('annotation file does not have embedded label lookup data')
+            labels = fsio.read_binary_lookup_table(file)
+
+        # cache the zero value annotations (unknown labels)
+        unknown_mask = data == 0
+
+        # conver annotation values to corresponding label values
+        mapping = self.labels_to_mapping(labels)
+        ds = np.argsort(mapping)
+        pos = np.searchsorted(mapping[ds], data)
+        index = np.take(ds, pos, mode='clip')
+        mask = mapping[index] != data
+        data = np.ma.array(index, mask=mask)
+
+        # all of the unknown labels should be converted to -1
+        data[unknown_mask] = -1
+
+        return Overlay(data, labels=labels)
+
+    def save(self, arr, filename):
+        """
+        Write overlay to an annot file.
+
+        Parameters
+        ----------
+        arr : Overlay
+            Array to save.
+        filename : str
+            Target file path.
+        """
+        if not isinstance(arr, Overlay):
+            raise ValueError(f'can only save 1D overlays as annotations, but got array type {typle(arr)}')
+
+        if not np.issubdtype(arr.dtype, np.integer):
+            raise ValueError(f'annotations must have integer dtype, but overlay has dtype {arr.dtype}')
+
+        if arr.nframes > 1:
+            raise ValueError(f'annotations must only have 1 frame, but overlay has {arr.nframes} frames')
+
+        if arr.labels is None:
+            raise ValueError('overlay must have label lookup if saving as annotation')
+
+        # 
+        unknown_mask = arr.data < 0
+
+        # make sure all indices exist in the label lookup
+        cleaned = arr.data[np.logical_not(unknown_mask)]
+        found = np.in1d(cleaned, list(arr.labels.keys()))
+        if not np.all(found):
+            missing = list(np.unique(cleaned[found == False]))
+            raise ValueError('cannot save overlay as annotation because it contains the following values '
+                            f'that do not exist in its label lookup: {missing}')
+
+        cleaned = arr.data.copy()
+        cleaned[unknown_mask] = 0
+        colors = self.labels_to_mapping(arr.labels)[arr.data]
+        colors[unknown_mask] = 0
+
+        with open(filename, 'bw') as file:
+            # write the total number of vertices covered by the overlay
+            nvertices = arr.shape[0]
+            write_bytes(file, nvertices, '>i4')
+
+            # write the data as sequences of (vertex number, color) for every 'vertex'
+            # in the annotation, where color is 
+            annot = np.zeros(nvertices * 2, dtype=np.int32)
+            annot[0::2] = np.arange(nvertices, dtype=np.int32)
+            annot[1::2] = colors
+            write_bytes(file, annot, '>i4')
+
+            # include the label lookup information
+            fsio.write_tag(file, fsio.tags.old_colortable)
+            fsio.write_binary_lookup_table(file, arr.labels)
+
+
+class FreeSurferCurveIO(protocol.IOProtocol):
+    """
+    Array IO protocol for 1D FS curv files. This is another silly file format that
+    could very well just be replaced by MGH files.
+    """
+    name = 'curv'
+    extensions = ()
+
+    def load(self, filename, atype):
+        """
+        Read overlay from a curv file.
+
+        Parameters
+        ----------
+        filename : str
+            File path read.
+        atype : class
+            FramedArray subclass to load. When reading curv files, this
+            must be Overlay.
+
+        Returns
+        -------
+        Overlay
+            Array object loaded from file.
+        """
+        if atype is not Overlay:
+            raise ValueError('curve files can only be loaded as 1D overlays')
+        with open(filename, 'rb') as file:
+            magic = read_int(file, size=3)
+            nvertices = read_bytes(file, '>i4')
+            read_bytes(file, '>i4')
+            read_bytes(file, '>i4')
+            data = read_bytes(file, '>f4', nvertices)
+        return Overlay(data)
+
+    def save(self, arr, filename):
+        """
+        Write overlay to a curv file.
+
+        Parameters
+        ----------
+        arr : Overlay
+            Array to save.
+        filename : str
+            Target file path.
+        """
+        if arr.nframes > 1:
+            raise ValueError(f'curv files must only have 1 frame, but overlay has {arr.nframes} frames')
+
+        with open(filename, 'bw') as file:
+            write_int(file, -1, size=3)
+            write_bytes(file, arr.shape[0], '>i4')
+            write_bytes(file, 0, '>i4')
+            write_bytes(file, 1, '>i4')
+            write_bytes(file, arr.data, '>f4')
+
+
 class ImageSliceIO(protocol.IOProtocol):
     """
     Generic array IO protocol for common image formats.
@@ -475,6 +671,8 @@ class TIFFArrayIO(ImageSliceIO):
 array_io_protocols = [
     MGHArrayIO,
     NiftiArrayIO,
+    FreeSurferAnnotationIO,
+    FreeSurferCurveIO,
     JPEGArrayIO,
     PNGArrayIO,
     TIFFArrayIO,

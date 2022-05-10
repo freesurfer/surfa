@@ -16,6 +16,7 @@ from .image import Volume
 from .image import Slice
 
 from .mesh import Mesh
+from .mesh import Overlay
 
 from .io import load_volume
 from .io import load_slice

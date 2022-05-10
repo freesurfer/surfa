@@ -57,7 +57,7 @@ class LabelLookup(collections.OrderedDict):
 
     def __setitem__(self, key, value):
         if not np.issubdtype(type(key), np.integer):
-            raise ValueError(f'cannot convert object of type {type(key)} to LabelLookup integer index')
+            raise ValueError(f'cannot convert object of type {key.__class__.__name__} to LabelLookup integer index')
         if isinstance(value, LabelElement):
             value = deepcopy(value)
         elif isinstance(value, str):
@@ -65,7 +65,7 @@ class LabelLookup(collections.OrderedDict):
         elif isinstance(value, tuple) or isinstance(value, list) and len(value) == 2:
             value = LabelElement(name=value[0], color=value[1])
         else:
-            raise ValueError(f'cannot convert object of type {type(value)} to LabelLookup element')
+            raise ValueError(f'cannot convert object of type {value.__class__.__name__} to LabelLookup element')
         return super().__setitem__(int(key), value)
 
     def __repr__(self):

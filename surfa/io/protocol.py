@@ -14,7 +14,11 @@ class IOProtocol:
         """
         Return the primary (first) file extension of the protocol.
         """
-        return cls.extensions if isinstance(cls.extensions, str) else cls.extensions[0]
+        if not cls.extensions:
+            return ''
+        elif isinstance(cls.extensions, str):
+            return cls.extensions
+        return cls.extensions[0]
 
     @classmethod
     def enforce_extension(cls, filename):

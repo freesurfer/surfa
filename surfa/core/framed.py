@@ -7,7 +7,7 @@ from surfa.core.labels import LabelLookup
 
 class FramedArray:
 
-    def __init__(self, basedim, data, metadata=None):
+    def __init__(self, basedim, data, labels=None, metadata=None):
         """
         Abstract class defining an ND array with data frames and additional meta information. This is
         the base type for volumes, slices, and overlays, which represent 3D, 2D, and 1D objects,
@@ -51,6 +51,7 @@ class FramedArray:
         # initialize and set the private metadata dictionary
         self._metadata = {}
         self.metadata = metadata
+        self.labels = labels
 
     def new(self, data):
         """
@@ -121,9 +122,12 @@ class FramedArray:
 
     @labels.setter
     def labels(self, value):
-        if not isinstance(value, LabelLookup):
-            raise ValueError(f'labels expected LabelLookup object, but got object of type {type(value)}')
-        self._metadata['labels'] = value.copy()
+        if value is None:
+            self._metadata.pop('labels', None)
+        elif not isinstance(value, LabelLookup):
+            raise ValueError(f'labels expected LabelLookup object, but got object of type {value.__class__.__name__}')
+        else:
+            self._metadata['labels'] = value.copy()
 
     @property
     def basedim(self):
