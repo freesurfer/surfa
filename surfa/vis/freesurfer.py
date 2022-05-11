@@ -27,6 +27,7 @@ class Freeview:
 
         For a quicker but more limited way to wrap freeview, see the `fv()` function.
         """
+        self.tempdir = None
         self.debug = debug
         self.title = title
         self.isshown = False
