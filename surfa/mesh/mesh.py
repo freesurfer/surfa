@@ -179,6 +179,7 @@ class Mesh:
         if same_geom:
             # only need to transform the points once if the geometry doesn't change
             converted.vertices = self.geom.affine(self.space, space).transform(self.vertices)
+            converted.space = space
         else:
             # if we're updating the geometry, we'll need to pass through world space first
             aff = geometry.affine('world', space) @ self.geom.affine(self.space, 'world')
