@@ -11,3 +11,9 @@ Currently, cython-based utilies are built upon install, so an error will be thro
 ### Development
 
 The library is still in alpha stages of development, so expect code to change frequently across versions. Pull requests are always welcome!
+
+For local development of the codebase, be sure to build the `.pyx` files in the package before importing:
+
+```
+python setup.py  build_ext --inplace
+```

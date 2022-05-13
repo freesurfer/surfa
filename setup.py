@@ -1,13 +1,18 @@
 #!/usr/bin/env python
 
 import re
-import numpy
 import pathlib
 import packaging.version
 
-import setuptools
+from setuptools import setup
+from setuptools import dist
 from setuptools.extension import Extension
 
+
+dist.Distribution().fetch_build_eggs(['cython', 'numpy'])
+
+
+import numpy as np
 from Cython.Build import cythonize
 
 
@@ -58,7 +63,7 @@ analysis software suite.
 '''
 
 # run setup
-setuptools.setup(
+setup(
     name='surfa',
     version=version,
     description='Utilities for medical image processing and surface reconstruction.',
@@ -69,7 +74,7 @@ setuptools.setup(
     python_requires='>=3.5',
     packages=packages,
     ext_modules=ext_modules,
-    include_dirs=[numpy.get_include()],
+    include_dirs=[np.get_include()],
     package_data={'': ['*.pyx']},
     install_requires=requirements,
     classifiers=[
