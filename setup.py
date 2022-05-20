@@ -2,16 +2,14 @@
 
 import re
 import pathlib
-import packaging.version
 
 from setuptools import setup
 from setuptools import dist
 from setuptools.extension import Extension
 
+dist.Distribution().fetch_build_eggs(['packaging', 'cython', 'numpy'])
 
-dist.Distribution().fetch_build_eggs(['cython', 'numpy'])
-
-
+import packaging.version
 import numpy as np
 from Cython.Build import cythonize
 
