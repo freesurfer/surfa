@@ -436,11 +436,19 @@ class NiftiArrayIO(protocol.IOProtocol):
         filename : str
             Target file path.
         """
-        isimage = isinstance(arr, FramedImage)
-        matrix = arr.geom.vox2world.matrix if isimage else np.eye(4)
-        nii = self.nib.Nifti1Image(arr.data, matrix)
+        is_image = isinstance(arr, FramedImage)
+        matrix = arr.geom.vox2world.matrix if is_image else np.eye(4)
+
+        # convert to a valid output type (for now this is only bool but there are probably more)
+        type_map = {
+            np.bool8: np.uint8,
+        }
+        dtype_id = next((i for dt, i in type_map.items() if np.issubdtype(arr.dtype, dt)), None)
+        data = arr.data if dtype_id is None else arr.data.astype(dtype_id)
+
+        nii = self.nib.Nifti1Image(data, matrix)
         if is_image:
-            nii.header['pixdim'][1:4] = arr.voxsize
+            nii.header['pixdim'][1:4] = arr.geom.voxsize
         self.nib.save(nii, filename)
 
 
