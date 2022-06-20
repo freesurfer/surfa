@@ -18,8 +18,8 @@ requirements = [
     'cython',
     'numpy',
     'scipy',
+    'nibabel>=2.1',
     'Pillow',
-    'nibabel',
 ]
 
 packages = [

@@ -423,9 +423,8 @@ class NiftiArrayIO(protocol.IOProtocol):
         data = nii.get_data()
         arr = atype(data)
         if isinstance(arr, FramedImage):
-            matrix = nii.get_affine()
             voxsize = nii.header['pixdim'][1:4]
-            arr.geom.update(vox2world=matrix, voxsize=voxsize)
+            arr.geom.update(vox2world=nii.affine, voxsize=voxsize)
         return arr
 
     def save(self, arr, filename):

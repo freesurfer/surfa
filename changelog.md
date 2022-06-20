@@ -2,6 +2,9 @@
 
 All notable changes to the surfa package are documented in this file.
 
+## [0.0.11] - 2020-06-20
+- Fixed NIFTI loading for newer nibabel versions
+
 ## [0.0.10] - 2020-06-19
 - Fixed bug when loading MGH/MGZ files with no embedded FOV.
 - Fixed broken `LabelLookup` initialization.
