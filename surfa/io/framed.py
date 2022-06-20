@@ -240,8 +240,11 @@ class MGHArrayIO(protocol.IOProtocol):
                 'ti': read_bytes(file, dtype='>f4'),
             }
 
-            # ignore fov
-            fov = read_bytes(file, dtype='>f4')
+            # next parameter is the image FOV, which is not directly
+            # used so let's ignore it. unsure why it's in there at all.
+            # it's also not required in the freesurfer definition, so we'll
+            # use the read() function directly in case end-of-file is reached
+            file.read(np.dtype('>f4').itemsize)
  
             # update image-specific information
             if isinstance(arr, FramedImage):
@@ -361,7 +364,7 @@ class MGHArrayIO(protocol.IOProtocol):
             write_bytes(file, arr.metadata.get('te', 0.0), '>f4')
             write_bytes(file, arr.metadata.get('ti', 0.0), '>f4')
 
-            # compute FOV
+            # compute FOV (freesurfer actually reads this information though)
             volsize = pad_vector_length(arr.baseshape, 3, 1)
             fov = max(arr.geom.voxsize * volsize) if is_image else arr.shape[0]
             write_bytes(file, fov, '>f4')
