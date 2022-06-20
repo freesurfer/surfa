@@ -42,7 +42,7 @@ class LabelElement:
         if value is None:
             self._color = [0, 0, 0]
         if len(value) == 3:
-            value = (*color, 1.0)
+            value = (*value, 1.0)
         elif len(value) != 4:
             raise ValueError('label color must be a 4-element RGBA array')
         color = np.array(value, dtype=np.float64)
