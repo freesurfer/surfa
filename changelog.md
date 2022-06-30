@@ -2,6 +2,10 @@
 
 All notable changes to the surfa package are documented in this file.
 
+## [0.0.12] - 2020-06-29
+- Added direct indexing support for Overlays
+- Fixed bug when loading MGH files writen by ITK
+
 ## [0.0.11] - 2020-06-20
 - Fixed NIFTI loading for newer nibabel versions
 
