@@ -143,6 +143,34 @@ def save_framed_array(arr, filename, fmt=None):
     iop().save(arr, filename)
 
 
+def framed_array_from_4d(atype, data):
+    """
+    Squeeze and cast a 4D data array (as read by NIFTI and MGH files) to a FramedArray.
+
+    Parameters
+    ----------
+    atype : class
+        Particular FramedArray subclass to cast to.
+    data : ndarray
+        Array data.
+
+    Returns
+    -------
+    FramedArray
+        Squeezed framed array. 
+    """
+    # this code is a bit ugly - it does the job but should probably be cleaned up
+    if atype == Volume:
+        return atype(data)
+    # slice
+    data = data.squeeze(-2)
+    if atype == Slice:
+        return atype(data)
+    # overlay
+    data = data.squeeze(-2)
+    return atype(data)
+
+
 class MGHArrayIO(protocol.IOProtocol):
     """
     Array IO protocol for MGH and compressed MGZ files.
@@ -230,21 +258,23 @@ class MGHArrayIO(protocol.IOProtocol):
             data = read_bytes(file, dtype, int(np.prod(shape))).reshape(shape, order='F')
 
             # init array
-            arr = atype(data.squeeze())
+            arr = framed_array_from_4d(atype, data)
 
             # read scan parameters
-            scan_params = {
-                'tr': read_bytes(file, dtype='>f4'),
-                'fa': read_bytes(file, dtype='>f4'),
-                'te': read_bytes(file, dtype='>f4'),
-                'ti': read_bytes(file, dtype='>f4'),
-            }
+            # these are not required, so first let's make sure we're not at EOF
+            scan_params = {}
+            fbytes = file.read(np.dtype('>f4').itemsize)
+            if fbytes:
+                scan_params['tr'] = np.fromstring(fbytes, dtype='>f4')
+                scan_params['fa'] = read_bytes(file, dtype='>f4')
+                scan_params['te'] = read_bytes(file, dtype='>f4')
+                scan_params['ti'] = read_bytes(file, dtype='>f4')
 
-            # next parameter is the image FOV, which is not directly
-            # used so let's ignore it. unsure why it's in there at all.
-            # it's also not required in the freesurfer definition, so we'll
-            # use the read() function directly in case end-of-file is reached
-            file.read(np.dtype('>f4').itemsize)
+                # next parameter is the image FOV, which is not directly
+                # used so let's ignore it (unsure why it's in there at all).
+                # it's also not required in the freesurfer definition, so we'll
+                # use the read() function directly in case end-of-file is reached
+                file.read(np.dtype('>f4').itemsize)
  
             # update image-specific information
             if isinstance(arr, FramedImage):
@@ -421,7 +451,7 @@ class NiftiArrayIO(protocol.IOProtocol):
         """
         nii = self.nib.load(filename)
         data = nii.get_data()
-        arr = atype(data)
+        arr = framed_array_from_4d(atype, data)
         if isinstance(arr, FramedImage):
             voxsize = nii.header['pixdim'][1:4]
             arr.geom.update(vox2world=nii.affine, voxsize=voxsize)
