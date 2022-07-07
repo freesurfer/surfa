@@ -124,19 +124,44 @@ class FreesurferSurfaceIO(protocol.IOProtocol):
         with open(filename, 'rb') as file:
 
             magic = read_int(file, size=3)
-            if magic != -2:
+            if magic not in (-2, -3):
                 raise NotImplementedError(f'version {magic} FS surfaces cannot be loaded')
 
-            # skip over two lines (second newline should follow immediately)
-            file.readline(200)
-            file.readline()
+            # standard triangular mesh format
+            if magic == -2:
+                # skip over two lines (second newline should follow immediately)
+                file.readline(200)
+                file.readline()
 
-            # read mesh data
-            nvertices = read_int(file)
-            nfaces = read_int(file)
+                # read mesh data
+                nvertices = read_int(file)
+                nfaces = read_int(file)
+                vertices = np.fromfile(file, dtype='>f4', count=nvertices * 3).reshape((nvertices, 3))
+                faces = np.fromfile(file, dtype='>i4', count=nfaces * 3).reshape((nfaces, 3))
 
-            vertices = np.fromfile(file, dtype='>f4', count=nvertices * 3).reshape((nvertices, 3))
-            faces = np.fromfile(file, dtype='>i4', count=nfaces * 3).reshape((nfaces, 3))
+            # non-standard quadrangular mesh format (need to split into triangular faces)
+            else:
+                # read mesh data
+                nvertices = read_int(file, size=3)
+                nquads = read_int(file, size=3)
+                vertices = np.fromfile(file, dtype='>f4', count=nvertices * 3).reshape((nvertices, 3))
+
+                # for some insane reason, face indices are stored as unaligned 24-bit integers, which
+                # numpy doesn't directly support, so we have to do some ugly memory-view stuff here
+                buff = np.fromfile(file, dtype='>i1', count=nquads * 4 * 3)
+                quads = np.zeros(nquads * 4, np.dtype('>i4'))
+                for i in range(3):
+                    quads.view(dtype='>i1')[i + 1::4] = buff.view(dtype='>i1')[i::3]
+                quads = quads.reshape((nquads, 4))
+
+                # break quad faces into triangle faces, with some semblance of index order - this is
+                # ported directly as-implemented in freesurfer (I don't understand the actual logic here)
+                faces = np.zeros((2 * nquads, 3), dtype='int64')
+                faces[0::2] = quads[:, [0, 1, 2]]
+                faces[1::2] = quads[:, [0, 2, 3]]
+                even = np.round(np.sqrt(1.9 * quads[:, 0]) + np.sqrt(3.5 * quads[:, 1])).astype(int) & 0x1 == 0
+                faces[0::2][even] = quads[even][:, [0, 1, 3]]
+                faces[1::2][even] = quads[even][:, [2, 3, 1]]
 
             # create surface object
             mesh = Mesh(vertices, faces)
