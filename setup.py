@@ -20,6 +20,7 @@ requirements = [
     'scipy',
     'nibabel>=2.1',
     'Pillow',
+    'xxhash',
 ]
 
 packages = [
