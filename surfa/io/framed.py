@@ -355,16 +355,10 @@ class MGHArrayIO(protocol.IOProtocol):
             if dtype_id is None:
                 raise ValueError(f'writing dtype {arr.dtype.name} to MGH format is not supported')
 
-            # sanity check on the array size
-            ndim = arr.data.ndim
-            if ndim < 1:
-                raise ValueError(f'cannot save scalar value to MGH file format')
-            if ndim > 4:
-                raise ValueError(f'cannot save array with more than 4 dims to MGH format, but got {ndim}D array')
-
             # shape must always be a length-4 vector, so let's pad with ones
-            shape = np.ones(4)
-            shape[:ndim] = arr.data.shape
+            shape = np.ones(4, dtype=np.int64)
+            shape[:arr.basedim] = arr.baseshape
+            shape[-1] = arr.nframes
 
             # begin writing header
             write_bytes(file, 1, '>u4')  # version
@@ -478,7 +472,12 @@ class NiftiArrayIO(protocol.IOProtocol):
         dtype_id = next((i for dt, i in type_map.items() if np.issubdtype(arr.dtype, dt)), None)
         data = arr.data if dtype_id is None else arr.data.astype(dtype_id)
 
-        nii = self.nib.Nifti1Image(data, matrix)
+        # shape must always be a length-4 vector, so let's pad with ones
+        shape = np.ones(4, dtype=np.int64)
+        shape[:ndim] = arr.baseshape
+        shape[-1] = arr.nframes
+
+        nii = self.nib.Nifti1Image(data.reshape(shape), matrix)
         if is_image:
             nii.header['pixdim'][1:4] = arr.geom.voxsize
         self.nib.save(nii, filename)
