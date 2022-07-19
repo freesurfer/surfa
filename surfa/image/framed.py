@@ -504,10 +504,10 @@ class FramedImage(FramedArray):
             Reshaped image.
         """
         if self.basedim == 2:
-            raise NotImplementedError('reshape() is not yet implemented for 2D data, contact andrew if you need this')
+            raise NotImplementedError('reshape is not yet implemented for 2D data, contact andrew if you need this')
         if self.nframes > 1:
-            # TODO
-            raise NotImplementedError
+            # TODO this is easy enough to implement
+            raise NotImplementedError('reshape is not yet implemented for multi-frame data, contact andrew if you need this')
 
         if np.array_equal(self.baseshape, shape):
             return self.copy() if copy else self
@@ -520,7 +520,7 @@ class FramedImage(FramedArray):
         c_high = np.clip(high, 0, None)
         conformed_data = np.pad(self.data.squeeze(), list(zip(c_low, c_high)), mode='constant')
 
-        # note: low and high are intentionally swapped here
+        # low and high are intentionally swapped here
         c_low = np.clip(-high, 0, None)
         c_high = conformed_data.shape[:3] - np.clip(-low, 0, None)
         cropping = tuple([slice(a, b) for a, b in zip(c_low, c_high)])
@@ -624,6 +624,47 @@ def cast_image(obj, allow_none=True, copy=False):
             data = obj.get_data().copy()
             geometry = ImageGeometry(data.shape[:3], vox2world=obj.affine)
             return Volume(data, geometry=geometry)
+    except ImportError:
+        pass
+
+    raise ValueError('cannot convert type %s to image' % type(obj).__name__)
+
+
+def cast_slice(obj, allow_none=True, copy=False):
+    """
+    Cast object to `Slice` type.
+
+    Parameters
+    ----------
+    obj : any
+        Object to cast.
+    allow_none : bool
+        Allow for `None` to be successfully passed and returned by cast.
+    copy : bool
+        Return copy if object is already the correct type.
+
+    Returns
+    -------
+    FramedImage or None
+        Casted image.
+    """
+    if obj is None and allow_none:
+        return obj
+
+    if isinstance(obj, Slice):
+        return obj.copy() if copy else obj
+
+    if getattr(obj, '__array__', None) is not None:
+        return Slice(np.array(obj))
+
+    # as a final test, check if the input is possibly a nibabel image
+    # we don't want nibabel to be required though, so ignore import errors
+    try:
+        import nibabel as nib
+        if isinstance(obj, nib.spatialimages.SpatialImage):
+            data = obj.get_data().copy()
+            geometry = ImageGeometry(data.shape[:3], vox2world=obj.affine)
+            return Slice(data, geometry=geometry)
     except ImportError:
         pass
 

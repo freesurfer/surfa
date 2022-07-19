@@ -105,3 +105,19 @@ def check_array(arr, dtype=None, ndim=None, shape=None, name=None):
         if not any(s == arr.shape for s in shapes):
             reqs = list_string(shapes)
             raise ValueError(f'{name} must have shape {reqs}, but got shape {arr.shape}')
+
+
+def normalize(vec):
+    """
+    L2 vector normalization.
+
+    Parameters
+    ----------
+    vec : ndarray
+        Array to check.
+
+    Returns
+    =======
+    normed : ndarray
+    """
+    return vec / np.sqrt(np.sum(vec * vec, -1)).reshape((-1, 1))

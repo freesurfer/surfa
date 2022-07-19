@@ -1,8 +1,14 @@
 import os
-from copy import deepcopy
 import numpy as np
+from copy import deepcopy
+from scipy.spatial import cKDTree
+from scipy.sparse import coo_matrix
 
 from surfa.core.array import check_array
+from surfa.core.array import normalize
+from surfa.mesh.cache import cached_mesh_property
+from surfa.mesh.intersection import IntersectionQuery
+from surfa.mesh.sphere import mesh_is_sphere
 from surfa.transform import ImageGeometry
 from surfa.transform import image_geometry_equal
 from surfa.transform import cast_image_geometry
@@ -18,9 +24,9 @@ class Mesh:
         Parameters
         ----------
         vertices : (V, 3) float
-            TODO
+            Mesh vertex locations
         faces : (F, 3) int
-            TODO
+            Triangular faces indices.
         space : Space
             Coordinate space of the point data. Defaults to the 'surface' coordinate system.
         geometry : ImageGeometry
@@ -32,6 +38,14 @@ class Mesh:
         self.faces = faces
         self.space = space
         self.geom = geometry
+
+        # there are many properties of the mesh that will need to be recomputed every
+        # time the mesh geometry (i.e. vertices and faces) is updated, so to deal with
+        # this, we build an internal cache to recompute certain properties only when
+        # completely necessary (see `surfa/mesh/cache.py` for more info)
+        self._cache = {}
+        self._hash = 0
+        self._mutable = True
 
         # initialize and set the private metadata dictionary
         self._metadata = {}
@@ -90,7 +104,7 @@ class Mesh:
 
     @faces.setter
     def faces(self, faces):
-        faces = np.asarray(faces, dtype=np.int64)
+        faces = np.zeros((0, 3)) if faces is None else np.asarray(faces, dtype=np.int64)
         check_array(faces, ndim=2, name='faces')
         if faces.shape[-1] != 3:
             raise ValueError(f'expected shape (F, 3) for faces array, but got {faces.shape}')
@@ -188,3 +202,133 @@ class Mesh:
             converted.geom = geometry
 
         return converted
+
+    @cached_mesh_property
+    def triangles(self):
+        """
+        Triangle coordinate arrary with shape [F, 3, 3]. This parameter is
+        recomputed upon retrieval if the mesh changes.
+        """
+        return self.vertices[self.faces]
+
+    @cached_mesh_property
+    def triangles_cross(self):
+        """
+        Vertex cross-product. This parameter is recomputed upon retrieval
+        if the mesh changes.
+        """
+        vecs = np.diff(self.triangles, axis=1)
+        cross = np.cross(vecs[:, 0], vecs[:, 1])
+        return cross
+
+    @cached_mesh_property
+    def face_normals(self):
+        """
+        Face normal (unit) vectors. This parameter is recomputed upon retrieval
+        if the mesh changes.
+        """
+        return normalize(self.triangles_cross)
+
+    @cached_mesh_property
+    def face_angles(self):
+        """
+        Face angles (in radians). This parameter is recomputed upon retrieval
+        if the mesh changes.
+        """
+        triangles = self.triangles
+        u = normalize(triangles[:, 1] - triangles[:, 0])
+        v = normalize(triangles[:, 2] - triangles[:, 0])
+        w = normalize(triangles[:, 2] - triangles[:, 1])
+        angles = np.zeros((len(triangles), 3), dtype=np.float64)
+        angles[:, 0] = np.arccos(np.clip(np.dot( u * v, [1.0] * 3), -1, 1))
+        angles[:, 1] = np.arccos(np.clip(np.dot(-u * w, [1.0] * 3), -1, 1))
+        angles[:, 2] = np.pi - angles[:, 0] - angles[:, 1]
+        return angles
+
+    @cached_mesh_property
+    def vertex_normals(self):
+        """
+        Vertex normal (unit) vectors, with contributing face normals weighted by their
+        angle. This parameter is recomputed upon retrieval if the mesh changes.
+        """
+        corner_angles = self.face_angles[np.repeat(np.arange(len(self.faces)), 3),
+                                         np.argsort(self.faces, axis=1).ravel()]
+
+        col = np.tile(np.arange(len(self.faces)).reshape((-1, 1)), (1, 3)).reshape(-1)
+        row = self.faces.reshape(-1)
+
+        data = np.ones(len(col), dtype=bool)
+        shape = (self.nvertices, self.nfaces)
+        matrix = coo_matrix((data, (row, col)), shape=shape, dtype=bool).astype(np.float64)
+        matrix.data = corner_angles
+    
+        return normalize(matrix.dot(self.face_normals))
+
+    @cached_mesh_property
+    def is_sphere(self):
+        """
+        Whether the mesh is characterized by spherical properties. The mesh must have
+        a center close to zero and little variation in radii. This parameter is recomputed
+        upon retrieval if the mesh changes.
+        """
+        return mesh_is_sphere(self)
+
+    @cached_mesh_property
+    def kdtree(self):
+        """
+        KD tree of the vertex structure, using a `scipy.spatial.cKDTree` implementation.
+        This parameter is recomputed upon retrieval if the mesh changes.
+        """
+        return cKDTree(self.vertices)
+
+    def nearest_vertex(self, points, k=1):
+        """
+        Locate the nearest `k` vertices from a point or list of points.
+
+        Parameters
+        ----------
+        origins : (n, 3) float
+            Ray vector origin points.
+        origins : (n, 3) float
+            Ray vector directions (can be unnormalized).
+
+        Returns
+        -------
+        faces : (n,) int
+            Indices of intersected faces. Index will be -1 if intersection was not found.
+        dists : (n,) float
+            Distance to intersection point from ray origin.
+        bary : (n, 3) float
+            Barycentric weights representing the intersection point on the triangle face.
+        """
+        dist, nn = self.kdtree.query(points, k=k)
+        return (nn, dist)
+
+    @cached_mesh_property
+    def _iq(self):
+        """
+        Cached intersection query for ray-tracing.
+        """
+        return IntersectionQuery(self)
+
+    def ray_intersection(self, origins, dirs):
+        """
+        Compute intersections between rays and mesh triangles.
+
+        Parameters
+        ----------
+        origins : (n, 3) float
+            Ray vector origin points.
+        origins : (n, 3) float
+            Ray vector directions (can be unnormalized).
+
+        Returns
+        -------
+        faces : (n,) int
+            Indices of intersected faces. Index will be -1 if intersection was not found.
+        dists : (n,) float
+            Distance to intersection point from ray origin.
+        bary : (n, 3) float
+            Barycentric weights representing the intersection point on the triangle face.
+        """
+        return self._iq.ray_intersection(origins, dirs)

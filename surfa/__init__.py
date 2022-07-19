@@ -17,6 +17,7 @@ from .image import Slice
 
 from .mesh import Mesh
 from .mesh import Overlay
+from .mesh import sphere
 
 from .io import load_volume
 from .io import load_slice
