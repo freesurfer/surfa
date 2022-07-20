@@ -37,6 +37,9 @@ class Affine:
         self.source = source
         self.target = target
 
+    def __repr__(self):
+        return str(self.matrix)
+
     @property
     def _writeable(self):
         """
