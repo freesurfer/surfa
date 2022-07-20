@@ -2,7 +2,7 @@
 
 All notable changes to the surfa package are documented in this file.
 
-## Unreleased
+## [0.1.0] - 2020-07-20
 - Added ray intersection, mesh knn, mesh smoothing, and spherical parameterization.
 - Added auto-computing mesh properties.
 - Fixed multi-frame overlay and slice writing and volume reshaping.
