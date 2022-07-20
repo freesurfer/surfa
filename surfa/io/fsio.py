@@ -4,6 +4,7 @@ from surfa.io import utils as iou
 from surfa.core.labels import LabelLookup
 from surfa.transform.geometry import ImageGeometry
 from surfa.transform.geometry import cast_image_geometry
+from surfa.mesh import Overlay
 
 
 # FreeSurfer tag ID lookup
@@ -214,3 +215,24 @@ def image_geometry_to_string(geom):
     string += 'zras   = %.15e %.15e %.15e\n' % tuple(geom.rotation[:, 2])
     string += 'cras   = %.15e %.15e %.15e\n' % tuple(geom.center)
     return string
+
+
+def load_surface_label(filename):
+    """
+    Load a FreeSurfer label file as an array of integer indices
+    that correspond to labeled mesh vertices.
+
+    Parameters
+    ----------
+    filename : str
+        Label file to load.
+
+    Returns
+    -------
+    vertices : (n,) int
+        Array of $n$ integer vertex indices representing the label.
+    """
+    with open(filename) as f:
+        lines = f.read().splitlines()[2:]
+    vertices = np.array([int(l.split()[0]) for l in lines])
+    return vertices
