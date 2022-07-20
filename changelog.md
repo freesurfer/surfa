@@ -3,9 +3,10 @@
 All notable changes to the surfa package are documented in this file.
 
 ## Unreleased
-- Added ray intersection, mesh knn, and spherical parameterization.
-- Added support for auto-computing mesh properties.
-- Fixed multi-frame Overlay and Slice writing.
+- Added ray intersection, mesh knn, mesh smoothing, and spherical parameterization.
+- Added auto-computing mesh properties.
+- Fixed multi-frame Overlay and Slice writing and Volume reshaping.
+- Support for loading FS surface labels
 - Support quadrangular FS mesh file loading.
 
 ## [0.0.12] - 2020-06-29
