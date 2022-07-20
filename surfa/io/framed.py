@@ -474,7 +474,7 @@ class NiftiArrayIO(protocol.IOProtocol):
 
         # shape must always be a length-4 vector, so let's pad with ones
         shape = np.ones(4, dtype=np.int64)
-        shape[:ndim] = arr.baseshape
+        shape[:arr.basedim] = arr.baseshape
         shape[-1] = arr.nframes
 
         nii = self.nib.Nifti1Image(data.reshape(shape), matrix)
