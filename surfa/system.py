@@ -2,6 +2,13 @@ import os
 import sys
 import platform
 import subprocess as sp
+import warnings
+
+
+# reformat default warning message to make it a bit more mininalistic
+def formatwarning(message, category, filename, lineno, line=None):
+    return f'{category.__name__}: {message}\n'
+warnings.formatwarning = formatwarning
 
 
 def run(command, silent=False, background=False, executable='/bin/bash', log=None):

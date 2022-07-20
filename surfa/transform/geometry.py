@@ -1,5 +1,6 @@
-from copy import deepcopy
+import warnings
 import numpy as np
+from copy import deepcopy
 
 from surfa.core.array import pad_vector_length
 from surfa.core.array import check_array
@@ -157,7 +158,7 @@ class ImageGeometry:
             if voxsize is None:
                 voxsize = scale
             elif not np.allclose(scale, voxsize, atol=1e-3, rtol=0.0):
-                raise ValueError(f'voxel size {voxsize} differs substantially from the computed vox2world scale {scale}')
+                warnings.warn(f'voxel size {voxsize} differs substantially from the computed vox2world scale {scale}')
 
         # now we have enough information to compute the missing affine (MOVE THIS ABOVE AS WELL)
         if vox2world is None:
