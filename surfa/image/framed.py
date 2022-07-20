@@ -505,9 +505,8 @@ class FramedImage(FramedArray):
         """
         if self.basedim == 2:
             raise NotImplementedError('reshape is not yet implemented for 2D data, contact andrew if you need this')
-        if self.nframes > 1:
-            # TODO this is easy enough to implement
-            raise NotImplementedError('reshape is not yet implemented for multi-frame data, contact andrew if you need this')
+
+        shape = shape[:self.basedim]
 
         if np.array_equal(self.baseshape, shape):
             return self.copy() if copy else self
@@ -518,7 +517,8 @@ class FramedImage(FramedArray):
 
         c_low = np.clip(low, 0, None)
         c_high = np.clip(high, 0, None)
-        conformed_data = np.pad(self.data.squeeze(), list(zip(c_low, c_high)), mode='constant')
+        padding = list(zip(np.append(c_low, 0), np.append(c_high, 0)))
+        conformed_data = np.pad(self.framed_data, padding, mode='constant')
 
         # low and high are intentionally swapped here
         c_low = np.clip(-high, 0, None)
