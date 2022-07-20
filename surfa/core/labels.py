@@ -3,6 +3,78 @@ import numpy as np
 from copy import deepcopy
 
 
+def dice(a, b, labels=None):
+    """
+    Compute dice coefficients for each label between two hard segmentations.
+    
+        dice = 2 * |A ∩ B| / |A| + |B|
+
+    Parameters
+    ----------
+    a, b : array_like
+        Label map arrays to compute dice between.
+    labels : list
+        List of labels to include in the computation. If labels are not
+        provided, all unique non-zero integers are used.
+
+    Returns
+    -------
+    result : dict
+        Dictionary of dice scores for each label. If a label is missing
+        from both segmentations, it is not included in the result.
+    """
+    if labels is None:
+        labels = np.unique(np.concatenate([a, b]))
+        labels = np.delete(labels, np.where(labels == 0))
+
+    result = {}
+    for l in labels:
+        mask1 = a == l
+        mask2 = b == l
+        top = 2.0 * np.logical_and(mask1, mask2).sum()
+        bottom = mask1.sum() + mask2.sum()
+        if bottom != 0:
+            result[l] = top / bottom
+    
+    return result
+
+
+def jaccard(a, b, labels=None):
+    """
+    Compute jaccard coefficients for each label between two hard segmentations.
+    
+        jaccard = |A ∩ B| / |A ∪ B|
+
+    Parameters
+    ----------
+    a, b : array_like
+        Label map arrays to compute the jaccard between.
+    labels : list
+        List of labels to include in the computation. If labels are not
+        provided, all unique non-zero integers are used.
+
+    Returns
+    -------
+    result : dict
+        Dictionary of jaccard scores for each label. If a label is missing
+        from both segmentations, it is not included in the result.
+    """
+    if labels is None:
+        labels = np.unique(np.concatenate([a, b]))
+        labels = np.delete(labels, np.where(labels == 0))
+    
+    result = {}
+    for l in labels:
+        mask1 = a == l
+        mask2 = b == l
+        top = np.logical_and(mask1, mask2).sum()
+        bottom = np.logical_or(mask1, mask2).sum()
+        if bottom != 0:
+            result[l] = top / bottom
+    
+    return result
+
+
 class LabelElement:
 
     def __init__(self, name=None, color=None):
