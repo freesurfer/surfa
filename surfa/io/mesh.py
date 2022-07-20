@@ -219,8 +219,6 @@ class FreesurferSurfaceIO(protocol.IOProtocol):
             # write topology
             write_int(file, mesh.nvertices)
             write_int(file, mesh.nfaces)
-
-            # todo ensure contiguous
             mesh.vertices.astype('>f4').tofile(file)
             mesh.faces.astype('>i4').tofile(file)
 

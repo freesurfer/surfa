@@ -9,6 +9,7 @@ from surfa.core.array import normalize
 from surfa.mesh.cache import cached_mesh_property
 from surfa.mesh.intersection import IntersectionQuery
 from surfa.mesh.sphere import mesh_is_sphere
+from surfa.mesh.overlay import cast_overlay
 from surfa.transform import ImageGeometry
 from surfa.transform import image_geometry_equal
 from surfa.transform import cast_image_geometry
@@ -81,7 +82,7 @@ class Mesh:
 
     @vertices.setter
     def vertices(self, vertices):
-        vertices = np.asarray(vertices, dtype=np.float64)
+        vertices = np.asanyarray(vertices, dtype=np.float64, order='C')
         check_array(vertices, ndim=2, name='vertices')
         if vertices.shape[-1] != 3:
             raise ValueError(f'expected shape (V, 3) for vertices array, but got {vertices.shape}')
@@ -104,7 +105,7 @@ class Mesh:
 
     @faces.setter
     def faces(self, faces):
-        faces = np.zeros((0, 3)) if faces is None else np.asarray(faces, dtype=np.int64)
+        faces = np.zeros((0, 3)) if faces is None else np.asanyarray(faces, dtype=np.int64, order='C')
         check_array(faces, ndim=2, name='faces')
         if faces.shape[-1] != 3:
             raise ValueError(f'expected shape (F, 3) for faces array, but got {faces.shape}')
@@ -265,6 +266,14 @@ class Mesh:
         return normalize(matrix.dot(self.face_normals))
 
     @cached_mesh_property
+    def edges(self):
+        """
+        Array of all directional edges in the mesh faces. This array will have a
+        length two times greater than the total number of unique edges.
+        """
+        return self.faces[:, [0, 1, 1, 2, 2, 0]].reshape((-1, 2))
+
+    @cached_mesh_property
     def is_sphere(self):
         """
         Whether the mesh is characterized by spherical properties. The mesh must have
@@ -332,3 +341,72 @@ class Mesh:
             Barycentric weights representing the intersection point on the triangle face.
         """
         return self._iq.ray_intersection(origins, dirs)
+
+    def smooth_overlay(self, overlay, iters=10, step=0.5, weighted=True):
+        """
+        Smooth the scalar values of an overlay along the mesh.
+
+        Parameters
+        ----------
+        overlay : Overlay
+            Overlay to smooth.
+        iters : int
+            Number of smoothing iterations.
+        step : float
+            The step rate of the smoothing. This controls how much to weight the
+            contribution of the neighboring vertices at each smoothing iteration.
+        weighted : bool
+            Whether the contribution of each vertex neighbor is weighted
+            by its inverse distance from the target vertex. Otherwise, all
+            neighbors are weighted equally.
+
+        Returns
+        -------
+        overlay : Overlay
+            Smoothed mesh overlay.
+        """
+        neighborhood = self.sparse_neighborhood(weighted)
+
+        overlay = cast_overlay(overlay)
+        smoothed = overlay.data.copy()
+
+        for _ in range(iters):
+            dot = neighborhood.dot(smoothed) - smoothed
+            smoothed += step * dot
+
+        return overlay.new(smoothed)
+
+    def sparse_neighborhood(self, weighted=True):
+        """
+        Compute a COO sparse matrix representing the immediate neighborhood
+        of vertices around each vertex. Matrix values indicate the weight of
+        each neighbor contribution to the target vertex.
+
+        Parameters
+        ----------
+        weighted : bool
+            Whether the contribution of each vertex neighbor is weighted
+            by its inverse distance from the target vertex. Otherwise, all
+            neighbors are weighted equally.
+
+        Returns
+        -------
+        sparse : scipy.sparse.coo_matrix
+        """
+        row = self.edges[:, 0]
+        col = self.edges[:, 1]
+
+        # determine how to weight each neighbor
+        if weighted:
+            diff = self.vertices[row] - self.vertices[col]
+            data = 1 / np.sqrt((diff ** 2).sum(-1))
+        else:
+            data = np.ones(len(row))
+
+        # build the matrix
+        sparse = coo_matrix((data, (row, col)), shape=[self.nvertices] * 2)
+
+        # we'll want to normalize each row
+        sparse.data /= sparse.sum(-1).A1[sparse.row]
+
+        return sparse
