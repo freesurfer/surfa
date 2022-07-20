@@ -397,10 +397,14 @@ class FramedImage(FramedArray):
         # if not resampling, just change the image vox2world matrix and return
         if not resample and affine is not None:
             affine = cast_affine(affine)
-            if affine.source is None and affine.target is None or affine.space is None:
-                raise ValueError('affine must contain source, target, and coordinate space info to transform image header')
             transformed = self.copy()
-            transformed.geom.vox2world = affine.convert(space='world', source=self) @ transformed.geom.vox2world
+            # if affine is missing geometry info, let's just assume it's in world space
+            if affine.source is not None and affine.target is not None:
+                affine = affine.convert(space='world', source=self)
+            elif affine.space is not None and affine.space != 'world':
+                raise ValueError('affine must contain source and target info if not in world space')
+            # apply forward transform to the header
+            transformed.geom.vox2world = affine @ transformed.geom.vox2world
             return transformed
 
         # sanity check and preprocess the affine if resampling
