@@ -10,7 +10,7 @@ class IntersectionQuery:
         Query cache for computing ray intersections on a mesh.
 
         Parameters
-        ==========
+        ----------
         mesh : Mesh
             Mesh to compute ray intersections with.
         """

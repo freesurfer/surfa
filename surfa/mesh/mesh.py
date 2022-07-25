@@ -119,12 +119,26 @@ class Mesh:
         return len(self.faces)
 
     @property
+    def metadata(self):
+        """
+        Metadata dictionary.
+        """
+        return self._metadata
+
+    @metadata.setter
+    def metadata(self, value):
+        """
+        Replace the metadata dictionary. Will always make a deep copy of the new dictionary.
+        """
+        self._metadata = deepcopy(value) if value is not None else {}
+
+    @property
     def space(self):
         """
         Coordinate space of the points.
         """
         return self._space
-    
+
     @space.setter
     def space(self, value):
         self._space = cast_space(value, allow_none=False, copy=True)
@@ -144,19 +158,11 @@ class Mesh:
             geometry = cast_image_geometry(geometry, copy=True)
         setattr(self, '_geometry', geometry)
 
-    @property
-    def metadata(self):
+    def bbox(self):
         """
-        Metadata dictionary.
+        The (min, max) coordinates defining the mesh's bounding box.
         """
-        return self._metadata
-
-    @metadata.setter
-    def metadata(self, value):
-        """
-        Replace the metadata dictionary. Will always make a deep copy of the new dictionary.
-        """
-        self._metadata = deepcopy(value) if value is not None else {}
+        return (self.vertices.min(axis=0), self.vertices.max(axis=0))
 
     def convert(self, space=None, geometry=None, copy=True):
         """

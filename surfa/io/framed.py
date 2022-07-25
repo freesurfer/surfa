@@ -6,9 +6,9 @@ from surfa import Volume
 from surfa import Slice
 from surfa import Overlay
 from surfa import ImageGeometry
-from surfa.core import FramedArray
-from surfa.core import pad_vector_length
-from surfa.image import FramedImage
+from surfa.core.array import pad_vector_length
+from surfa.core.framed import FramedArray
+from surfa.image.framed import FramedImage
 from surfa.io import fsio
 from surfa.io import protocol
 from surfa.io.utils import read_int

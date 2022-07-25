@@ -15,12 +15,12 @@ def mesh_is_sphere(mesh):
     standard deviation in radii not greater than 1% of it's average.
 
     Parameters
-    ==========
+    ----------
     mesh : Mesh
         Spherical mesh to test.
 
     Returns
-    =======
+    -------
     result : bool
     """
     minc = mesh.vertices.min(0)
@@ -43,7 +43,7 @@ def require_sphere(mesh):
     Return an exception if the mesh does not qualify as a valid sphere.
 
     Parameters
-    ==========
+    ----------
     mesh : Mesh
         Spherical mesh to test.
     """
@@ -58,12 +58,12 @@ def cartesian_to_spherical(points):
     Convert a set of cartesian points to spherical coordinates (phi, theta) around the origin.
 
     Parameters
-    ==========
+    ----------
     points : (n, 3) float
         Array of (x, y, z) spherical points to convert.
 
     Returns
-    =======
+    -------
     spherical : (n, 2) float
     """
     p = points
@@ -80,12 +80,12 @@ def spherical_to_cartesian(points):
     the origin.
 
     Parameters
-    ==========
+    ----------
     points : (n, 2) float
         Array of (phi, theta) points to convert.
 
     Returns
-    =======
+    -------
     cartesian : (n, 3) float
     """
     x = np.sin(points[:, 0]) * np.cos(points[:, 1])
@@ -103,7 +103,7 @@ class SphericalResamplingNearest:
         target surface mesh.
 
         Parameters
-        ==========
+        ----------
         source, target : Mesh
         """
         require_sphere(source)
@@ -120,13 +120,13 @@ class SphericalResamplingNearest:
         Sample overlay values.
 
         Parameters
-        ==========
+        ----------
         overlay : Overlay
             Scalar point values to resample to the target sphere graph
             from the source sphere mesh.
 
         Returns
-        =======
+        -------
         resampled : Overlay
         """
         overlay = cast_overlay(overlay)
@@ -145,7 +145,7 @@ class SphericalResamplingBarycentric:
         target surface mesh.
 
         Parameters
-        ==========
+        ----------
         source, target : Mesh
         """
         require_sphere(source)
@@ -165,13 +165,13 @@ class SphericalResamplingBarycentric:
         Sample overlay values.
 
         Parameters
-        ==========
+        ----------
         overlay : Overlay
             Scalar point values to resample to the target sphere graph
             from the source sphere mesh.
 
         Returns
-        =======
+        -------
         resampled : Overlay
         """
         overlay = cast_overlay(overlay)
@@ -191,7 +191,7 @@ class SphericalMapNearest:
         image grid with (phi, theta) units.
 
         Parameters
-        ==========
+        ----------
         sphere : Mesh
             Spherical mesh to build parameterization map on.
         shape :  tuple of int
@@ -218,12 +218,12 @@ class SphericalMapNearest:
         Parameterize a spherical surface overlay into a 2D (phi, theta) map.
 
         Parameters
-        ==========
+        ----------
         overlay : Overlay
             Overlay to parameterize.
 
         Returns
-        =======
+        -------
         map : Slice
             Sampled image parameterization.
         """
@@ -238,12 +238,12 @@ class SphericalMapNearest:
         Sample a parameterized 2D (phi, theta) map back into a surface overlay.
         
         Parameters
-        ==========
+        ----------
         map : Slice
             2D image parameterization.
 
         Returns
-        =======
+        -------
         sampled : Overlay
             Overlay sampled from the parameterization.
         """
@@ -263,7 +263,7 @@ class SphericalMapBarycentric:
         image grid with (phi, theta) units.
 
         Parameters
-        ==========
+        ----------
         sphere : Mesh
             Spherical mesh to build parameterization map on.
         shape :  tuple of int
@@ -295,12 +295,12 @@ class SphericalMapBarycentric:
         Parameterize a spherical surface overlay into a 2D (phi, theta) map.
 
         Parameters
-        ==========
+        ----------
         overlay : Overlay
             Overlay to parameterize.
 
         Returns
-        =======
+        -------
         map : Slice
             Sampled image parameterization.
         """
@@ -318,12 +318,12 @@ class SphericalMapBarycentric:
         Sample a parameterized 2D (phi, theta) map back into a surface overlay.
         
         Parameters
-        ==========
+        ----------
         map : Slice
             2D image parameterization.
 
         Returns
-        =======
+        -------
         sampled : Overlay
             Overlay sampled from the parameterization.
         """

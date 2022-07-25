@@ -117,7 +117,7 @@ def normalize(vec):
         Array to check.
 
     Returns
-    =======
+    -------
     normed : ndarray
     """
     return vec / np.sqrt(np.sum(vec * vec, -1)).reshape((-1, 1))

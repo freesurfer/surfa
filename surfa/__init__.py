@@ -6,7 +6,10 @@ __version__ = '0.1.0'
 
 from . import system
 
+from .core import stack
+from .core import labels
 from .core import LabelLookup
+from .core import LabelRecoder
 
 from .transform import Affine
 from .transform import Space
@@ -27,3 +30,4 @@ from .io import load_label_lookup
 from .io import load_mesh
 
 from . import vis
+from . import freesurfer
