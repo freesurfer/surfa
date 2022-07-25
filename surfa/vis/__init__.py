@@ -1,2 +1,2 @@
-from .freesurfer import Freeview
-from .freesurfer import fv
+from .freeview import Freeview
+from .freeview import fv

@@ -138,16 +138,27 @@ class Freeview:
         # configure the corresponding freeview argument
         self.arguments.append('-f ' + mesh_filename + tags + _convert_kwargs_to_tags(kwargs))
 
+    def add_flag(self, flag):
+        """
+        Add a flag to the freeview command.
+
+        Parameters
+        ----------
+        flag : str
+            Extra command-line option added to the freeview call.
+        """
+        self.arguments.append(flag)
+
     def show(self, background=True, threads=None):
         """
         Opens the configured FreeView window.
 
         Parameters
         ----------
-            background : bool
-                Run FreeView window as a background process.
-            threads : int
-                Number of OMP threads available to FreeView.
+        background : bool
+            Run FreeView window as a background process.
+        threads : int
+            Number of OMP threads available to FreeView.
         """
 
         # compile the command
