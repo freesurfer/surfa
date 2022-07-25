@@ -1,6 +1,7 @@
 import collections
 import numpy as np
 from copy import deepcopy
+import surfa as sf
 
 
 def dice(a, b, labels=None):
@@ -73,6 +74,43 @@ def jaccard(a, b, labels=None):
             result[l] = top / bottom
     
     return result
+
+
+def recode(seg, recoder):
+    """
+    Recode the labels of a discrete segmentation.
+
+    Parameters
+    ----------
+    seg : ndarray or framed array
+        Segmentation array to recode.
+    recoder : dict or LabelRecoder
+        Label to label mapping.
+    
+    Returns
+    -------
+    recoded : ndarray or framed array
+    """
+    if isinstance(recoder, LabelRecoder):
+        mapping = recoder.mapping
+    elif not isinstance(recoder, dict):
+        raise ValueError(f'invalid label recoder type: {type(recoder).__name__}')
+    else:
+        mapping = recoder
+
+    old = np.array(list(mapping.keys()))
+    new = np.array(list(mapping.values()))
+    
+    m = np.zeros(np.max((seg.max(), old.max())) + 1, dtype=np.int64)
+    m[old] = new
+    recoded = m[seg]
+
+    if isinstance(seg, sf.core.framed.FramedArray):
+        recoded = seg.new(recoded)
+        if isinstance(recoder, LabelRecoder):
+            recoded.labels = recoder.target
+
+    return recoded
 
 
 class LabelElement:
@@ -164,7 +202,7 @@ class LabelLookup(collections.OrderedDict):
 
     def search(self, name, exact=False):
         """
-        Search for 
+        Search for matching labels.
 
         Parameters
         ----------
@@ -209,7 +247,7 @@ class LabelLookup(collections.OrderedDict):
 
     def copy_colors(self, lookup):
         """
-        Copies colors of matching label indices from a source LabelLookup.
+        Copy colors of matching label indices from a source LabelLookup.
 
         Parameters
         ----------
@@ -223,7 +261,7 @@ class LabelLookup(collections.OrderedDict):
 
     def copy_names(self, lookup):
         """
-        Copies names of matching label indices from a source LabelLookup.
+        Copy names of matching label indices from a source LabelLookup.
 
         Parameters
         ----------
@@ -234,3 +272,20 @@ class LabelLookup(collections.OrderedDict):
             elt = lookup.get(label)
             if elt is not None:
                 self[label].name = elt.name
+
+
+class LabelRecoder:
+
+    def __init__(self, mapping, target=None):
+        """
+        Map to recode the label indices of a segmentation.
+
+        Parameters
+        ----------
+        mapping : dict
+            Integer label to label mapping diction.
+        target : LabelLookup
+            Label lookup corresponding to the recoded target segmentation.
+        """
+        self.mapping = dict(mapping)
+        self.target = target
