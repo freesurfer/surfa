@@ -61,7 +61,7 @@ def run(command, silent=False, background=False, executable='/bin/bash', log=Non
 
 def collect_output(command, executable='/bin/bash'):
     """
-    Collects the output of a shell command.
+    Collect the output of a shell command.
 
     Parameters
     ----------
@@ -81,7 +81,7 @@ def collect_output(command, executable='/bin/bash'):
 
 def hostname(short=True):
     """
-    Gets the system hostname.
+    Get the system hostname.
 
     Parameters
     ----------
@@ -95,9 +95,9 @@ def hostname(short=True):
 
 def vmpeak():
     """
-    Returns the peak memory usage of the process in kilobytes.
+    Return the peak memory usage of the process in kilobytes.
 
-    Note: This only works on linux machines because itf requires `/proc/self/status`.
+    Note: This only works on linux machines because it requires `/proc/self/status`.
     """
     # TODO: switch to this (portable across platforms)
     # return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
@@ -112,7 +112,7 @@ def vmpeak():
 
 def fatal(message, retcode=1):
     """
-    Prints an error message and exits or raises an exception if in interactive mode.
+    Print an error message and exits or raises an exception if in interactive mode.
 
     Parameters
     ----------
@@ -127,3 +127,22 @@ def fatal(message, retcode=1):
         sys.exit(retcode)
     else:
         raise Exception(message)
+
+
+def readlines(filename):
+    """
+    Read the lines of a text file.
+
+    Parameters
+    ----------
+    filename : str
+        Text file to read.
+
+    Returns
+    -------
+    content : list
+        List of stripped lines in text file.
+    """
+    with open(filename) as file:
+        content = file.read().splitlines()
+    return content
