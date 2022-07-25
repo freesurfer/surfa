@@ -1,6 +1,8 @@
 import os
 import numpy as np
 
+from scipy.interpolate import RegularGridInterpolator
+
 from surfa.core.framed import FramedArray
 from surfa.core.array import pad_vector_length
 from surfa.core.array import check_array
@@ -579,6 +581,35 @@ class FramedImage(FramedArray):
         if dtype is not None:
             conformed = conformed.astype(dtype, copy=False)
         return self.copy() if (copy and conformed is self) else conformed
+
+    def sample(self, points, method='linear', bounds_error=False, fill=None):
+        """
+        Interpolate values from the image grid at particular voxel coordinates.
+
+        Parameters
+        ----------
+        points : (m, n) float
+            Array of m voxel coordinates to sample values from in the n-D image domain.
+        method : {'linear', 'nearest'}
+            Image interpolation method.
+        bounds_error : bool
+            Raise error if interpolated values are requested outside of the domain
+            of the input data.
+        fill : number
+            If provided, the value to use for points outside of the interpolation domain.
+            If None, values outside the domain are extrapolated.
+
+        Returns
+        -------
+        sampled : (m,) or (m, f) array
+            Interpolated data points at each coordinate location in the image domain. Result
+            will be 2 dimensional if multiple frames are present in the source image.
+        """
+        grid = [np.arange(dim) for dim in self.baseshape]
+        interp = RegularGridInterpolator(grid, self.data, method=method,
+                                         bounds_error=bounds_error, fill_value=fill)
+        sampled = interp(points)
+        return sampled
 
 
 class Slice(FramedImage):
