@@ -51,7 +51,10 @@ class FramedArray:
         # initialize and set the private metadata dictionary
         self._metadata = {}
         self.metadata = metadata
-        self.labels = labels
+
+        # update labels if provided
+        if labels is not None:
+            self.labels = labels
 
     def new(self, data):
         """
@@ -557,3 +560,10 @@ class FramedArray:
     def __itruediv__(self, other):
         self.data /= np.asarray(other)
         return self
+
+
+def stack(arrays):
+    """
+    Stack multiple framed arrays along the frame axis.
+    """
+    return arrays[0].new(np.concatenate([arr.framed_data for arr in arrays], axis=-1))
