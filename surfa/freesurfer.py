@@ -209,7 +209,7 @@ def dkt():
     return labels
 
 
-def tissue_type():
+def tissue_types():
     """
     Label lookup for generic brain tissue types (including skull and head labels).
 
@@ -224,33 +224,25 @@ def tissue_type():
     labels[3] = ('White-Matter',             [245, 245, 245])
     labels[4] = ('CSF',                      [120, 18,  134])
     labels[5] = ('Head',                     [150, 150, 200])
+    labels[6] = ('Lesion',                   [255, 165,  0])
     return labels
 
 
-def tissue_type_no_skull():
-    """
-    Label lookup for generic brain tissue types (excluding skull and head labels).
-
-    Returns
-    -------
-    labels : LabelLookup
-    """
-    labels = LabelLookup()
-    labels[0] = ('Unknown',                  [0,   0,   0])
-    labels[1] = ('Cortex',                   [205, 62,  78])
-    labels[2] = ('Subcortical-Gray-Matter',  [230, 148, 34])
-    labels[3] = ('White-Matter',             [245, 245, 245])
-    labels[4] = ('CSF',                      [120, 18,  134])
-    return labels
-
-
-def tissue_type_recoder():
+def tissue_type_recoder(extra=False, lesions=False):
     """
     Return a recoding lookup that converts default brain labels to the
     corresponding tissue-type (includes skull and head labels).
 
-    Returns:
-        recoder : LabelRecoder
+    Parameters
+    ----------
+    extra : bool
+        Include extra-cerebral labels, like skull and eye fluid.
+    lesions : bool
+        Include lesions as a seperate label.
+
+    Returns
+    -------
+    recoder : LabelRecoder
     """
     mapping = {
         0:    0,  # Unknown
@@ -270,6 +262,7 @@ def tissue_type_recoder():
         17:   2,  # Left-Hippocampus
         18:   2,  # Left-Amygdala
         24:   4,  # CSF
+        25:   6 if lesions else 2,  # Left-Lesion
         26:   2,  # Left-Accumbens-Area
         28:   3,  # Left-VentralDC
         30:   4,  # Left-Vessel
@@ -286,19 +279,21 @@ def tissue_type_recoder():
         52:   2,  # Right-Pallidum
         53:   2,  # Right-Hippocampus
         54:   2,  # Right-Amygdala
+        75:   6 if lesions else 2,  # Right-Lesion
         58:   2,  # Right-Accumbens-Area
         60:   3,  # Right-VentralDC
         62:   4,  # Right-Vessel
         63:   4,  # Right-Choroid-Plexus
-        77:   3,  # WM-Hypointensities
+        77:   6 if lesions else 3,  # WM-Hypointensities
         78:   3,  # Left-WM-Hypointensities
         79:   3,  # Right-WM-Hypointensities
         80:   2,  # Non-WM-Hypointensities
         81:   2,  # Left-Non-WM-Hypointensities
         82:   2,  # Right-Non-WM-Hypointensities
         85:   3,  # Optic-Chiasm
-        130:  5,  # Air
-        165:  5,  # Skull
+        99:   6 if lesions else 2,  # Lesion
+        130:  5 if extra else 0,  # Air
+        165:  5 if extra else 0,  # Skull
         172:  2,  # Vermis
         174:  3,  # Pons
         251:  3,  # CC_Posterior
@@ -307,7 +302,7 @@ def tissue_type_recoder():
         254:  3,  # CC_Mid_Anterior
         255:  3,  # CC_Anterior
         257:  4,  # CSF-ExtraCerebral
-        258:  5,  # Head-ExtraCerebral
+        258:  5 if extra else 0,  # Head-ExtraCerebral
         1001: 1,  # ctx-lh-bankssts
         1002: 1,  # ctx-lh-caudalanteriorcingulate
         1003: 1,  # ctx-lh-caudalmiddlefrontal
@@ -377,19 +372,4 @@ def tissue_type_recoder():
         2034: 1,  # ctx-rh-transversetemporal
         2035: 1,  # ctx-rh-insula
     }
-    return LabelRecoder(mapping, target=tissue_type())
-
-
-def tissue_type_recoder_no_skull():
-    """
-    Return a recoding lookup that converts default brain labels to the
-    corresponding tissue-type (excldues skull and head labels).
-
-    Returns:
-        recoder : LabelRecoder
-    """
-    recoder = tissue_type_recoder()
-    for inp, out in recoder.mapping.items():
-        if out == 5:
-            recoder.mapping[inp] = 0
-    return recoder
+    return LabelRecoder(mapping, target=tissue_types())
