@@ -5,3 +5,7 @@ __pycache__
 
 docs/.deps
 docs/build
+
+build/
+.gitignore
+
