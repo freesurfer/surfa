@@ -56,7 +56,11 @@ class Mesh:
         """
         Return a deep copy of the object.
         """
-        return deepcopy(self)
+        copied = deepcopy(self)
+        # intersection query will return None upon deep copy
+        # so let's remember to clear it from the cache
+        copied._cache.pop('_iq', None)
+        return copied
 
     def save(self, filename, fmt=None):
         """

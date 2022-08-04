@@ -23,6 +23,10 @@ class IntersectionQuery:
         self._scene = EmbreeScene()
         self._mesh = TriangleMesh(self._scene, mesh.vertices.astype(np.float32), mesh.faces.astype(np.int32))
 
+    def __deepcopy__(self, memo):
+        # embree scenes cannot be deep-copied, so lets just return none
+        return None
+
     def ray_intersection(self, origins, dirs):
         """
         Compute mesh intersections for a group of rays.
