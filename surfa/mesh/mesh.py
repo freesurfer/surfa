@@ -274,10 +274,44 @@ class Mesh:
     @cached_mesh_property
     def edges(self):
         """
-        Array of all directional edges in the mesh faces. This array will have a
-        length two times greater than the total number of unique edges.
+        All directional edges in the mesh.
         """
         return self.faces[:, [0, 1, 1, 2, 2, 0]].reshape((-1, 2))
+
+    @cached_mesh_property
+    def edge_face(self):
+        """
+        Face index corresponding to each directional edge in the mesh.
+        """
+        return np.tile(np.arange(self.nfaces), (3, 1)).T.reshape(-1)
+
+    @cached_mesh_property
+    def unique_edge_indices(self):
+        """
+        Indices to extract all unique edges from the directional edge list.
+        """
+        aligned = np.sort(self.edges, axis=1)
+        order = np.lexsort((aligned[:, 1], aligned[:, 0]))
+        pef = aligned[order]
+        shift = np.any(pef[1:] != pef[:-1], axis=-1)
+        indices = order[np.append(0, np.argwhere(shift) + 1)]
+        return indices
+
+    @cached_mesh_property
+    def unique_edges(self):
+        """
+        Unique bi-directional edges in the mesh.
+        """
+        return self.edges[self.unique_edge_indices]
+
+    @cached_mesh_property
+    def adjacent_faces(self):
+        """
+        Adjacent faces that correspond to each edge in `unique_edges`.
+        """
+        indices = np.tile(self.unique_edge_indices, (1, 2))
+        indices[:, 1] += 1
+        return self.edge_face[indices]
 
     @cached_mesh_property
     def is_sphere(self):
@@ -348,7 +382,7 @@ class Mesh:
         """
         return self._iq.ray_intersection(origins, dirs)
 
-    def smooth_overlay(self, overlay, iters=10, step=0.5, weighted=True):
+    def smooth_overlay(self, overlay, iters=10, step=0.5, weighted=True, pinned=None):
         """
         Smooth the scalar values of an overlay along the mesh.
 
@@ -365,6 +399,8 @@ class Mesh:
             Whether the contribution of each vertex neighbor is weighted
             by its inverse distance from the target vertex. Otherwise, all
             neighbors are weighted equally.
+        pinned : ndarray or Overlay
+            Mask of pinned (unchanging) values in the mesh.
 
         Returns
         -------
@@ -376,9 +412,15 @@ class Mesh:
         overlay = cast_overlay(overlay)
         smoothed = overlay.data.copy()
 
+        if pinned is not None:
+            moving = pinned == 0
+
         for _ in range(iters):
             dot = neighborhood.dot(smoothed) - smoothed
-            smoothed += step * dot
+            if pinned is not None:
+                smoothed[moving] += step * dot[moving]
+            else:
+                smoothed += step * dot
 
         return overlay.new(smoothed)
 
