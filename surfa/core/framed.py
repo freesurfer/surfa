@@ -466,7 +466,7 @@ class FramedArray:
         return self.new(seg)
 
     # numpy array wrapping
-    def __array__(self):
+    def __array__(self, dtype=None):
         return self.data
 
     # propagate numpy indexing
