@@ -472,14 +472,23 @@ class NiftiArrayIO(protocol.IOProtocol):
         dtype_id = next((i for dt, i in type_map.items() if np.issubdtype(arr.dtype, dt)), None)
         data = arr.data if dtype_id is None else arr.data.astype(dtype_id)
 
-        # shape must always be a length-4 vector, so let's pad with ones
+        # shape must be padded, so let's pad with 4 ones then chop down to 3 dimensions if needed
         shape = np.ones(4, dtype=np.int64)
         shape[:arr.basedim] = arr.baseshape
         shape[-1] = arr.nframes
+        if arr.nframes == 1:
+            shape = shape[:-1]
 
+        # edit header data
         nii = self.nib.Nifti1Image(data.reshape(shape), matrix)
+        nii.header['pixdim'][:] = 1
+        nii.header['pixdim'][0] = -1
+        nii.header['qform_code'] = np.array(1, dtype=np.int16)
+        nii.header['sform_code'] = np.array(1, dtype=np.int16)
         if is_image:
             nii.header['pixdim'][1:4] = arr.geom.voxsize
+        
+        # write
         self.nib.save(nii, filename)
 
 
