@@ -35,6 +35,6 @@ def cast_overlay(obj, allow_none=True, copy=False):
         return obj.copy() if copy else obj
 
     if getattr(obj, '__array__', None) is not None:
-        return Volume(np.array(obj))
+        return Overlay(np.array(obj))
 
     raise ValueError('cannot convert type %s to overlay' % type(obj).__name__)
