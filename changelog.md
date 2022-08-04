@@ -2,6 +2,9 @@
 
 All notable changes to the surfa package are documented in this file.
 
+## [0.3.1] - 2022-08-04
+- Fixed header codes when writing NIFTI files.
+
 ## [0.3.0] - 2022-08-04
 - Added mesh self-intersection removal
 - Fixed ndarray and overlay casting
