@@ -1,4 +1,5 @@
 import os
+import warnings
 import numpy as np
 
 from scipy.interpolate import RegularGridInterpolator
@@ -549,6 +550,28 @@ class FramedImage(FramedArray):
             vox2world=matrix,
             voxsize=self.geom.voxsize)
         return self.new(conformed_data, target_geom)
+
+    def fit_to_shape(self, shape, center=None, copy=True):
+        """
+        This is an alias to `reshape()` for backwards compatability.
+
+        Parameters
+        ----------
+        shape : tuple of int
+            Target shape.
+        center : center type
+            This is a legacy argument that will be ignored.
+        copy : bool
+            Return copy of image even if target shape is already satisfied.
+
+        Returns
+        -------
+        arr : !class
+            Reshaped image.
+        """
+        if center is not None:
+            warnings.warn('fit_to_shape center argument no longer has any effect')
+        return self.reshape(shape, copy)
 
     def conform(self, shape=None, voxsize=1.0, orientation='LIA', method='linear', dtype=None, copy=True):
         """
