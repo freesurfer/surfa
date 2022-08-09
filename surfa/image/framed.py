@@ -550,6 +550,26 @@ class FramedImage(FramedArray):
             voxsize=self.geom.voxsize)
         return self.new(conformed_data, target_geom)
 
+    def fit_to_shape(self, shape, center='image', copy=True):
+        """
+        Backwards compatable call to reshape
+
+        Parameters
+        ----------
+        shape : tuple of int
+            Target shape.
+        center : legacy argument that will be IGNORED
+            Placeholder to be compatable with legacy versions of fit_to_shape
+        copy : bool
+            Return copy of image even if target shape is already satisfied.
+
+        Returns
+        -------
+        FramedImage
+            Reshaped image.
+        """
+        return self.reshape(shape, copy)
+
     def conform(self, shape=None, voxsize=1.0, orientation='LIA', method='linear', dtype=None, copy=True):
         """
         Conforms image to a specific shape, type, resolution, and orientation.
