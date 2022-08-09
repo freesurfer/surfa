@@ -29,18 +29,21 @@ To update the [surfa documentation](https://surfer.nmr.mgh.harvard.edu/docs/surf
 ```bash
 # setup
 export PATH=$HOME/.local/bin:/space/freesurfer/python/linux/bin:$PATH
+export PYTHONPATH=$HOME/surfa.doc/surfa
 cd $HOME/surfa.doc
 
 # clone surfa and checkout the just-released stable tag
 git clone https://github.com/freesurfer/surfa.git
-cd surfa/doc
+cd surfa
 git checkout vX.X.X
+python setup.py build_ext --inplace
+cd docs
 
 # build the html
 make
 
 # sync the new html (DO NOT run this if the above command failed!)
-rsync -aZP --delete build/html/* /var/www/html/surfa/
+rsync -aZP --delete build/html/* /var/www/html/docs/surfa/
 
 # cleanup
 cd -
