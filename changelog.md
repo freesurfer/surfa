@@ -2,19 +2,24 @@
 
 All notable changes to the surfa package are documented in this file.
 
+## [0.3.2] - 2022-08-09
+- Fixed NIFTI slice and overlay loading.
+- Fixed overlay frame cropping.
+- Added substantial documentation.
+
 ## [0.3.1] - 2022-08-04
 - Fixed header codes when writing NIFTI files.
 
 ## [0.3.0] - 2022-08-04
-- Added mesh self-intersection removal
-- Fixed ndarray and overlay casting
-- Fixed casting of ndarray to overlay
+- Added mesh self-intersection removal.
+- Fixed ndarray and overlay casting.
+- Fixed casting of ndarray to overlay.
 
 ## [0.2.0] - 2022-07-26
-- Added interpolation of image coordinates
-- Added segmentation recoding utilities
-- Added freesurfer-specific functions for surface label reading and label-lookups
-- Fixed propagation of label lookups
+- Added interpolation of image coordinates.
+- Added segmentation recoding utilities.
+- Added freesurfer-specific functions for surface label reading and label-lookups.
+- Fixed propagation of label lookups.
 
 ## [0.1.0] - 2022-07-20
 - Added ray intersection, mesh knn, mesh smoothing, and spherical parameterization.
