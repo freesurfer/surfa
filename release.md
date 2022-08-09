@@ -20,3 +20,29 @@ To push a formal release to pypi (so that it is pip-installable), first make sur
 3. Generate a source-only (this is important) distribution by running `python setup.py sdist`.
 4. Upload to pypi using `twine upload dist/*` and provide your credentials. If you don't have twine, it can be [pip-installed](https://pypi.org/project/twine/).
 5. That's it! Somtimes it takes a few minutes for the package to be  accessible via pip. You'll want to test to make sure the install process goes ok, especially if changes are made to the setup scripts or cython code.
+
+
+### Generate online documentation
+
+To update the [surfa documentation](https://surfer.nmr.mgh.harvard.edu/docs/surfa), run the following commands while ssh'd to `fsurfer@surfer`. This should be scripted at some point so that documentation can update daily.
+
+```bash
+# setup
+export PATH=$HOME/.local/bin:/space/freesurfer/python/linux/bin:$PATH
+cd $HOME/surfa.doc
+
+# clone surfa and checkout the just-released stable tag
+git clone https://github.com/freesurfer/surfa.git
+cd surfa/doc
+git checkout vX.X.X
+
+# build the html
+make
+
+# sync the new html (DO NOT run this if the above command failed!)
+rsync -aZP --delete build/html/* /var/www/html/surfa/
+
+# cleanup
+cd -
+rm -rf surfa
+```

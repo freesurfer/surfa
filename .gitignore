@@ -5,3 +5,4 @@ __pycache__
 
 docs/.deps
 docs/build
+docs/reference/api

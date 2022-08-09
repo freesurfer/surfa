@@ -6,8 +6,20 @@ from surfa.core.framed import FramedArray
 
 class Overlay(FramedArray):
 
-    def __init__(self, data, **kwargs):
-        super().__init__(basedim=1, data=data, **kwargs)
+    def __init__(self, data, labels=None, metadata=None):
+        """
+        1D mesh overlay class defining an array with data frames.
+
+        Parameters
+        ----------
+        data : array_like
+            Image data array.
+        labels : dict or LabelLookup, optional
+            Label-name lookup for segmentation indices.
+        metadata : dict, optional
+            Dictionary containing arbitrary array metadata.
+        """
+        super().__init__(basedim=1, data=data, labels=labels, metadata=metadata)
 
 
 def cast_overlay(obj, allow_none=True, copy=False):

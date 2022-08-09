@@ -51,7 +51,7 @@ class FramedImage(FramedArray):
     @property
     def geom(self):
         """
-        ImageGeometry object that positions image coordinates in 3D world space.
+        Linear relationship between image coordinates and world-space coordinates.
         """
         return self._geometry
 
@@ -86,7 +86,7 @@ class FramedImage(FramedArray):
 
         Returns
         -------
-        FramedImage
+        smoothed : !class
             Smoothed image.
         """
         if np.isscalar(sigma):
@@ -119,7 +119,7 @@ class FramedImage(FramedArray):
 
         Returns
         -------
-        FramedImage or np.ndarray
+        cropped : !class or np.ndarray
             Cropped image with updated geometry or np.ndarray if cropped result
             no longer has valid image dimensionality.
         """
@@ -235,7 +235,7 @@ class FramedImage(FramedArray):
 
         Returns
         -------
-        FramedImage
+        cropped : !class
             Cropped image with updated geometry.
         """
         return self[self.bbox(margin=margin)]
@@ -255,7 +255,7 @@ class FramedImage(FramedArray):
 
         Returns
         -------
-        FramedImage
+        resized : !class
             Resized image with updated geometry.
         """
         if self.basedim == 2:
@@ -305,7 +305,7 @@ class FramedImage(FramedArray):
 
         Returns
         -------
-        FramedImage
+        resampled : !class
             Resampled image with updated geometry.
         """
         if self.basedim == 2:
@@ -372,7 +372,7 @@ class FramedImage(FramedArray):
         ----------
         affine : Affine
             Affine (linear) transform to apply.
-        disp : FramedImage
+        disp : !class
             Non-linear transform to apply, in the form of a displacement vector field.
         method : {'linear', 'nearest'}
             Image interpolation method if resample is enabled.
@@ -387,7 +387,7 @@ class FramedImage(FramedArray):
 
         Returns
         -------
-        FramedImage
+        arr : !class
             Transformed image.
         """
         if self.basedim == 2:
@@ -445,7 +445,7 @@ class FramedImage(FramedArray):
 
         Returns
         -------
-        FramedImage
+        arr : !class
             Reoriented image.
         """
         if self.basedim == 2:
@@ -506,7 +506,7 @@ class FramedImage(FramedArray):
 
         Returns
         -------
-        FramedImage
+        arr : !class
             Reshaped image.
         """
         if self.basedim == 2:
@@ -571,7 +571,7 @@ class FramedImage(FramedArray):
 
         Returns
         -------
-        FramedImage
+        arr : !class
             Conformed image.
         """
         conformed = self.reorient(orientation, copy=False)
@@ -614,19 +614,47 @@ class FramedImage(FramedArray):
 
 class Slice(FramedImage):
 
-    def __init__(self, data, **kwargs):
-        super().__init__(basedim=2, data=data, **kwargs)
+    def __init__(self, data, geometry=None, labels=None, metadata=None):
+        """
+        2D image class defining an array with data frames and associated geometry.
+
+        Parameters
+        ----------
+        data : array_like
+            Image data array.
+        geometry : ImageGeometry, optional
+            Image geometry mapping the image data to world coordinates.
+        labels : dict or LabelLookup, optional
+            Label-name lookup for segmentation indices.
+        metadata : dict, optional
+            Dictionary containing arbitrary array metadata.
+        """
+        super().__init__(basedim=2, data=data, geometry=geometry, labels=labels, metadata=metadata)
 
 
 class Volume(FramedImage):
 
-    def __init__(self, data, **kwargs):
-        super().__init__(basedim=3, data=data, **kwargs)
+    def __init__(self, data, geometry=None, labels=None, metadata=None):
+        """
+        3D image class defining an array with data frames and associated geometry.
+
+        Parameters
+        ----------
+        data : array_like
+            Image data array.
+        geometry : ImageGeometry, optional
+            Image geometry mapping the image data to world coordinates.
+        labels : dict or LabelLookup, optional
+            Label-name lookup for segmentation indices.
+        metadata : dict, optional
+            Dictionary containing arbitrary array metadata.
+        """
+        super().__init__(basedim=3, data=data, geometry=geometry, labels=labels, metadata=metadata)
 
 
 def cast_image(obj, allow_none=True, copy=False):
     """
-    Cast object to `FramedImage` type.
+    Cast object to `Volume` or `Slice` type.
 
     Parameters
     ----------
@@ -639,7 +667,7 @@ def cast_image(obj, allow_none=True, copy=False):
 
     Returns
     -------
-    FramedImage or None
+    Volume or Slice or None
         Casted image.
     """
     if obj is None and allow_none:
@@ -680,7 +708,7 @@ def cast_slice(obj, allow_none=True, copy=False):
 
     Returns
     -------
-    FramedImage or None
+    Slice or None
         Casted image.
     """
     if obj is None and allow_none:

@@ -34,7 +34,9 @@ class FramedArray:
             Array to pad.
         data : array_like
             Internal data array.
-        metadata : dict
+        labels : dict or LabelLookup, optional
+            Label name lookup associated with segmentation indicies.
+        metadata : dict, optional
             Dictionary containing arbitrary array metadata.
         """
 
@@ -86,7 +88,7 @@ class FramedArray:
 
         Returns
         -------
-        FramedArray
+        arr : !class
             Array with zero values.
         """
         nframes = frames if frames is not None else self.nframes
@@ -105,7 +107,7 @@ class FramedArray:
     @property
     def metadata(self):
         """
-        Metadata dictionary.
+        dict : Dictionary to store various metadata associated with the image.
         """
         return self._metadata
 
@@ -119,7 +121,7 @@ class FramedArray:
     @property
     def labels(self):
         """
-        Label lookup for segmentation data.
+        LabelLookup : Label-name lookup for segmentation indices.
         """
         return self._metadata.get('labels')
 
@@ -135,7 +137,7 @@ class FramedArray:
     @property
     def basedim(self):
         """
-        Base dimensionality of the array (excludes frame dimension).
+        Base spatial dimensionality of the array (always excludes frame dimension).
         """
         return self._basedim
 
@@ -192,7 +194,7 @@ class FramedArray:
     @property
     def framed_data(self):
         """
-        Core data array reshaped to always include the frame dimension, regardless of nframes.
+        Core data array reshaped to include the frame dimension, regardless of nframes.
         """
         return conform_ndim(self.data, self.basedim + 1)
 
@@ -213,7 +215,7 @@ class FramedArray:
     @property
     def baseshape(self):
         """
-        Base shape of the data array (excludes the frame dimension).
+        Base spatial shape of the data array (always excludes the frame dimension).
         """
         return self.data.shape[:self.basedim]
 
@@ -249,7 +251,7 @@ class FramedArray:
 
         Returns
         -------
-        arr : FramedArray
+        arr : !class
             Array with target datatype.
         """
         if dtype == self.dtype and not copy:
@@ -289,9 +291,9 @@ class FramedArray:
 
         Returns
         -------
-        scalar or FramedArray
+        scalar or !class
             Returns scalar min value, unless `frames` is set to true, in which case a
-            new FramedArray is returned.
+            new !class is returned.
         """
         if frames:
             return self.new(self.framed_data.min(axis=-1))
@@ -311,9 +313,9 @@ class FramedArray:
 
         Returns
         -------
-        scalar or FramedArray
+        scalar or !class
             Returns scalar max value, unless `frames=True`, in which case a
-            new FramedArray is returned.
+            new !class is returned.
         """
         if frames:
             return self.new(self.framed_data.max(axis=-1))
@@ -332,9 +334,9 @@ class FramedArray:
 
         Returns
         -------
-        scalar or FramedArray
+        scalar or !class
             Returns scalar mean value, unless `frames` is set to true, in which case a
-            new FramedArray is returned.
+            new !class is returned.
         """
         if frames:
             return self.new(self.framed_data.mean(axis=-1))
@@ -415,11 +417,14 @@ class FramedArray:
 
         Returns
         -------
-        FramedArray
+        arr : !class
             Multi-frame one-hot segmentation array.
         """
         if self.nframes > 1:
-            raise RuntimeError(f'cannot onehot-encode labels with more than 1 frame, but array has {self.nframes} frames')
+            raise ValueError(f'cannot onehot-encode labels with more than 1 frame, but array has {self.nframes} frames')
+
+        if not np.issubdtype(self.dtype, np.integer):
+            raise ValueError('cannot onehot-encode a non-integer array, got dtype {self.dtype}')
 
         mapping = np.asarray(mapping)
         if mapping.ndim != 1:
@@ -447,16 +452,16 @@ class FramedArray:
 
         Returns
         -------
-        FramedArray
+        arr : !class
             Collapsed, discrete segmentation array.
         """
         if self.nframes == 1:
-            raise RuntimeError('cannot collapse probabilities with only 1 frame')
+            raise ValueError('cannot collapse probabilities with only 1 frame')
         
         inttype = np.uint16 if self.nframes < np.iinfo(np.uint16).max else np.uint32
         seg = np.zeros(self.baseshape, dtype=inttype)
         np.argmax(self, axis=-1, out=seg)
-        
+
         if mapping is not None:
             mapping = np.asarray(mapping)
             if mapping.ndim != 1:
@@ -469,9 +474,13 @@ class FramedArray:
     def __array__(self, dtype=None):
         return self.data
 
-    # propagate numpy indexing
+    # propagate numpy indexing - return a new instance if shape is preserved
     def __getitem__(self, index_expression):
-        return self.data[index_expression]
+        indexed = self.data[index_expression]
+        if indexed.ndim in (self.basedim, self.basedim + 1):
+            if indexed.shape[:self.basedim] == self.baseshape:
+                return self.new(indexed)
+        return indexed
 
     # comparison operators
 

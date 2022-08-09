@@ -38,7 +38,7 @@ class Affine:
         self.target = target
 
     def __repr__(self):
-        return str(self.matrix)
+        return repr(self.matrix).replace('array([', 'sf.Affine([\n       ')
 
     @property
     def _writeable(self):

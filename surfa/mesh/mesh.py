@@ -22,6 +22,9 @@ class Mesh:
         """
         Triangular mesh topology represented by arrays of vertices and faces.
 
+        Properties of the mesh graph are automatically recomputed when the vertex and face
+        data is updated.
+
         Parameters
         ----------
         vertices : (V, 3) float
@@ -217,7 +220,7 @@ class Mesh:
     @cached_mesh_property
     def triangles(self):
         """
-        Triangle coordinate arrary with shape [F, 3, 3]. This parameter is
+        Triangle coordinate arrary with shape (F, 3, 3). This parameter is
         recomputed upon retrieval if the mesh changes.
         """
         return self.vertices[self.faces]
@@ -329,8 +332,8 @@ class Mesh:
     @cached_mesh_property
     def kdtree(self):
         """
-        KD tree of the vertex structure, using a `scipy.spatial.cKDTree` implementation.
-        This parameter is recomputed upon retrieval if the mesh changes.
+        KD tree of the vertex structure. This parameter is recomputed upon retrieval if
+        the mesh changes. The tree is represented by a `scipy.spatial.cKDTree` instance.
         """
         return cKDTree(self.vertices)
 

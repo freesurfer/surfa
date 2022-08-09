@@ -1,35 +1,57 @@
-# -- Project information -----------------------------------------------------
+import os
+import sys
+
+sys.path.insert(0, os.path.abspath('../'))
+
+# -- project information -----------------------------------------------------
 
 project = 'Surfa'
 copyright = 'Andrew Hoopes'
 author = 'Andrew Hoopes'
 
-# -- General configuration ---------------------------------------------------
+# -- general configuration ---------------------------------------------------
 
 extensions = [
+    'sphinx.ext.autosummary',
     'sphinx.ext.napoleon', # numpy-style
     'myst_parser'          # markdown
 ]
 templates_path = ['templates']
 exclude_patterns = ['build', 'Thumbs.db', '.DS_Store']
 
-# -- Options for HTML output -------------------------------------------------
+# -- options for HTML output -------------------------------------------------
 
-# The theme to use for HTML and HTML Help pages.  See the documentation for
-# a list of builtin themes.
-#
-html_theme = 'sphinx_rtd_theme'
+# theme
+html_theme = 'pydata_sphinx_theme'
 
-# Add any paths that contain custom static files (such as style sheets) here,
-# relative to this directory. They are copied after the builtin static files,
-# so a file named "default.css" will overwrite the builtin "default.css".
+# custom css 
 html_static_path = ['static']
+html_css_files = ['style.css']
 
-# Edit on Github link
 html_context = {
+    'default_mode': 'light',
     'display_github': True,
     'github_version': 'master',
     'github_user': 'freesurfer',
     'github_repo': 'surfa',
     'conf_py_path': '/docs/',
 }
+
+html_theme_options = {
+   'pygment_light_style': 'trac',
+}
+
+add_module_names = True
+autoclass_content = 'both'
+
+# -- custom processing -------------------------------------------------------
+
+# search docstring and replace !class with name of the current class
+# useful for propagating correct return types in subclass functions
+def process_docstring(app, what, name, obj, options, lines):
+    classname = name.split('.')[-2]
+    for i in range(len(lines)):
+        lines[i] = lines[i].replace('!class', classname)
+
+def setup(app):
+    app.connect('autodoc-process-docstring', process_docstring)

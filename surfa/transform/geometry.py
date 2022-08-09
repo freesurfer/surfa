@@ -15,12 +15,13 @@ class ImageGeometry:
 
     def __init__(self, shape, voxsize=None, rotation=None, center=None, shear=None, vox2world=None):
         """
-        An ImageGeometry object defines the correspondence between voxel coordinates and
-        world (RAS) coordinates for a given image. This correspondence can be represented
-        by either a singular affine (voxel-to-world transform matrix) or a set of linear
-        components (voxel scale, position, rotation, and shear). These parameters and
-        corresponding coordinates transforms are appropriately recomputed upon any
-        modification.
+
+        Defines the correspondence between voxel coordinates and world coordinates for an image.
+
+        This correspondence can be represented by either a singular affine (voxel-to-world
+        transform matrix) or a set of linear components (voxel scale, position, rotation,
+        and shear). These parameters and corresponding coordinates transforms are appropriately
+        recomputed upon any modification.
 
         Parameters
         ----------
@@ -29,13 +30,13 @@ class ImageGeometry:
         voxsize : scalar or float
             Voxel size in millimeters.
         rotation : (3, 3) float
-            Voxel-to-world rotation matrix. If provide, cannot also provide `vox2world`.
+            Voxel-to-world rotation matrix. If provided, cannot also provide `vox2world`.
         center : array_like float
-            World coordinate of the image center. If provide, cannot also provide `vox2world`.
+            World coordinate of the image center. If provided, cannot also provide `vox2world`.
         shear : (3,) float
-            Image shear. If provide, cannot also provide `vox2world`.
+            Image shear. If provided, cannot also provide `vox2world`.
         vox2world : (4, 4) float or Affine
-            Complete Voxel-to-world transform matrix.
+            Voxel-to-world transform matrix.
         """
 
         # check image shape
@@ -80,13 +81,13 @@ class ImageGeometry:
         voxsize : scalar or float
             Voxel size in millimeters.
         rotation : (3, 3) float
-            Voxel-to-world rotation matrix. If provide, cannot also provide `vox2world`.
+            Voxel-to-world rotation matrix. If provided, cannot also provide `vox2world`.
         center : array_like float
-            World coordinate of the image center. If provide, cannot also provide `vox2world`.
+            World coordinate of the image center. If provided, cannot also provide `vox2world`.
         shear : (3,) float
-            Image shear. If provide, cannot also provide `vox2world`.
+            Image shear. If provided, cannot also provide `vox2world`.
         vox2world : (4, 4) float or Affine
-            Complete Voxel-to-world transform matrix.
+            Voxel-to-world transform matrix.
         """
 
         if voxsize is not None:

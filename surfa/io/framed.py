@@ -163,6 +163,8 @@ def framed_array_from_4d(atype, data):
     if atype == Volume:
         return atype(data)
     # slice
+    if data.ndim == 3:
+        data = np.expand_dims(data, -1)
     data = data.squeeze(-2)
     if atype == Slice:
         return atype(data)
