@@ -518,7 +518,7 @@ class FramedImage(FramedArray):
         if np.array_equal(self.baseshape, shape):
             return self.copy() if copy else self
 
-        delta = (np.array(shape) - np.array(self.baseshape)) / 2
+        delta = (np.array(shape[:3]) - np.array(self.baseshape)) / 2
         low = np.floor(delta).astype(int)
         high = np.ceil(delta).astype(int)
 
