@@ -224,7 +224,7 @@ class FramedImage(FramedArray):
             cropping = tuple([slice(*s) for s in zip(start, stop, step)])
         return cropping
 
-    def crop_to_bbox(self, margin=None):
+    def crop_to_bbox(self, margin=None, crop_like=None):
         """
         Crop to the bounding box of image data greater than zero.
 
@@ -233,13 +233,22 @@ class FramedImage(FramedArray):
         margin : int of sequence of int
             Add a margin to the bounding box in units of voxels. The margin will not
             extend beyond the base image shape.
+        crop_like : list of FramedImages
+            A list of volumes that will be cropped to the same bounding box as self
 
         Returns
         -------
         cropped : !class
             Cropped image with updated geometry.
         """
-        return self[self.bbox(margin=margin)]
+        if crop_like is not None:
+            cropping = self.bbox(margin=margin)
+            boxed = [self[cropping]]
+            for framed in crop_like:
+                boxed.append(framed[cropping])
+            return boxed
+        else:
+            return self[self.bbox(margin=margin)]
 
     def resize(self, voxsize, method='linear', copy=True):
         """
