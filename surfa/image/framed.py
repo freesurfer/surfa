@@ -642,12 +642,7 @@ class FramedImage(FramedArray):
                                          bounds_error=bounds_error, fill_value=fill)
         sampled = interp(points)
         return sampled
-    
-    # 'deprecated' functions for backwards compat
-    @property
-    def affine(self):
-        return self.geom.vox2world
-
+        
 class Slice(FramedImage):
 
     def __init__(self, data, geometry=None, labels=None, metadata=None):
