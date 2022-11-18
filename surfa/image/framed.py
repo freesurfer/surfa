@@ -91,7 +91,7 @@ class FramedImage(FramedArray):
             Smoothed image.
         """
         if np.isscalar(sigma):
-            sigma = (*np.repeat(sigma, self.basdim), 0)
+            sigma = (*np.repeat(sigma, self.basedim), 0)
         else:
             sigma = np.asarray(sigma, dtype='float')
             check_array(sigma, ndim=1, shape=[[self.basedim], [self.basedim + 1]], name='sigma')
