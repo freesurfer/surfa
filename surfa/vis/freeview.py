@@ -271,7 +271,7 @@ def _find_vgl():
         return None
     islocal = any([os.environ.get('DISPLAY', '').endswith(string) for string in (':0', ':0.0')])
     no_glx = 'NV-GLX' in collect_output('xdpyinfo')[0]
-    if not islocal and not nvglx:
+    if not islocal and not no_glx:
         return vgl_path
     return None
 
