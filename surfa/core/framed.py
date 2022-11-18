@@ -3,7 +3,6 @@ import numpy as np
 
 from surfa.core.array import conform_ndim
 from surfa.core.labels import LabelLookup
-from surfa.transform.affine import affine_equal
 
 
 class FramedArray:
@@ -519,59 +518,32 @@ class FramedArray:
     def __or__(self, other):
         return self.new(self.data | np.asarray(other))
 
-    def __add__(self, other, force=False):
-        if force or \
-            affine_equal(self.geom.vox2world, other.geom.vox2world, True):
-            return self.new(self.data + np.asarray(other))
-        print(f'Incompatile affines, use __add__(other, force=True) to override')
+    def __add__(self, other):
+        return self.new(self.data + np.asarray(other))
 
-    def __radd__(self, other, force=False):
-        if force or \
-            affine_equal(self.geom.vox2world, other.geom.vox2world, True):
-            return self.new(np.asarray(other) + self.data)
-        print(f'Incompatile affines, use __radd__(other, force=True) to override')
+    def __radd__(self, other):
+        return self.new(np.asarray(other) + self.data)
 
-    def __sub__(self, other, force=False):
-        if force or \
-            affine_equal(self.geom.vox2world, other.geom.vox2world, True):
-            return self.new(self.data - np.asarray(other))
-        print(f'Incompatile affines, use __sub__(other, force=True) to override')
+    def __sub__(self, other):
+        return self.new(self.data - np.asarray(other))
 
-    def __rsub__(self, other, force=False):
-        if force or \
-            affine_equal(self.geom.vox2world, other.geom.vox2world, True):
-            return self.new(np.asarray(other) - self.data)
-        print(f'Incompatile affines, use __rsub__(other, force=True) to override')
+    def __rsub__(self, other):
+        return self.new(np.asarray(other) - self.data)
 
-    def __mul__(self, other, force=False):
-        if force or \
-            affine_equal(self.geom.vox2world, other.geom.vox2world, True):
-            return self.new(self.data * np.asarray(other))
-        print(f'Incompatile affines, use __mul__(other, force=True) to override')
+    def __mul__(self, other):
+        return self.new(self.data * np.asarray(other))
 
-    def __rmul__(self, other, force=False):
-        if force or \
-            affine_equal(self.geom.vox2world, other.geom.vox2world, True):
-            return self.new(np.asarray(other) * self.data)
-        print(f'Incompatile affines, use __rmul__(other, force=True) to override')
+    def __rmul__(self, other):
+        return self.new(np.asarray(other) * self.data)
 
-    def __truediv__(self, other, force=False):
-        if force or \
-            affine_equal(self.geom.vox2world, other.geom.vox2world, True):
-            return self.new(self.data / np.asarray(other))
-        print(f'Incompatile affines, use __truediv__(other, force=True) to override')
+    def __truediv__(self, other):
+        return self.new(self.data / np.asarray(other))
 
-    def __rtruediv__(self, other, force=False):
-        if force or \
-            affine_equal(self.geom.vox2world, other.geom.vox2world, True):
-            return self.new(np.asarray(other) / self.data)
-        print(f'Incompatile affines, use __rtruediv__(other, force=True) to override')
+    def __rtruediv__(self, other):
+        return self.new(np.asarray(other) / self.data)
 
-    def __pow__(self, other, force=False):
-        if force or \
-            affine_equal(self.geom.vox2world, other.geom.vox2world, True):
-            return self.new(self.data ** np.asarray(other))
-        print(f'Incompatile affines, use __pow__(other, force=True) to override')
+    def __pow__(self, other):
+        return self.new(self.data ** np.asarray(other))
 
     # assignment operators
 
@@ -582,33 +554,22 @@ class FramedArray:
             value = np.asarray(value)
         self.data[key] = value
 
-    def __iadd__(self, other, force=False):
-        if force or \
-            affine_equal(self.geom.vox2world, other.geom.vox2world, True):
-            self.data += np.asarray(other)
-            return self
-        print(f'Incompatile affines, use __iadd__(other, force=True) to override')
+    def __iadd__(self, other):
+        self.data += np.asarray(other)
+        return self
 
-    def __isub__(self, other, force=False):
-        if force or \
-            affine_equal(self.geom.vox2world, other.geom.vox2world, True):
-            self.data -= np.asarray(other)
-            return self
-        print(f'Incompatile affines, use __isub__(other, force=True) to override')
+    def __isub__(self, other):
+        self.data -= np.asarray(other)
+        return self
 
-    def __imul__(self, other, force=False):
-        if force or \
-            affine_equal(self.geom.vox2world, other.geom.vox2world, True):
-            self.data *= np.asarray(other)
-            return self
-        print(f'Incompatile affines, use __imul__(other, force=True) to override')
+    def __imul__(self, other):
+        self.data *= np.asarray(other)
+        return self
 
-    def __itruediv__(self, other, force=False):
-        if force or \
-            affine_equal(self.geom.vox2world, other.geom.vox2world, True):
-            self.data /= np.asarray(other)
-            return self
-        print(f'Incompatile affines, use __itrudiv__(other, force=True) to override')
+    def __itruediv__(self, other):
+        self.data /= np.asarray(other)
+        return self
+
 
 def stack(arrays):
     """
