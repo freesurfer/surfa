@@ -451,6 +451,8 @@ class NiftiArrayIO(protocol.IOProtocol):
         if isinstance(arr, FramedImage):
             voxsize = nii.header['pixdim'][1:4]
             arr.geom.update(vox2world=nii.affine, voxsize=voxsize)
+            arr.metadata['qform_code'] = int(nii.header['qform_code'])
+            arr.metadata['sform_code'] = int(nii.header['sform_code'])
         return arr
 
     def save(self, arr, filename):
@@ -465,7 +467,6 @@ class NiftiArrayIO(protocol.IOProtocol):
             Target file path.
         """
         is_image = isinstance(arr, FramedImage)
-        matrix = arr.geom.vox2world.matrix if is_image else np.eye(4)
 
         # convert to a valid output type (for now this is only bool but there are probably more)
         type_map = {
@@ -482,14 +483,13 @@ class NiftiArrayIO(protocol.IOProtocol):
             shape = shape[:-1]
 
         # edit header data
-        nii = self.nib.Nifti1Image(data.reshape(shape), matrix)
+        nii = self.nib.Nifti1Image(data.reshape(shape), np.eye(4))
         nii.header['pixdim'][:] = 1
-        nii.header['pixdim'][0] = -1
-        nii.header['qform_code'] = np.array(1, dtype=np.int16)
-        nii.header['sform_code'] = np.array(1, dtype=np.int16)
         if is_image:
             nii.header['pixdim'][1:4] = arr.geom.voxsize
-        
+            nii.set_sform(arr.geom.vox2world.matrix, arr.metadata.get('sform_code', 1))
+            nii.set_qform(arr.geom.vox2world.matrix, arr.metadata.get('qform_code', 1))
+
         # write
         self.nib.save(nii, filename)
 
