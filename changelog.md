@@ -2,6 +2,10 @@
 
 All notable changes to the surfa package are documented in this file.
 
+## [0.3.3] - 2022-11-19
+- Fixed qform and sform propagation for NIFTI IO
+- Fixed bug in image smoothing
+
 ## [0.3.2] - 2022-08-09
 - Fixed NIFTI slice and overlay loading.
 - Fixed overlay frame cropping.
