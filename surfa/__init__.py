@@ -2,7 +2,7 @@
 # SURFA
 #
 
-__version__ = '0.3.4'
+__version__ = '0.3.5'
 
 from . import system
 
@@ -31,4 +31,3 @@ from .io import load_mesh
 
 from . import vis
 from . import freesurfer
-from . import utils

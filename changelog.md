@@ -2,6 +2,9 @@
 
 All notable changes to the surfa package are documented in this file.
 
+## [0.3.5] - 2022-11-30
+- Fixed fatal import error of missing utils directory
+
 ## [0.3.4] - 2022-11-29
 - Fixed bug preventing image transformations with displacement fields
 

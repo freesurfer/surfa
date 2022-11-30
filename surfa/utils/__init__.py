@@ -1,1 +1,0 @@
-from .freesurfer_pipeline import CommandPipeline
