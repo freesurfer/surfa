@@ -1,0 +1,24 @@
+name: Package Test
+
+on: [push]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 5
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python 3.8
+      uses: actions/setup-python@v3
+      with:
+        python-version: 3.8
+    - name: Install package
+      run: |
+        pip install setup.py
+    - name: Run tests
+      working-directory: test
+      # this is expected to fail
+      run: |
+        python -c 'import surfa bad'
