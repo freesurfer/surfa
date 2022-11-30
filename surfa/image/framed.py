@@ -406,6 +406,9 @@ class FramedImage(FramedArray):
         if not resample and disp is not None:
             raise ValueError('resampling must be enabled if transforming image with displacement field')
 
+        if affine is None and disp is None:
+            raise ValueError('must provide at least an affine or displacement field')
+
         # if not resampling, just change the image vox2world matrix and return
         if not resample and affine is not None:
             affine = cast_affine(affine)
@@ -435,11 +438,16 @@ class FramedImage(FramedArray):
             matrix = affine.inv().matrix
 
         # get displacement data
-        disp_data = disp.data if disp is not None else None
+        disp = cast_image(disp)
+        if disp is not None:
+            disp = disp.data
+            if affine is None:
+                # TODO should this set to disp.geom?
+                target_geom = self.geom
 
         # do the interpolation
         interped = interpolate(source=self.framed_data, target_shape=target_geom.shape, method=method,
-                               affine=matrix, disp=disp_data,  rotation=rotation, fill=fill)
+                               affine=matrix, disp=disp, rotation=rotation, fill=fill)
         return self.new(interped, target_geom)
 
     def reorient(self, orientation, copy=True):

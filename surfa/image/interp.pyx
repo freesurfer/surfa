@@ -74,8 +74,8 @@ def interpolate(source, target_shape, method, affine=None, disp=None, rotation='
     if use_disp:
         if not isinstance(disp, np.ndarray):
             raise ValueError(f'source data must a numpy array, but got input of type {source.__class__.__name__}')
-        if not np.array_equal(disp.shape, target_shape):
-            raise ValueError(f'displacement field shape {disp.shape} must match target shape {target_shape}')
+        if not np.array_equal(disp.shape[:-1], target_shape):
+            raise ValueError(f'displacement field shape {disp.shape[:-1]} must match target shape {target_shape}')
 
     if not source.flags.c_contiguous and not source.flags.f_contiguous:
         # TODO figure out what would cause this
