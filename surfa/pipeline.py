@@ -163,7 +163,7 @@ class CommandPipeline:
         # run commands and check for errors
         for cmd in commands:
             self._print_message('CMD', cmd, 'green')
-            retcode = sf.system.run(cmd, logfile=self.log)
+            retcode = sf.system.run(cmd, log=self.log)
             if retcode != 0:
                 self.fatal('Command "%s" failed with exit code %d' % (cmd, retcode), retcode)
 
