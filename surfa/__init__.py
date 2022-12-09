@@ -31,3 +31,4 @@ from .io import load_mesh
 
 from . import vis
 from . import freesurfer
+from . import pipeline
