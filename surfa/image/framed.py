@@ -347,7 +347,7 @@ class FramedImage(FramedArray):
             coord_rounded = coord.round()
             if np.allclose(coord, coord_rounded, atol=1e-5, rtol=0.0):
                 # compute the slicing coordinates defining the matching grid regions
-                target_start = coord_rounded.astype(np.int)
+                target_start = coord_rounded.astype(np.int64)
                 source_start = np.array([0, 0, 0])
                 target_stop = target_start + source_geom.shape
                 source_stop = source_start + source_geom.shape
