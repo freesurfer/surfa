@@ -3,7 +3,7 @@ import numpy as np
 from surfa.core.array import normalize
 
 
-class IntersectionQuery:
+class RayIntersectionQuery:
 
     def __init__(self, mesh):
         """

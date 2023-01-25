@@ -112,7 +112,7 @@ def vmpeak():
 
 def fatal(message, retcode=1):
     """
-    Print an error message and exits or raises an exception if in interactive mode.
+    Print an error message and exit (or raise an exception if in interactive mode).
 
     Parameters
     ----------
