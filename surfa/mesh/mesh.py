@@ -376,7 +376,7 @@ class Mesh:
         bary : (n, 3) float
             Barycentric weights representing the intersection point on the triangle face.
         """
-        dist, nn = self.kdtree.query(points, k=k)
+        dist, nn = self.kdtree.query(points, k=k, workers=-1)
         return (nn, dist)
 
     @cached_mesh_property
