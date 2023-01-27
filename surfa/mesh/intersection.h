@@ -19,7 +19,7 @@
 
 #define SET(dest, src) dest[0] = src[0]; dest[1] = src[1]; dest[2] = src[2];
 
-#define VTX_IN_FACE(x, v) ((x == v[0]) || (x == v[1]) || (x == v[2]))
+#define CONTAINS(v, item) ((item == v[0]) || (item == v[1]) || (item == v[2]))
 
 #define SORT(a, b) \
     if (a > b)     \
@@ -112,7 +112,8 @@
 }
 
 int coplanar_tri_tri(float N[3], float V0[3], float V1[3], float V2[3],
-    float U0[3], float U1[3], float U2[3]) {
+                     float U0[3], float U1[3], float U2[3])
+{
     float A[3];
     short i0, i1;
     A[0] = FABS(N[0]);
@@ -240,26 +241,26 @@ void self_intersection_test(float * vertices, int nverts,
 
         if (intersecting[f] == 1) continue;
 
-        int * current_face_indices = & faces[f * 3];
-        int * current_neighbors = & selected_neighbors[i * nneighbors];
+        int * current_face_indices = &faces[f * 3];
+        int * current_neighbors = &selected_neighbors[i * nneighbors];
 
         for (int n = 0; n < nneighbors; n++) {
 
             int neighboring_face = current_neighbors[n];
             if (neighboring_face == f) continue;
 
-            int * neighboring_face_indices = & faces[neighboring_face * 3];
-            if (VTX_IN_FACE(current_face_indices[0], neighboring_face_indices) ||
-                VTX_IN_FACE(current_face_indices[1], neighboring_face_indices) ||
-                VTX_IN_FACE(current_face_indices[2], neighboring_face_indices)) continue;
+            int * neighboring_face_indices = &faces[neighboring_face * 3];
+            if (CONTAINS(neighboring_face_indices, current_face_indices[0]) ||
+                CONTAINS(neighboring_face_indices, current_face_indices[1]) ||
+                CONTAINS(neighboring_face_indices, current_face_indices[2])) continue;
 
-            int intersect = tri_tri_intersect( &
-                vertices[current_face_indices[0] * 3], &
-                vertices[current_face_indices[1] * 3], &
-                vertices[current_face_indices[2] * 3], &
-                vertices[neighboring_face_indices[0] * 3], &
-                vertices[neighboring_face_indices[1] * 3], &
-                vertices[neighboring_face_indices[2] * 3]);
+            int intersect = tri_tri_intersect(
+                &vertices[current_face_indices[0] * 3],
+                &vertices[current_face_indices[1] * 3],
+                &vertices[current_face_indices[2] * 3],
+                &vertices[neighboring_face_indices[0] * 3],
+                &vertices[neighboring_face_indices[1] * 3],
+                &vertices[neighboring_face_indices[2] * 3]);
 
             if (intersect == 1) {
                 intersecting[f] = 1;
