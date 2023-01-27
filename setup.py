@@ -37,9 +37,10 @@ packages = [
 base_dir = pathlib.Path(__file__).parent.resolve()
 
 # build cython modules
+extension_params = dict(extra_compile_args=['-O3', '-std=c99'])
 ext_modules = cythonize([
-        Extension('surfa.image.interp', ['surfa/image/interp.pyx']),
-        Extension('surfa.mesh.intersection', ['surfa/mesh/intersection.pyx']),
+        Extension('surfa.image.interp', ['surfa/image/interp.pyx'], **extension_params),
+        Extension('surfa.mesh.intersection', ['surfa/mesh/intersection.pyx'], **extension_params),
     ],
     compiler_directives={'language_level' : '3'})
 
