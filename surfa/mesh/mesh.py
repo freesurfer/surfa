@@ -436,7 +436,11 @@ class Mesh:
         neighborhood = self.sparse_neighborhood(weighted)
 
         overlay = cast_overlay(overlay)
-        smoothed = overlay.data.copy()
+
+        if isinstance(overlay.data, np.floating):
+            smoothed = overlay.data.copy()
+        else:
+            smoothed = overlay.data.astype(np.float64)
 
         if pinned is not None:
             moving = pinned == 0
@@ -653,9 +657,11 @@ class Mesh:
                 pinned = self.face_to_vertex_overlay(pinned, method='min')
 
                 # TODOC
-                if (iteration > 25):
+                if iteration > 25:
+                    pinned = self.smooth_overlay(pinned, iters=4) > 0.99
+                if iteration > 15:
                     pinned = self.smooth_overlay(pinned, iters=2) > 0.99
-                if (iteration > 5):
+                if iteration > 5:
                     pinned = self.smooth_overlay(pinned, iters=1) > 0.99
 
                 # TODOC
