@@ -111,8 +111,8 @@
     }                                  \
 }
 
-int coplanar_tri_tri(float N[3], float V0[3], float V1[3], float V2[3],
-                     float U0[3], float U1[3], float U2[3])
+int coplanar_tri_tri(const float N[3],  const float V0[3], const float V1[3], const float V2[3],
+                     const float U0[3], const float U1[3], const float U2[3])
 {
     float A[3];
     short i0, i1;
@@ -147,8 +147,8 @@ int coplanar_tri_tri(float N[3], float V0[3], float V1[3], float V2[3],
     return 0;
 }
 
-int tri_tri_intersect(float V0[3], float V1[3], float V2[3],
-                      float U0[3], float U1[3], float U2[3])
+int tri_tri_intersect(const float V0[3], const float V1[3], const float V2[3],
+                      const float U0[3], const float U1[3], const float U2[3])
 {
     float E1[3], E2[3];
     float N1[3], N2[3], d1, d2;
@@ -229,10 +229,10 @@ int tri_tri_intersect(float V0[3], float V1[3], float V2[3],
     return 1;
 }
 
-void self_intersection_test(float * vertices, int nverts,
-                            int * faces, int nfaces,
-                            int * selected_faces, int nselected,
-                            int * selected_neighbors, int nneighbors,
+void self_intersection_test(const float * vertices, int nverts,
+                            const int * faces, int nfaces,
+                            const int * selected_faces, int nselected,
+                            const int * selected_neighbors, int nneighbors,
                             int * intersecting)
 {
     for (int i = 0; i < nselected; i++) {
@@ -241,15 +241,15 @@ void self_intersection_test(float * vertices, int nverts,
 
         if (intersecting[f] == 1) continue;
 
-        int * current_face_indices = &faces[f * 3];
-        int * current_neighbors = &selected_neighbors[i * nneighbors];
+        const int * current_face_indices = &faces[f * 3];
+        const int * current_neighbors = &selected_neighbors[i * nneighbors];
 
         for (int n = 0; n < nneighbors; n++) {
 
-            int neighboring_face = current_neighbors[n];
+            const int neighboring_face = current_neighbors[n];
             if (neighboring_face == f) continue;
 
-            int * neighboring_face_indices = &faces[neighboring_face * 3];
+            const int * neighboring_face_indices = &faces[neighboring_face * 3];
             if (CONTAINS(neighboring_face_indices, current_face_indices[0]) ||
                 CONTAINS(neighboring_face_indices, current_face_indices[1]) ||
                 CONTAINS(neighboring_face_indices, current_face_indices[2])) continue;

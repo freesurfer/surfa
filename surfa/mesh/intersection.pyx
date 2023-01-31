@@ -41,7 +41,8 @@ def triangle_intersections(np.ndarray vertices, np.ndarray faces, np.ndarray sel
     """
 
     # prepare the output mask
-    cdef np.ndarray[int, ndim=1] intersecting = np.zeros(selected.shape[0], dtype=np.int32)
+    # TODO have this as a possible input array to save time
+    cdef np.ndarray[int, ndim=1] intersecting = np.zeros(faces.shape[0], dtype=np.int32)
 
     # ensure inputs are correctly-formatted numpy arrays
     cdef np.ndarray[float, ndim=2, mode='c'] arr_vertices = np.ascontiguousarray(vertices.astype(np.float32, copy=False))

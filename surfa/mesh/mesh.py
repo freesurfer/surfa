@@ -566,7 +566,7 @@ class Mesh:
 
         return overlay.new(reduced)
 
-    def find_self_intersecting_faces(self, knn=50, mask=False):
+    def find_self_intersecting_faces(self, knn=50, overlay=False):
         """
         Locate any faces in the mesh topology that are self-intersecting with each other.
         To fix these intersections, see `mesh.remove_self_intersections`.
@@ -576,13 +576,13 @@ class Mesh:
         knn : input
             Number of nearest face neighbors to compute intersections with. The default value
             should be sufficient for most meshes.
-        mask : bool
+        overlay : bool
             If this is enabled, the return value will be a face overlay marking intersecting faces.
 
         Returns
         -------
         intersecting : int array or Overlay
-            Returns an integer array listing the indices of intersecting faces, unless `mask` is enabled,
+            Returns an integer array listing the indices of intersecting faces, unless `overlay` is enabled,
             in which case the function returns a boolean overlay marking the intersecting faces.
         """
 
@@ -599,31 +599,20 @@ class Mesh:
         intersecting = triangle_intersections(self.vertices, self.faces.astype(np.int32), selected, neighbors)
 
         # option to return as a face overlay or just lists of face indices
-        if mask:
+        if overlay:
             return intersecting
         return selected[intersecting]
 
-    def remove_self_intersections(self, smoothing_iters=2, global_iters=50, knn=50):
+    def remove_self_intersections(self, smoothing_iters=2, global_iters=50, knn=50, verbose=False):
         """
         Remove self-intersecting faces in the mesh by smoothing the vertex positions
         of offending triangles.
 
-        Parameters
-        ----------
-        knn : input
-            Number of nearest face neighbors to compute intersections with. The default value
-            should be sufficient for most meshes.
-        mask : bool
-            If this is enabled, the return value will be a face overlay marking intersecting faces.
-
-        Returns
-        -------
-        intersecting : int array or Overlay
-            Returns an integer array listing the indices of intersecting faces, unless `mask` is enabled,
-            in which case the function returns a boolean overlay marking the intersecting faces.
+        TODOC
         """
         vertices = self.vertices.astype(np.float64, copy=False)
         faces = self.faces.astype(np.int32, copy=False)
+        all_faces = np.arange(self.nfaces).astype(np.int32)
 
         # we loop over a set of global iterations which begin by checking for intersections
         # within the entire mesh
@@ -635,17 +624,19 @@ class Mesh:
             centers = vertices[faces].mean(1)
             _, neighbors = cKDTree(centers).query(centers, k=knn, workers=-1)
             neighbors = np.ascontiguousarray(neighbors).astype(np.int32)
-            selected = np.arange(self.nfaces).astype(np.int32)
 
             # within each global loop is a set of local iterations, which operate only on a narrowed
             # down a set of intersecting faces
+            selected = all_faces
             for step in range(10):
                 # compute triangle-triangle intersections only on the selected faces
                 intersecting = triangle_intersections(vertices, faces, selected, neighbors[selected])
 
                 # break if no intersections and if this is the first global
-                # iteration, then we're good to go
+                # iteration, then we're good!
                 nintersections = np.count_nonzero(intersecting)
+                if verbose:
+                    print(f'Intersection removal iter {iteration + 1}-{step + 1}: {nintersections} intersections')
                 if nintersections == 0:
                     if step == 0:
                         fixed = self.copy()
@@ -656,15 +647,24 @@ class Mesh:
                 # attempt to remove the intersections by the smoothing the vertices associates
                 # with the troublesome faces
                 # TODO: this smoothing operates over the entire mesh and could be sped up a bunch
-                selected = selected[intersecting]
+                selected = all_faces[intersecting]
                 pinned = np.ones(self.nfaces)
                 pinned[selected] = 0
                 pinned = self.face_to_vertex_overlay(pinned, method='min')
+
+                # TODOC
+                if (iteration > 25):
+                    pinned = self.smooth_overlay(pinned, iters=2) > 0.99
+                if (iteration > 5):
+                    pinned = self.smooth_overlay(pinned, iters=1) > 0.99
+
+                # TODOC
                 vertices = self.smooth_overlay(vertices, iters=smoothing_iters, pinned=pinned).data
 
-        # bad news if we got this far
-        print(f'Warning: Could not completely fix face intersections within {max_iterations} iterations. '
-              f'Resulting mesh still contains {nintersections} intersections.')
+        # most likely bad news if we got this far, unless the global iterations was set very low
+        if (nintersections > 0):
+            print(f'Warning: Could not completely fix face intersections within {global_iters} iterations. '
+                  f'Resulting mesh still contains {nintersections} intersections.')
         unfixed = self.copy()
         unfixed.vertices = vertices
         return unfixed
