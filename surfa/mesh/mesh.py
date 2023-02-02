@@ -6,6 +6,7 @@ from scipy.sparse import coo_matrix
 
 from surfa.core.array import check_array
 from surfa.core.array import normalize
+from surfa.core.array import make_writeable
 from surfa.mesh.cache import cached_mesh_property
 from surfa.mesh.overlay import cast_overlay
 from surfa.mesh.sphere import mesh_is_sphere
@@ -94,7 +95,7 @@ class Mesh:
         check_array(vertices, ndim=2, name='vertices')
         if vertices.shape[-1] != 3:
             raise ValueError(f'expected shape (V, 3) for vertices array, but got {vertices.shape}')
-        self._vertices = vertices
+        self._vertices = make_writeable(vertices)
 
     @property
     def nvertices(self):
@@ -117,7 +118,7 @@ class Mesh:
         check_array(faces, ndim=2, name='faces')
         if faces.shape[-1] != 3:
             raise ValueError(f'expected shape (F, 3) for faces array, but got {faces.shape}')
-        self._faces = faces
+        self._faces = make_writeable(faces)
 
     @property
     def nfaces(self):

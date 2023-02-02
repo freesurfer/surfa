@@ -121,3 +121,24 @@ def normalize(vec):
     normed : ndarray
     """
     return vec / np.sqrt(np.sum(vec * vec, -1)).reshape((-1, 1))
+
+
+def make_writeable(arr):
+    """
+    Enable array writeability. If this is not possible (might be the case for arrays
+    constructed with non-numpy memory methods), then a copy of the input is returned.
+
+    Parameters
+    ----------
+    arr : ndarray
+        Array to check.
+
+    Returns
+    -------
+    writeable : ndarray
+    """
+    try:
+        arr.flags.writeable = True
+    except ValueError:
+        arr = arr.copy()
+    return arr
