@@ -5,6 +5,8 @@ import numpy as np
 from surfa import transform
 from surfa.core.array import check_array
 from surfa.transform.space import cast_space
+from surfa.core.istype import ismesh
+from surfa.core.istype import isimage
 
 
 class Affine:
@@ -91,6 +93,19 @@ class Affine:
         Ensure affines can be cleanly casted to np.ndarray
         """
         return self.matrix
+
+    def __getitem__(self, index):
+        """
+        Use indexing similar to numpy arrays.
+        """
+        return self.matrix[index]
+
+    def __setitem__(self, index, value):
+        """
+        Use indexing similar to numpy arrays.
+        """
+        self._check_writeability()
+        self.matrix[index] = value
 
     @property
     def space(self):
@@ -186,11 +201,28 @@ class Affine:
         (..., N) float
             Transformed N-D point array.
         """
-        points = np.asarray(points)
-        if points.ndim == 1:
-            points = points[np.newaxis]
+        # a common mistake is to use this function for transforming an image
+        # or mesh, so run this check to help the user out a bit
+        if ismesh(points):
+            raise ValueError('use mesh.transform(affine) to apply an affine to a mesh')
+        if isimage(points):
+            raise ValueError('use image.transform(affine) to apply an affine to an image')
+
+        # convert to array
+        np.ascontiguousarray(points)
+
+        # check correct dimensionality
+        if points.shape[-1] != self.ndim:
+            raise ValueError(f'transform() method expected {self.ndim}D points, but got '
+                             f'{points.shape[-1]}D input with shape {points.shape}')
+
+        # account for multiple possible input axes and be sure to
+        # always return the same shape
+        shape = points.shape
+        points = points.reshape(-1, self.ndim)
         points = np.c_[points, np.ones(points.shape[0])].T
-        return np.ascontiguousarray(np.dot(self.matrix, points).T.squeeze()[..., :-1])
+        moved = np.dot(self.matrix, points).T[:, :-1]
+        return np.ascontiguousarray(moved).reshape(shape)
 
     def inv(self):
         """
@@ -231,17 +263,18 @@ class Affine:
             Tuple of (translation, rotation, scale, shear) transform components.
         """
         translation = self.matrix[: self.ndim, -1]
-
         q, r = np.linalg.qr(self.matrix[: self.ndim, : self.ndim])
 
+        # scaling
         di = np.diag_indices(self.ndim)
         scale = np.abs(r[di])
-
         p = np.eye(self.ndim)
         p[di] = r[di] / scale
 
+        # rotation
         rotation = rotation_matrix_to_angles(q @ p, degrees=degrees)
 
+        # shear
         shear_mat = (p @ r) / np.expand_dims(scale, -1)
         if self.ndim == 2:
             shear = shear_mat[0, 1]
