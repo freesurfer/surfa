@@ -3,7 +3,7 @@ __pycache__
 *cpython*.so
 *.c
 
-.egg/*
+.eggs/*
 setup_orig.py
 
 build
