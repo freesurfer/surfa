@@ -3,6 +3,9 @@ __pycache__
 *cpython*.so
 *.c
 
+.eggs
+*setup_orig.py
+
 build
 dist
 surfa.egg-info

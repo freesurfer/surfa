@@ -54,9 +54,13 @@ match = re.search(pattern, init_text, re.M)
 if not match:
     raise RuntimeError(f'Unable to find __version__ in {init_file}.')
 version = match.group(1)
+<<<<<<< HEAD
+if not isinstance(packaging.version.parse(version), packaging.version.Version):
+=======
 try:
     version_obj = parse(version)
 except InvalidVersion:
+>>>>>>> 732b9e2b4a1a3da07e169508837c402054e31e7e
     raise RuntimeError(f'Invalid version string {version}.')
 
 long_description = '''Surfa is a collection of Python utilities for medical image

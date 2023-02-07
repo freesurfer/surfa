@@ -280,14 +280,15 @@ def _convert_kwargs_to_tags(kwargs):
     """
     Converts a kwargs dictionary to freeview key/value tags
     """
+    opts = kwargs.pop('opts','')
     tags = ''
     for key, value in kwargs.items():
         if isinstance(value, (list, tuple)):
             value = ','.join(str(x) for x in value)
         if value is not None:
-            vale = value.replace(' ', '-')
+            value = value.replace(' ', '-')
             tags += f':{key}={value}'
-    return tags
+    return tags+opts
 
 
 def _unique_filename(filename, extension, directory):
