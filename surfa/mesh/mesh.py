@@ -6,10 +6,12 @@ from scipy.sparse import coo_matrix
 
 from surfa.core.array import check_array
 from surfa.core.array import normalize
+from surfa.core.array import make_writeable
 from surfa.mesh.cache import cached_mesh_property
-from surfa.mesh.intersection import IntersectionQuery
-from surfa.mesh.sphere import mesh_is_sphere
 from surfa.mesh.overlay import cast_overlay
+from surfa.mesh.sphere import mesh_is_sphere
+from surfa.mesh.ray import RayIntersectionQuery
+from surfa.mesh.intersection import triangle_intersections
 from surfa.transform import ImageGeometry
 from surfa.transform import image_geometry_equal
 from surfa.transform import cast_image_geometry
@@ -93,7 +95,7 @@ class Mesh:
         check_array(vertices, ndim=2, name='vertices')
         if vertices.shape[-1] != 3:
             raise ValueError(f'expected shape (V, 3) for vertices array, but got {vertices.shape}')
-        self._vertices = vertices
+        self._vertices = make_writeable(vertices)
 
     @property
     def nvertices(self):
@@ -116,7 +118,7 @@ class Mesh:
         check_array(faces, ndim=2, name='faces')
         if faces.shape[-1] != 3:
             raise ValueError(f'expected shape (F, 3) for faces array, but got {faces.shape}')
-        self._faces = faces
+        self._faces = make_writeable(faces)
 
     @property
     def nfaces(self):
@@ -244,6 +246,14 @@ class Mesh:
         return normalize(self.triangles_cross)
 
     @cached_mesh_property
+    def face_areas(self):
+        """
+        Face normal (unit) vectors. This parameter is recomputed upon retrieval
+        if the mesh changes.
+        """
+        return np.sqrt(np.sum(self.triangles_cross ** 2, axis=-1)) / 2
+
+    @cached_mesh_property
     def face_angles(self):
         """
         Face angles (in radians). This parameter is recomputed upon retrieval
@@ -268,7 +278,7 @@ class Mesh:
         corner_angles = self.face_angles[np.repeat(np.arange(len(self.faces)), 3),
                                          np.argsort(self.faces, axis=1).ravel()]
 
-        col = np.tile(np.arange(len(self.faces)).reshape((-1, 1)), (1, 3)).reshape(-1)
+        col = np.tile(np.arange(self.nfaces).reshape((-1, 1)), (1, 3)).reshape(-1)
         row = self.faces.reshape(-1)
 
         data = np.ones(len(col), dtype=bool)
@@ -288,9 +298,16 @@ class Mesh:
     @cached_mesh_property
     def edge_face(self):
         """
-        Face index corresponding to each directional edge in the mesh.
+        Face index corresponding to each directional edge in the mesh. 
         """
         return np.tile(np.arange(self.nfaces), (3, 1)).T.reshape(-1)
+
+    @cached_mesh_property
+    def unique_face_edges(self):
+        """
+        Unique edge indices corresponding to the sides of each face.
+        """
+        return self.unique_edge_indices[1].reshape((-1, 3))
 
     @cached_mesh_property
     def unique_edge_indices(self):
@@ -300,23 +317,26 @@ class Mesh:
         aligned = np.sort(self.edges, axis=1)
         order = np.lexsort((aligned[:, 1], aligned[:, 0]))
         pef = aligned[order]
-        shift = np.any(pef[1:] != pef[:-1], axis=-1)
-        indices = order[np.append(0, np.argwhere(shift) + 1)]
-        return indices
+        shift = np.r_[True, np.any(pef[1:] != pef[:-1], axis=-1), True]
+        matched = np.argwhere(shift).squeeze(-1)
+        repeated = np.repeat(np.arange(len(matched) - 1), np.diff(matched))
+        reverse = repeated[np.argsort(order)]
+        indices = order[matched[:-1]]
+        return indices, reverse
 
     @cached_mesh_property
     def unique_edges(self):
         """
         Unique bi-directional edges in the mesh.
         """
-        return self.edges[self.unique_edge_indices]
+        return self.edges[self.unique_edge_indices[0]]
 
     @cached_mesh_property
     def adjacent_faces(self):
         """
         Adjacent faces that correspond to each edge in `unique_edges`.
         """
-        indices = np.tile(self.unique_edge_indices, (1, 2))
+        indices = np.tile(self.unique_edge_indices[0], (1, 2))
         indices[:, 1] += 1
         return self.edge_face[indices]
 
@@ -357,7 +377,7 @@ class Mesh:
         bary : (n, 3) float
             Barycentric weights representing the intersection point on the triangle face.
         """
-        dist, nn = self.kdtree.query(points, k=k)
+        dist, nn = self.kdtree.query(points, k=k, workers=-1)
         return (nn, dist)
 
     @cached_mesh_property
@@ -365,7 +385,7 @@ class Mesh:
         """
         Cached intersection query for ray-tracing.
         """
-        return IntersectionQuery(self)
+        return RayIntersectionQuery(self)
 
     def ray_intersection(self, origins, dirs):
         """
@@ -417,7 +437,11 @@ class Mesh:
         neighborhood = self.sparse_neighborhood(weighted)
 
         overlay = cast_overlay(overlay)
-        smoothed = overlay.data.copy()
+
+        if isinstance(overlay.data, np.floating):
+            smoothed = overlay.data.copy()
+        else:
+            smoothed = overlay.data.astype(np.float64)
 
         if pinned is not None:
             moving = pinned == 0
@@ -465,3 +489,189 @@ class Mesh:
         sparse.data /= sparse.sum(-1).A1[sparse.row]
 
         return sparse
+
+    def face_to_vertex_overlay(self, overlay, method='mean'):
+        """
+        Convert a face-specific overlay to a vertex-specific overlay.
+
+        Parameters
+        ----------
+        overlay : Overlay
+            Face overlay to convert, must have points equal to the number
+            of mesh faces.
+        method: {'mean', 'min', 'max'}
+            Reduction method to gather face scalars over vertices.
+
+        Returns
+        -------
+        scalars : Overlay
+        """
+        if overlay.shape[0] != self.nfaces:
+            raise ValueError(f'expected overlay to have {self.nfaces} points to match '
+                             f'the number of mesh faces, but instead got {overlay.shape[0]}')
+        overlay = cast_overlay(overlay)
+  
+        # 
+        method = str(method).lower()
+        if method == 'mean':
+            buffer = np.zeros(self.nvertices)
+            np.add.at(buffer, self.faces[:, 0], overlay)
+            np.add.at(buffer, self.faces[:, 1], overlay)
+            np.add.at(buffer, self.faces[:, 2], overlay)
+            buffer /= np.bincount(self.faces.flat)
+        elif method == 'max':
+            buffer = np.full(self.nvertices, overlay.min(), dtype=overlay.dtype)
+            np.maximum.at(buffer, self.faces[:, 0], overlay)
+            np.maximum.at(buffer, self.faces[:, 1], overlay)
+            np.maximum.at(buffer, self.faces[:, 2], overlay)
+        elif method == 'min':
+            buffer = np.full(self.nvertices, overlay.max(), dtype=overlay.dtype)
+            np.minimum.at(buffer, self.faces[:, 0], overlay)
+            np.minimum.at(buffer, self.faces[:, 1], overlay)
+            np.minimum.at(buffer, self.faces[:, 2], overlay)
+        else:
+            raise ValueError(f'unknown method `{method}`, expected one of: mean/min/max')
+
+        return overlay.new(buffer)
+
+    def vertex_to_face_overlay(self, overlay, method='mean'):
+        """
+        Convert a vertex-specific overlay to a face-specific overlay.
+
+        Parameters
+        ----------
+        overlay : Overlay
+            Vertex overlay to convert, must have points equal to the number
+            of mesh vertices.
+        method: {'mean', 'min', 'max'}
+            Reduction method to gather vertex scalars over faces.
+
+        Returns
+        -------
+        scalars : Overlay
+        """
+        if overlay.shape[0] != self.nvertices:
+            raise ValueError(f'expected overlay to have {self.nvertices} points to match '
+                             f'the number of mesh vertices, but instead got {overlay.shape[0]}')
+        overlay = cast_overlay(overlay)
+
+        # 
+        gathered = overlay[self.faces]
+
+        # 
+        method = str(method).lower()
+        if method == 'mean':
+            reduced = gathered.mean(1)
+        elif method == 'max':
+            reduced = gathered.max(1)
+        elif method == 'min':
+            reduced = gathered.min(1)
+        else:
+            raise ValueError(f'unknown method `{method}`, expected one of: mean/min/max')
+
+        return overlay.new(reduced)
+
+    def find_self_intersecting_faces(self, knn=50, overlay=False):
+        """
+        Locate any faces in the mesh topology that are self-intersecting with each other.
+        To fix these intersections, see `mesh.remove_self_intersections`.
+
+        Parameters
+        ----------
+        knn : input
+            Number of nearest face neighbors to compute intersections with. The default value
+            should be sufficient for most meshes.
+        overlay : bool
+            If this is enabled, the return value will be a face overlay marking intersecting faces.
+
+        Returns
+        -------
+        intersecting : int array or Overlay
+            Returns an integer array listing the indices of intersecting faces, unless `overlay` is enabled,
+            in which case the function returns a boolean overlay marking the intersecting faces.
+        """
+
+        # we want to compute an triangle intersection test between nearby faces, so
+        # build a kd tree for the centers of each triangle and lookup closest pairs.
+        # the intesection code will be smart enough to ignore self-referencing hits
+        # as well as immediate neighboring faces
+        centers = self.triangles.mean(1)
+        _, neighbors = cKDTree(centers).query(centers, k=knn, workers=-1)
+
+        # given this list of neighboring faces, compute triangle-triangle intersections
+        neighbors = np.ascontiguousarray(neighbors.astype(np.int32))
+        selected = np.arange(self.nfaces, dtype=np.int32)
+        intersecting = triangle_intersections(self.vertices, self.faces.astype(np.int32), selected, neighbors)
+
+        # option to return as a face overlay or just lists of face indices
+        if overlay:
+            return intersecting
+        return selected[intersecting]
+
+    def remove_self_intersections(self, smoothing_iters=2, global_iters=50, knn=50, verbose=False):
+        """
+        Remove self-intersecting faces in the mesh by smoothing the vertex positions
+        of offending triangles.
+
+        TODOC
+        """
+        vertices = self.vertices.astype(np.float64, copy=False)
+        faces = self.faces.astype(np.int32, copy=False)
+        all_faces = np.arange(self.nfaces).astype(np.int32)
+
+        # we loop over a set of global iterations which begin by checking for intersections
+        # within the entire mesh
+        for iteration in range(global_iters):
+            # we want to compute an triangle intersection test between nearby faces, so
+            # build a kd tree for the centers of each triangle and lookup closest pairs.
+            # the intesection code will be smart enough to ignore self-referencing hits
+            # as well as immediate neighboring faces
+            centers = vertices[faces].mean(1)
+            _, neighbors = cKDTree(centers).query(centers, k=knn, workers=-1)
+            neighbors = np.ascontiguousarray(neighbors).astype(np.int32)
+
+            # within each global loop is a set of local iterations, which operate only on a narrowed
+            # down a set of intersecting faces
+            selected = all_faces
+            for step in range(10):
+                # compute triangle-triangle intersections only on the selected faces
+                intersecting = triangle_intersections(vertices, faces, selected, neighbors[selected])
+
+                # break if no intersections and if this is the first global
+                # iteration, then we're good!
+                nintersections = np.count_nonzero(intersecting)
+                if verbose:
+                    print(f'Intersection removal iter {iteration + 1}-{step + 1}: {nintersections} intersections')
+                if nintersections == 0:
+                    if step == 0:
+                        fixed = self.copy()
+                        fixed.vertices = vertices
+                        return fixed
+                    break
+
+                # attempt to remove the intersections by the smoothing the vertices associates
+                # with the troublesome faces
+                # TODO: this smoothing operates over the entire mesh and could be sped up a bunch
+                selected = all_faces[intersecting]
+                pinned = np.ones(self.nfaces)
+                pinned[selected] = 0
+                pinned = self.face_to_vertex_overlay(pinned, method='min')
+
+                # TODOC
+                if iteration > 25:
+                    pinned = self.smooth_overlay(pinned, iters=4) > 0.99
+                if iteration > 15:
+                    pinned = self.smooth_overlay(pinned, iters=2) > 0.99
+                if iteration > 5:
+                    pinned = self.smooth_overlay(pinned, iters=1) > 0.99
+
+                # TODOC
+                vertices = self.smooth_overlay(vertices, iters=smoothing_iters, pinned=pinned).data
+
+        # most likely bad news if we got this far, unless the global iterations was set very low
+        if (nintersections > 0):
+            print(f'Warning: Could not completely fix face intersections within {global_iters} iterations. '
+                  f'Resulting mesh still contains {nintersections} intersections.')
+        unfixed = self.copy()
+        unfixed.vertices = vertices
+        return unfixed

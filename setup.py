@@ -9,7 +9,7 @@ from setuptools.extension import Extension
 
 dist.Distribution().fetch_build_eggs(['packaging', 'cython', 'numpy'])
 
-import packaging.version
+from packaging.version import InvalidVersion, parse
 import numpy as np
 from Cython.Build import cythonize
 
@@ -37,10 +37,14 @@ packages = [
 base_dir = pathlib.Path(__file__).parent.resolve()
 
 # build cython modules
+extension_params = dict(extra_compile_args=['-O3', '-std=c99'])
 ext_modules = cythonize([
-        Extension('surfa.image.interp', ['surfa/image/interp.pyx']),
+        Extension('surfa.image.interp', ['surfa/image/interp.pyx'], **extension_params),
+        Extension('surfa.mesh.intersection', ['surfa/mesh/intersection.pyx'], **extension_params),
     ],
     compiler_directives={'language_level' : '3'})
+
+include_dirs = [np.get_include()]
 
 # extract the current version
 init_file = base_dir.joinpath('surfa/__init__.py')
@@ -50,10 +54,16 @@ match = re.search(pattern, init_text, re.M)
 if not match:
     raise RuntimeError(f'Unable to find __version__ in {init_file}.')
 version = match.group(1)
+<<<<<<< HEAD
 if not isinstance(packaging.version.parse(version), packaging.version.Version):
+=======
+try:
+    version_obj = parse(version)
+except InvalidVersion:
+>>>>>>> 732b9e2b4a1a3da07e169508837c402054e31e7e
     raise RuntimeError(f'Invalid version string {version}.')
 
-long_description = '''Surfa is a collection of Python (3.5+) utilities for medical image
+long_description = '''Surfa is a collection of Python utilities for medical image
 analysis and mesh-based surface processing. It provides tools that operate on 3D image
 arrays and triangular meshes with consideration of their representation in a world (or
 scanner) coordinate system. While broad in scope, surfa is developed with particular
@@ -70,10 +80,10 @@ setup(
     author='Andrew Hoopes',
     author_email='freesurfer@nmr.mgh.harvard.edu',
     url='https://github.com/freesurfer/surfa',
-    python_requires='>=3.5',
+    python_requires='>=3.6',
     packages=packages,
     ext_modules=ext_modules,
-    include_dirs=[np.get_include()],
+    include_dirs=include_dirs,
     package_data={'': ['*.pyx']},
     install_requires=requirements,
     classifiers=[

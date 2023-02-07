@@ -2,6 +2,12 @@
 
 All notable changes to the surfa package are documented in this file.
 
+## [0.3.7] - 2022-12-23
+- Fixed resampling error introduced by numpy deprecations
+
+## [0.3.6] - 2022-12-14
+- Fixed installation error from deprecated packaging tools
+
 ## [0.3.5] - 2022-11-30
 - Fixed fatal import error of missing utils directory
 
