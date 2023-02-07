@@ -4,7 +4,7 @@ __pycache__
 *.c
 
 .eggs
-setup_orig.py
+*setup_orig.py
 
 build
 dist
