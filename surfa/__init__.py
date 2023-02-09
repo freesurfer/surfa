@@ -8,6 +8,7 @@ from . import system
 
 from .core import stack
 from .core import labels
+from .core import slicing
 from .core import LabelLookup
 from .core import LabelRecoder
 

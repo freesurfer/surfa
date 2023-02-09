@@ -33,7 +33,7 @@ def dice(a, b, labels=None):
         mask1 = a == l
         mask2 = b == l
         top = 2.0 * np.logical_and(mask1, mask2).sum()
-        bottom = mask1.sum() + mask2.sum()
+        bottom = np.sum(mask1) + np.sum(mask2)
         if bottom != 0:
             result[l] = top / bottom
     

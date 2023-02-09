@@ -16,6 +16,8 @@ from surfa.transform import ImageGeometry
 from surfa.transform import image_geometry_equal
 from surfa.transform import cast_image_geometry
 from surfa.transform import cast_space
+from surfa.transform import cast_transform
+from surfa.transform import Affine
 
 
 class Mesh:
@@ -175,7 +177,7 @@ class Mesh:
 
     def convert(self, space=None, geometry=None, copy=True):
         """
-        Converts mesh vertex positions into a new coordinate space, given a particular
+        Convert mesh vertex positions into a new coordinate space, given a particular
         image geometry.
 
         Parameters
@@ -218,6 +220,62 @@ class Mesh:
             converted.geom = geometry
 
         return converted
+
+    def transform(self, trf, space=None):
+        """
+        Transform mesh vertex positions. If the provided transform has a target geometry,
+        the returned mesh will adopt that geometry.
+
+        Parameters
+        ----------
+        transform : Affine
+            Affine transform to apply to the mesh coordinates. Only linear transforms
+            are supported for now.
+        space : Space
+            Transformed surface coordinate space.
+
+        Returns
+        -------
+        Mesh
+            Mesh with transformer vertex positions and updated geometry.
+        """
+
+        # only support affines for now until we think of a good way to support deformationss
+        affine = cast_transform(trf, allow_none=False)
+        if not isinstance(affine, Affine):
+            raise ValueError('meshes can only be transformed by affines at the moment '
+                             'but deformation support will be implemented eventually')
+
+        # get the surface in the desired coordinate space. this line is also used
+        # to make a copy of the mesh
+        transformed = self.convert(space=space)
+
+        # ensure that the affine is in the correct coordinate space as well
+        if affine.source is not None and affine.target is not None:
+            affine = affine.convert(space=transformed.space, source=transformed)
+        elif affine.space is None:
+            warnings.warn('Affine transform is missing metadata defining its coordinate '
+                          'space or source and target geometry. Assuming matrix is in '
+                          'the space of the mesh, but this might not always be the case. '
+                          'Best practice is to provide the correct metadata in the affine')
+        elif affine.space != transformed.space:
+            raise ValueError('affine must contain source and target info '
+                             f'if not in mesh space ({transformed.space})')
+
+        # transform the vertices
+        transformed.vertices = affine.transform(transformed.vertices)
+
+        # update target geometry if necessary
+        if affine.target is not None:
+            transformed.geom = affine.target
+
+        return transformed
+
+    def __geometry__(self):
+        """
+        By setting this private function, the object can be cast to ImageGeometry.
+        """
+        return self.geom
 
     @cached_mesh_property
     def triangles(self):
@@ -578,7 +636,7 @@ class Mesh:
 
         Parameters
         ----------
-        knn : input
+        knn : int
             Number of nearest face neighbors to compute intersections with. The default value
             should be sufficient for most meshes.
         overlay : bool
@@ -613,7 +671,25 @@ class Mesh:
         Remove self-intersecting faces in the mesh by smoothing the vertex positions
         of offending triangles.
 
-        TODOC
+        TODOC: Needs some documentation actually explaining what the removal procedure involves.
+
+        Parameters
+        ----------
+        smoothing_iters : int
+            Number of smoothing steps in each local removal iteration.
+        global_iters : int
+            Max number of intersection-checking and smoothing iterations before giving up.
+        knn : int
+            Number of nearest face neighbors to compute intersections with. The default value
+            should be sufficient for most meshes.
+        verbose : bool
+            Print intersection information throughout the removal process.
+
+        Returns
+        -------
+        intersecting : int array or Overlay
+            Returns an integer array listing the indices of intersecting faces, unless `overlay` is enabled,
+            in which case the function returns a boolean overlay marking the intersecting faces.
         """
         vertices = self.vertices.astype(np.float64, copy=False)
         faces = self.faces.astype(np.int32, copy=False)
@@ -657,7 +733,9 @@ class Mesh:
                 pinned[selected] = 0
                 pinned = self.face_to_vertex_overlay(pinned, method='min')
 
-                # TODOC
+                # if we've gone through multiple global iterations without a solution, we can
+                # try more extreme appraoches by smoothing all vertices within some radius around
+                # intersecting vertices
                 if iteration > 25:
                     pinned = self.smooth_overlay(pinned, iters=4) > 0.99
                 if iteration > 15:
@@ -665,7 +743,7 @@ class Mesh:
                 if iteration > 5:
                     pinned = self.smooth_overlay(pinned, iters=1) > 0.99
 
-                # TODOC
+                # actually do the smoothing
                 vertices = self.smooth_overlay(vertices, iters=smoothing_iters, pinned=pinned).data
 
         # most likely bad news if we got this far, unless the global iterations was set very low

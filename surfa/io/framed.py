@@ -368,14 +368,16 @@ class MGHArrayIO(protocol.IOProtocol):
             write_bytes(file, dtype_id, '>u4')  # MGH data type
             write_bytes(file, 1, '>u4')  # DOF
 
-            # write geometry, if valid
+            # include geometry only if necessary
             unused_header_space = 254
             is_image = isinstance(arr, FramedImage)
             write_bytes(file, is_image, '>u2')
             if is_image:
-                write_bytes(file, arr.geom.voxsize, '>f4')
-                write_bytes(file, np.ravel(arr.geom.rotation, order='F'), '>f4')
-                write_bytes(file, arr.geom.center, '>f4')
+                # the mgz file type cannot store shear parameters
+                voxsize, rotation, center = arr.geom.shearless_components()
+                write_bytes(file, voxsize, '>f4')
+                write_bytes(file, np.ravel(rotation, order='F'), '>f4')
+                write_bytes(file, center, '>f4')
                 unused_header_space -= 60
 
             # fill empty header space
@@ -390,7 +392,7 @@ class MGHArrayIO(protocol.IOProtocol):
             write_bytes(file, arr.metadata.get('te', 0.0), '>f4')
             write_bytes(file, arr.metadata.get('ti', 0.0), '>f4')
 
-            # compute FOV (freesurfer actually reads this information though)
+            # compute FOV (freesurfer doesn't actually read this information though)
             volsize = pad_vector_length(arr.baseshape, 3, 1)
             fov = max(arr.geom.voxsize * volsize) if is_image else arr.shape[0]
             write_bytes(file, fov, '>f4')

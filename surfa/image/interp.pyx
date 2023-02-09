@@ -8,7 +8,7 @@ from libc.math cimport floor
 from libc.math cimport round
 
 
-def interpolate(source, target_shape, method, affine=None, disp=None, rotation='corner', fill=0):
+def interpolate(source, target_shape, method, affine=None, disp=None, fill=0):
     """
     Interpolate a 3D image given a voxel-to-voxel affine transform and/or a
     dense displacement field.
@@ -25,8 +25,6 @@ def interpolate(source, target_shape, method, affine=None, disp=None, rotation='
         Square affine transform that maps target voxels coordinates to source voxel coordinates.
     disp : array_like
         Dense vector displacement field. Base shape must match target shape.
-    rotation : str
-        Origin of image rotation. Must be 'corner' or 'center'.
     fill : scalar
         Fill value for out-of-bounds voxels.
 
@@ -51,9 +49,6 @@ def interpolate(source, target_shape, method, affine=None, disp=None, rotation='
     if len(target_shape) != 3:
         raise ValueError(f'interpolated target shape must be 3D, but got {target_shape}')
 
-    if rotation not in ('center', 'corner'):
-        raise ValueError("rotation must be 'center' or 'corner'")
-
     # check affine
     use_affine = affine is not None
     if use_affine:
@@ -61,11 +56,6 @@ def interpolate(source, target_shape, method, affine=None, disp=None, rotation='
             raise ValueError(f'affine must a numpy array, but got input of type {source.__class__.__name__}')
         if not np.array_equal(affine.shape, (4, 4)):
             raise ValueError(f'affine must be 4x4, but got input of shape {affine.shape}')
-        # ensure the rotation is around the image corner when applying the affine
-        if rotation == 'center':
-            center = np.eye(4, dtype=np.float32)
-            center[:3, -1] = -0.5 * (np.asarray(source.shape[:3]) - 1)
-            affine = np.linalg.inv(center) @ (affine @ center)
         # only supports float32 affines for now
         affine = affine.astype(np.float32, copy=False)
 
@@ -77,9 +67,21 @@ def interpolate(source, target_shape, method, affine=None, disp=None, rotation='
         if not np.array_equal(disp.shape[:-1], target_shape):
             raise ValueError(f'displacement field shape {disp.shape[:-1]} must match target shape {target_shape}')
 
-    if not source.flags.c_contiguous and not source.flags.f_contiguous:
-        # TODO figure out what would cause this
-        source = np.asarray(source, order='F')
+        # TODO: figure out what would cause this
+        if not disp.flags.c_contiguous and not disp.flags.f_contiguous:
+            disp = np.asarray(disp, order='F')
+
+        # ensure that the source order is the same as the displacement field
+        order = 'F' if disp.flags.f_contiguous else 'C'
+        source = np.asarray(source, order=order)
+
+        # make sure the displacement is float32
+        disp = np.asarray(disp, dtype=np.float32)
+
+    else:
+        # TODO: figure out what would cause this
+        if not source.flags.c_contiguous and not source.flags.f_contiguous:
+            source = np.asarray(source, order='F')
 
     # find corresponding function
     order = 'contiguous' if source.flags.c_contiguous else 'fortran'
@@ -93,7 +95,22 @@ def interpolate(source, target_shape, method, affine=None, disp=None, rotation='
     swap_byteorder = sys.byteorder == 'little' and '>' or '<'
     source = source.byteswap().newbyteorder() if source.dtype.byteorder == swap_byteorder else source
 
+    # a few types aren't supported, so let's just convert to float and convert back if necessary
+    unsupported_dtype = None
+    if source.dtype in (np.bool8,):
+        unsupported_dtype = source.dtype
+        source = source.astype(np.float32)
+
+    # run the actual interpolation
+    # TODO: there's really no need to have a combined affine and deformation function.
+    # these should be split up for simplicity sake (might optimize things a bit too)
     resampled = interp_func(source, shape, affine, disp, fill, use_affine, use_disp)
+
+    # if the input type was unsupported but nearest-neighbor interpolation was used,
+    # convert back to the original dtype
+    if method == 'nearest' and unsupported_dtype is not None:
+        resampled = resampled.astype(unsupported_dtype)
+
     return resampled
 
 

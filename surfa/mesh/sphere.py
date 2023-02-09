@@ -111,7 +111,7 @@ class SphericalResamplingNearest:
 
         min_radius = np.sqrt(np.sum(source.vertices ** 2, 1)).min() * 0.99
         points = normalize(target.vertices) * min_radius
-        nn, _ = sphere.nearest_vertex(points)
+        nn, _ = source.nearest_vertex(points)
         self._vertices = nn
         self._nv = source.nvertices
 

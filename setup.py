@@ -7,9 +7,11 @@ from setuptools import setup
 from setuptools import dist
 from setuptools.extension import Extension
 
-dist.Distribution().fetch_build_eggs(['packaging', 'cython', 'numpy'])
+# TODO: we should make it so that cython is not required when
+# pip-installing, we just have to ensure that the cython-generated
+# *.c files are included when pushing the sdist to pypi
+dist.Distribution().fetch_build_eggs(['cython', 'numpy'])
 
-from packaging.version import InvalidVersion, parse
 import numpy as np
 from Cython.Build import cythonize
 
@@ -54,28 +56,19 @@ match = re.search(pattern, init_text, re.M)
 if not match:
     raise RuntimeError(f'Unable to find __version__ in {init_file}.')
 version = match.group(1)
-#<<<<<<< HEAD
-#if not isinstance(packaging.version.parse(version), packaging.version.Version):
-#=======
-try:
-    version_obj = parse(version)
-except InvalidVersion:
-#>>>>>>> 732b9e2b4a1a3da07e169508837c402054e31e7e
-    raise RuntimeError(f'Invalid version string {version}.')
 
 long_description = '''Surfa is a collection of Python utilities for medical image
 analysis and mesh-based surface processing. It provides tools that operate on 3D image
 arrays and triangular meshes with consideration of their representation in a world (or
 scanner) coordinate system. While broad in scope, surfa is developed with particular
-emphasis on neuroimaging applications, as it is an extension of the FreeSurfer brain
-analysis software suite.
+emphasis on neuroimaging applications.
 '''
 
 # run setup
 setup(
     name='surfa',
     version=version,
-    description='Utilities for medical image processing and surface reconstruction.',
+    description='Utilities for medical image and surface processing.',
     long_description=long_description,
     author='Andrew Hoopes',
     author_email='freesurfer@nmr.mgh.harvard.edu',

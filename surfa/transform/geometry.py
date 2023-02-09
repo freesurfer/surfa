@@ -161,7 +161,7 @@ class ImageGeometry:
             elif not np.allclose(scale, voxsize, atol=1e-3, rtol=0.0):
                 warnings.warn(f'voxel size {voxsize} differs substantially from the computed vox2world scale {scale}')
 
-        # now we have enough information to compute the missing affine (MOVE THIS ABOVE AS WELL)
+        # now we have enough information to compute the missing affine
         if vox2world is None:
             self._vox2world = compose_centered_affine(self.shape, voxsize, rotation, center, shear)
         else:
@@ -381,6 +381,24 @@ class ImageGeometry:
         """
         return rotation_matrix_to_orientation(self.rotation)
 
+    def shearless_components(self):
+        """
+        Decompose the image-to-world affine into image geometry
+        parameters that don't account for shear.
+
+        Returns
+        -------
+        tuple
+            Tuple containing (voxelsize, rotation matrix, world-center) parameters.
+        """
+        if np.any(np.abs(self.shear > 1e-5)):
+            center = np.matmul(self.vox2world, np.append(np.asarray(self.shape) / 2, 1))[:3]
+            voxsize = np.linalg.norm(self.vox2world[:, :3], axis=0)
+            rotation = self.vox2world[:3, :3] / voxsize
+            return (voxsize, rotation, center)
+        else:
+            return (self.voxsize, self.rotation, self.center)
+
 
 def decompose_centered_affine(shape, affine):
     """
@@ -398,8 +416,8 @@ def decompose_centered_affine(shape, affine):
     tuple
         Tuple containing (voxelsize, rotation matrix, world-center, shear) parameters.
     """
-    center = np.matmul(affine.matrix, np.append(np.asarray(shape) / 2, 1))[:3]
-    q, r = np.linalg.qr(affine.matrix[:3, :3])
+    center = np.matmul(affine, np.append(np.asarray(shape) / 2, 1))[:3]
+    q, r = np.linalg.qr(affine[:3, :3])
     di = np.diag_indices(3)
     voxsize = np.abs(r[di])
     p = np.eye(3)

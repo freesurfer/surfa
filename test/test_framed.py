@@ -93,8 +93,7 @@ def test_data_shapes():
 
 def test_operators_and_assignment():
     """
-    Super tedious, low-level test to make sure python math operators mimic
-    the numpy standard. If these tests fail, then there are some big problems.
+    Super tedious, low-level test to make sure python math operators mimic the numpy standard.
     """
 
     def array_equal(a, b, expected=sf.core.FramedArray):
