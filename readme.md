@@ -10,7 +10,7 @@ Surfa is a collection of Python utilities for medical image analysis and mesh-ba
 pip install surfa
 ```
 
-Note: The above command should run smoothly and require no further steps, but if your system does not have a c compiler installed it will throw an error.  To resolve this potential issue, review the [suggested steps](https://surfer.nmr.mgh.harvard.edu/docs/surfa/guide/installation.html).
+Note: The above command should run smoothly and require no further steps, but if your system does not have a c compiler installed it will throw an error.  To resolve this potential issue, review the [suggested steps](https://surfer.nmr.mgh.harvard.edu/docs/surfa/guide/installation.html) in the compiling section.
 
 ### Documentation
 

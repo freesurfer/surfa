@@ -21,7 +21,6 @@ from surfa.transform import orientation as otn
 from surfa.transform.affine import Affine
 from surfa.transform.affine import cast_affine
 from surfa.transform.affine import center_to_corner_rotation
-from surfa.transform import cast_transform
 from surfa.image.interp import interpolate
 
 
@@ -386,11 +385,16 @@ class FramedImage(FramedArray):
 
     def transform(self, trf, method='linear', rotation='corner', resample=True, fill=0):
         """
-        Apply a transform.
+        Apply an affine or non-linear transform.
+
+        **Note on deformation fields:** Until we come up with a reasonable way to represent
+        deformation fields, they can be implemented as multi-frame images. It is assumed that
+        they represent a *displacement* vector field in voxel space. So under the hood, images
+        will be moved into the space of the deformation field if the image geometries differ.
 
         Parameters
         ----------
-        trf : Affine or !classDeformation
+        trf : Affine or !class
             Affine transform or nonlinear deformation (displacement) to apply to the image.
         method : {'linear', 'nearest'}
             Image interpolation method if resample is enabled.
@@ -412,14 +416,17 @@ class FramedImage(FramedArray):
             raise NotImplementedError('transform() is not yet implemented for 2D data, '
                                       'contact andrew if you need this')
 
-        # 
+        # one of these two will be set by the end of the function
         disp_data = None
         matrix_data = None
 
-        # 
-        trf = cast_transform(trf, allow_none=False)
+        # first try to convert it to an affine matrix. if that fails
+        # we assume it has to be a deformation field
+        try:
+            trf = cast_affine(trf, allow_none=False)
+        except ValueError:
+            pass
 
-        # 
         if isinstance(trf, Affine):
 
             # for clarity
@@ -473,26 +480,25 @@ class FramedImage(FramedArray):
             # make sure the matrix is actually inverted since we want a target to
             # source voxel mapping for resampling
             matrix_data = affine.inv().matrix
-
-            # 
             source_data = self.framed_data
 
         else:
-            # 
             if not resample:
                 raise ValueError('transform resampling must be enabled when deformation is used')
 
-            # 
-            deformation = cast_image(trf)
+            # cast deformation as a framed image data. important that the fallback geometry
+            # here is the current image space
+            deformation = cast_image(trf, fallback_geom=self.geom)
             if deformation.nframes != self.basedim:
                 raise ValueError(f'deformation ({deformation.nframes}D) does not match '
                                  f'dimensionality of image ({self.basedim}D)')
 
-            # 
+            # since we only support deformations in the form of voxel displacement
+            # currently, must get the image in the space of the deformation
             source_data = self.resample_like(deformation).framed_data
 
-            # 
-            target_geom = self.geom
+            # make sure to use the deformation as the target geometry
+            target_geom = deformation.geom
 
             # get displacement data
             disp_data = deformation.data
@@ -827,7 +833,7 @@ class Volume(FramedImage):
         super().__init__(basedim=3, data=data, geometry=geometry, labels=labels, metadata=metadata)
 
 
-def cast_image(obj, allow_none=True, copy=False):
+def cast_image(obj, allow_none=True, copy=False, fallback_geom=None):
     """
     Cast object to `Volume` or `Slice` type.
 
@@ -839,6 +845,8 @@ def cast_image(obj, allow_none=True, copy=False):
         Allow for `None` to be successfully passed and returned by cast.
     copy : bool
         Return copy if object is already the correct type.
+    fallback_geom : ImageGeometry
+        Geometry to use if the input object does not have any, e.g. like a numpy array.
 
     Returns
     -------
@@ -852,7 +860,7 @@ def cast_image(obj, allow_none=True, copy=False):
         return obj.copy() if copy else obj
 
     if getattr(obj, '__array__', None) is not None:
-        return Volume(np.array(obj))
+        return Volume(np.array(obj), geometry=fallback_geom)
 
     # as a final test, check if the input is possibly a nibabel image
     # we don't want nibabel to be required though, so ignore import errors

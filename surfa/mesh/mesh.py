@@ -16,8 +16,7 @@ from surfa.transform import ImageGeometry
 from surfa.transform import image_geometry_equal
 from surfa.transform import cast_image_geometry
 from surfa.transform import cast_space
-from surfa.transform import cast_transform
-from surfa.transform import Affine
+from surfa.transform import cast_affine
 
 
 class Mesh:
@@ -241,10 +240,7 @@ class Mesh:
         """
 
         # only support affines for now until we think of a good way to support deformationss
-        affine = cast_transform(trf, allow_none=False)
-        if not isinstance(affine, Affine):
-            raise ValueError('meshes can only be transformed by affines at the moment '
-                             'but deformation support will be implemented eventually')
+        affine = cast_affine(trf, allow_none=False)
 
         # get the surface in the desired coordinate space. this line is also used
         # to make a copy of the mesh
