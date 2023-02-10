@@ -7,15 +7,15 @@ The surfa package supports Python 3.6+ and can be installed with pip:
 pip install surfa
 ```
 
-The installation requires that a c/c++ compiler, like gcc or clang, exists on the system in order to build Cython-based utilies. If you run into issues during the install process, see the **compiling** section below.
+The above command should run smoothly and require no further steps, but if your system does not have a c compiler installed it will throw an error.  To resolve this potential issue, review the suggested steps in the troubleshooting section below.
 
-## Extra Package Dependencies
+**Extra Package Dependencies**
 
-Surfa requires a handful of packages that are installed automatically as pip dependencies. The only exception is **pyembree**, an optional package necessary for methods using ray-tracing, like mesh self-intersection removal and spherical parameterization. Pyembree can be installed with pip (only for Python 3.8+) or conda.
+Surfa requires a handful of packages that are installed automatically as pip dependencies. The only exception is [pyembree](https://github.com/scopatz/pyembree), an optional package necessary for methods using ray-tracing, like spherical parameterization. Pyembree can be installed with pip (only for Python 3.8+) or conda.
 
-## Compiling
+**Troubleshooting Installation Errors**
 
-When surfa is pip-installed, utilities written in Cython must be built from source on the system. In most cases, this process will occur behind the scenes without issue, but on barebones systems, the install might throw an error because a c/c++ compiler was not found. You will need to install these tools with the commands below (these might require sudo).
+When surfa is pip-installed, utilities written in c must be built from source on the system. In most cases, this process will occur behind the scenes without issue, but on barebones systems, the install might throw an error because a c compiler was not found. You will need to install these tools with the commands below (these might require sudo).
 
 On **Ubuntu/Debian**: `apt-get install build-essential python3-dev`
 <br>

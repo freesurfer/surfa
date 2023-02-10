@@ -179,20 +179,20 @@ To resample an image with a particular target geometry, use the `resample_like` 
 >>> resampled = conformed.resample_like(image)
 ```
 
-### Affine Transformation
+**Affine Transformation**
 
 To linear resample the image data with an affine transform matrix, use the `transform` function.
 
 ```python
 >>> affine = sf.transform.compose_affine(rotation=(10, 0, 0))
->>> rotated = image.transform(affine=affine, method='linear', rotation='center')
+>>> rotated = image.transform(affine, method='linear', rotation='center')
 ```
 
-### Deformation
+**Deformation**
 
-Voxel displacement fields can also be applied to the image to transform it nonlinearly. These can also be used in conjunction with affines.
+Voxel displacement fields can also be applied to the image to transform it nonlinearly.
 
 ```python
 >>> disp = sf.Volume(np.random.randn(*image.shape, 3))
->>> deformed = image.transform(disp=disp, method='linear')
+>>> deformed = image.transform(disp, method='linear')
 ```

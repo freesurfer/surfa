@@ -9,3 +9,9 @@
 footer.bd-footer {
     font-size: 0.7em;
 }
+
+/*@media (min-width: 768px)*/
+div.navbar-brand-box a.navbar-brand img {
+    max-height: 8vh!important;
+}
+

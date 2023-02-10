@@ -1,12 +1,13 @@
 import os
 import sys
+import time
 
 sys.path.insert(0, os.path.abspath('../'))
 
 # -- project information -----------------------------------------------------
 
 project = 'Surfa'
-copyright = 'Andrew Hoopes'
+copyright = time.strftime('%Y')
 author = 'Andrew Hoopes'
 
 # -- general configuration ---------------------------------------------------
@@ -22,11 +23,13 @@ exclude_patterns = ['build', 'Thumbs.db', '.DS_Store']
 # -- options for HTML output -------------------------------------------------
 
 # theme
-html_theme = 'pydata_sphinx_theme'
+html_theme = 'sphinx_book_theme'
 
 # custom css 
 html_static_path = ['static']
 html_css_files = ['style.css']
+
+html_logo = 'static/logo.svg'
 
 html_context = {
     'default_mode': 'light',
@@ -38,7 +41,7 @@ html_context = {
 }
 
 html_theme_options = {
-   'pygment_light_style': 'trac',
+    'logo_only': True,
 }
 
 add_module_names = True

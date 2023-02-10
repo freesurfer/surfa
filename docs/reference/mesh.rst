@@ -33,11 +33,3 @@ Spherical Mapping and Resampling
     sphere.SphericalMapNearest
     sphere.SphericalResamplingBarycentric
     sphere.SphericalResamplingNearest
-
-
-Self-Intersection Removal
-~~~~~~~~~~~~~~~~~~~~~~~~~
-.. autosummary::
-    :toctree: api/
-
-    intersection.remove_self_intersections

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 466.72 291.31">
+  <defs>
+    <style>
+      .cls-1 {
+        letter-spacing: .02em;
+      }
+
+      .cls-2 {
+        letter-spacing: 0em;
+      }
+
+      .cls-3 {
+        stroke: #7fbcff;
+        stroke-miterlimit: 10;
+        stroke-width: 9px;
+      }
+
+      .cls-3, .cls-4 {
+        fill: #494949;
+      }
+
+      .cls-4 {
+        font-family: DejanireSans-LightItalic, 'Dejanire Sans';
+        font-size: 265.56px;
+        font-style: italic;
+        font-weight: 300;
+      }
+
+      .cls-5 {
+        letter-spacing: 0em;
+      }
+    </style>
+  </defs>
+  <text class="cls-4" transform="translate(0 225.72) scale(.87 1)"><tspan x="0" y="0">su</tspan><tspan class="cls-1" x="232.09" y="0">r</tspan><tspan class="cls-5" x="322.65" y="0">f</tspan><tspan class="cls-2" x="399.39" y="0">a</tspan></text>
+  <line class="cls-3" x1="5" y1="247" x2="281" y2="247"/>
+  <line class="cls-3" x1="314.31" y1="247" x2="437" y2="247"/>
+</svg>
