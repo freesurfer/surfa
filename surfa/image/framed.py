@@ -383,7 +383,7 @@ class FramedImage(FramedArray):
                                method=method, affine=affine.matrix, fill=fill)
         return self.new(interped, target_geom)
 
-    def transform(self, trf, method='linear', rotation='corner', resample=True, fill=0):
+    def transform(self, trf=None, method='linear', rotation='corner', resample=True, fill=0, affine=None):
         """
         Apply an affine or non-linear transform.
 
@@ -406,6 +406,8 @@ class FramedImage(FramedArray):
             be updated (this is not possible if a displacement field is provided).
         fill : scalar
             Fill value for out-of-bounds voxels.
+        affine : Affine
+            Deprecated. Use the `trf` argument instead.
 
         Returns
         -------
@@ -415,6 +417,12 @@ class FramedImage(FramedArray):
         if self.basedim == 2:
             raise NotImplementedError('transform() is not yet implemented for 2D data, '
                                       'contact andrew if you need this')
+
+        if affine is not None:
+            trf = affine
+            warnings.warn('The \'affine\' argument to transform() is deprecated. Just use '
+                          'the first positional argument to specify a transform.',
+                          DeprecationWarning, stacklevel=2)
 
         # one of these two will be set by the end of the function
         disp_data = None
