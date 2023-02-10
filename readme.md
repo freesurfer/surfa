@@ -1,9 +1,8 @@
 # Surfa
 
 
-![PyPi Version](https://img.shields.io/pypi/v/surfa?color=lightgrey)
-![PyPI Downloads](https://img.shields.io/pypi/dw/surfa?color=lightgrey)
-![Test Status](https://img.shields.io/github/actions/workflow/status/freesurfer/surfa/test.yml?branch=master&label=tests)
+![PyPi Version](https://img.shields.io/pypi/v/surfa?color=lightgrey&style=for-the-badge)
+![Test Status](https://img.shields.io/github/actions/workflow/status/freesurfer/surfa/test.yml?branch=master&label=tests&style=for-the-badge)
 
 Surfa is a collection of Python utilities for medical image analysis and mesh-based surface processing. It provides tools that operate on 3D image arrays and triangular meshes with consideration of their representation in a world (or scanner) coordinate system. While broad in scope, surfa is developed with particular emphasis on neuroimaging applications. To install, run:
 
