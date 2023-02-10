@@ -2,18 +2,25 @@ import os
 import warnings
 import numpy as np
 
+import scipy.ndimage
 from scipy.interpolate import RegularGridInterpolator
+from scipy.ndimage import center_of_mass
+from scipy.ndimage import gaussian_filter
 
+from surfa.core import stack
 from surfa.core.framed import FramedArray
 from surfa.core.array import pad_vector_length
 from surfa.core.array import check_array
+from surfa.core.slicing import sane_slicing
+from surfa.core.slicing import slicing_parameters
+from surfa.transform import cast_space
 from surfa.transform.geometry import ImageGeometry
 from surfa.transform.geometry import cast_image_geometry
 from surfa.transform.geometry import image_geometry_equal
 from surfa.transform import orientation as otn
+from surfa.transform.affine import Affine
 from surfa.transform.affine import cast_affine
-from surfa.image.slicing import sane_slicing
-from surfa.image.slicing import slicing_parameters
+from surfa.transform.affine import center_to_corner_rotation
 from surfa.image.interp import interpolate
 
 
@@ -83,7 +90,7 @@ class FramedImage(FramedArray):
         Parameters
         ----------
         sigma : sigmascalar or sequence of scalars
-            Standard deviation for Gaussian kernel.
+            Standard deviation in mm for Gaussian kernel.
 
         Returns
         -------
@@ -96,7 +103,8 @@ class FramedImage(FramedArray):
             sigma = np.asarray(sigma, dtype='float')
             check_array(sigma, ndim=1, shape=[[self.basedim], [self.basedim + 1]], name='sigma')
             sigma = pad_vector_length(sigma, self.basedim + 1, 0, copy=False)
-        from scipy.ndimage import gaussian_filter
+        # make sure to account for the voxel size of the image, since sigma is in mm units
+        sigma = np.asarray(sigma) / (*self.geom.voxsize, 1)
         return self.new(gaussian_filter(self.framed_data, sigma))
 
     def __getitem__(self, index_expression):
@@ -138,7 +146,7 @@ class FramedImage(FramedArray):
         step = pad_vector_length(step, 3, 1)
 
         if np.any(step < 1):
-            raise NotImplementedError('axis flipping is not implemented via cropping, use reorient()')
+            raise NotImplementedError('axes cannot be flipped via cropping, use reorient() instead')
 
         # use the original index_expression to crop the raw array
         cropped_data = self.data[index_expression]
@@ -269,7 +277,8 @@ class FramedImage(FramedArray):
             Resized image with updated geometry.
         """
         if self.basedim == 2:
-            raise NotImplementedError('resize() is not yet implemented for 2D data, contact andrew if you need this')
+            raise NotImplementedError('resize() is not yet implemented for 2D data, '
+                                      'contact andrew if you need this')
 
         if np.isscalar(voxsize):
             # deal with a scalar voxel size input
@@ -374,16 +383,19 @@ class FramedImage(FramedArray):
                                method=method, affine=affine.matrix, fill=fill)
         return self.new(interped, target_geom)
 
-    def transform(self, affine=None, disp=None, method='linear', rotation='corner', resample=True, fill=0):
+    def transform(self, trf=None, method='linear', rotation='corner', resample=True, fill=0, affine=None):
         """
-        Apply a transform.
+        Apply an affine or non-linear transform.
+
+        **Note on deformation fields:** Until we come up with a reasonable way to represent
+        deformation fields, they can be implemented as multi-frame images. It is assumed that
+        they represent a *displacement* vector field in voxel space. So under the hood, images
+        will be moved into the space of the deformation field if the image geometries differ.
 
         Parameters
         ----------
-        affine : Affine
-            Affine (linear) transform to apply.
-        disp : !class
-            Non-linear transform to apply, in the form of a displacement vector field.
+        trf : Affine or !class
+            Affine transform or nonlinear deformation (displacement) to apply to the image.
         method : {'linear', 'nearest'}
             Image interpolation method if resample is enabled.
         rotation : {'corner', 'center'}
@@ -394,6 +406,8 @@ class FramedImage(FramedArray):
             be updated (this is not possible if a displacement field is provided).
         fill : scalar
             Fill value for out-of-bounds voxels.
+        affine : Affine
+            Deprecated. Use the `trf` argument instead.
 
         Returns
         -------
@@ -401,54 +415,110 @@ class FramedImage(FramedArray):
             Transformed image.
         """
         if self.basedim == 2:
-            raise NotImplementedError('transform() is not yet implemented for 2D data, contact andrew if you need this')
+            raise NotImplementedError('transform() is not yet implemented for 2D data, '
+                                      'contact andrew if you need this')
 
-        if not resample and disp is not None:
-            raise ValueError('resampling must be enabled if transforming image with displacement field')
-
-        if affine is None and disp is None:
-            raise ValueError('must provide at least an affine or displacement field')
-
-        # if not resampling, just change the image vox2world matrix and return
-        if not resample and affine is not None:
-            affine = cast_affine(affine)
-            transformed = self.copy()
-            # if affine is missing geometry info, let's just assume it's in world space
-            if affine.source is not None and affine.target is not None:
-                affine = affine.convert(space='world', source=self)
-            elif affine.space is not None and affine.space != 'world':
-                raise ValueError('affine must contain source and target info if not in world space')
-            # apply forward transform to the header
-            transformed.geom.vox2world = affine @ transformed.geom.vox2world
-            return transformed
-
-        # sanity check and preprocess the affine if resampling
-        matrix = None
         if affine is not None:
-            affine = cast_affine(affine)
-            target_geom = self.geom
-            # TODO it should be assumed that the default affine space is 'voxel' when source and target are set
-            if affine.space is not None:
-                if affine.source is not None and affine.target is not None:
-                    affine = affine.convert(space='voxel', source=self)
-                    target_geom = affine.target
-                elif affine.space != 'voxel':
-                    raise ValueError("affine must contain source and target info if coordinate space is not 'voxel'")
-            # make sure the matrix is actually inverted since we want a target to source voxel mapping for resampling
-            matrix = affine.inv().matrix
+            trf = affine
+            warnings.warn('The \'affine\' argument to transform() is deprecated. Just use '
+                          'the first positional argument to specify a transform.',
+                          DeprecationWarning, stacklevel=2)
 
-        # get displacement data
-        disp = cast_image(disp)
-        if disp is not None:
-            disp = disp.data
-            if affine is None:
-                # TODO should this set to disp.geom?
-                target_geom = self.geom
+        # one of these two will be set by the end of the function
+        disp_data = None
+        matrix_data = None
+
+        # first try to convert it to an affine matrix. if that fails
+        # we assume it has to be a deformation field
+        try:
+            trf = cast_affine(trf, allow_none=False)
+        except ValueError:
+            pass
+
+        if isinstance(trf, Affine):
+
+            # for clarity
+            affine = trf
+
+            # if not resampling, just change the image vox2world matrix and return
+            if not resample:
+                
+                # TODO: if affine is missing geometry info, do we assume that the affine
+                # is in world space or voxel space? let's do world for now
+                if affine.source is not None and affine.target is not None:
+                    affine = affine.convert(space='world', source=self)
+                    # TODO: must try this again once I changed everything around!!
+                elif affine.space is None:
+                    warnings.warn('Affine transform is missing metadata defining its coordinate '
+                                  'space or source and target geometry. Assuming matrix is a '
+                                  'world-space transform since resample=False, but this might '
+                                  'not always be the case. Best practice is to provide the '
+                                  'correct metadata in the affine')
+                elif affine.space != 'world':
+                    raise ValueError('affine must contain source and target info '
+                                     'if not in world space')
+
+                # apply forward transform to the header
+                transformed = self.copy()
+                transformed.geom.update(vox2world=affine @ affine.source.vox2world)
+                return transformed
+
+            # sanity check and preprocess the affine if resampling
+            target_geom = self.geom
+
+            if affine.source is not None and affine.target is not None:
+                # it should be assumed that the default affine space is voxel
+                # when both source and target are set
+                if affine.space is None:
+                    affine = affine.copy()
+                    affine.space = 'voxel'
+                # 
+                affine = affine.convert(space='voxel', source=self)
+                target_geom = affine.target
+            elif affine.space is not None and affine.space != 'voxel':
+                raise ValueError('affine must contain source and target info if '
+                                 'coordinate space is not \'voxel\'')
+
+            # ensure the rotation is around the image corner before interpolating
+            if rotation not in ('center', 'corner'):
+                raise ValueError("rotation must be 'center' or 'corner'")
+            elif rotation == 'center':
+                affine = center_to_corner_rotation(affine, source.baseshape)
+            
+            # make sure the matrix is actually inverted since we want a target to
+            # source voxel mapping for resampling
+            matrix_data = affine.inv().matrix
+            source_data = self.framed_data
+
+        else:
+            if not resample:
+                raise ValueError('transform resampling must be enabled when deformation is used')
+
+            # cast deformation as a framed image data. important that the fallback geometry
+            # here is the current image space
+            deformation = cast_image(trf, fallback_geom=self.geom)
+            if deformation.nframes != self.basedim:
+                raise ValueError(f'deformation ({deformation.nframes}D) does not match '
+                                 f'dimensionality of image ({self.basedim}D)')
+
+            # since we only support deformations in the form of voxel displacement
+            # currently, must get the image in the space of the deformation
+            source_data = self.resample_like(deformation).framed_data
+
+            # make sure to use the deformation as the target geometry
+            target_geom = deformation.geom
+
+            # get displacement data
+            disp_data = deformation.data
 
         # do the interpolation
-        interped = interpolate(source=self.framed_data, target_shape=target_geom.shape, method=method,
-                               affine=matrix, disp=disp, rotation=rotation, fill=fill)
-        return self.new(interped, target_geom)
+        interpolated = interpolate(source=source_data,
+                                   target_shape=target_geom.shape,
+                                   method=method,
+                                   affine=matrix_data,
+                                   disp=disp_data,
+                                   fill=fill)
+        return self.new(interpolated, target_geom)
 
     def reorient(self, orientation, copy=True):
         """
@@ -467,7 +537,8 @@ class FramedImage(FramedArray):
             Reoriented image.
         """
         if self.basedim == 2:
-            raise NotImplementedError('reorient() is not yet implemented for 2D data, contact andrew if you need this')
+            raise NotImplementedError('reorient() is not yet implemented for 2D data, '
+                                      'contact andrew if you need this')
 
         trg_orientation = orientation.upper()
         src_orientation = otn.rotation_matrix_to_orientation(self.geom.vox2world.matrix)
@@ -528,7 +599,8 @@ class FramedImage(FramedArray):
             Reshaped image.
         """
         if self.basedim == 2:
-            raise NotImplementedError('reshape is not yet implemented for 2D data, contact andrew if you need this')
+            raise NotImplementedError('reshape is not yet implemented for 2D data, '
+                                      'contact andrew if you need this')
 
         shape = shape[:self.basedim]
 
@@ -590,7 +662,7 @@ class FramedImage(FramedArray):
             warnings.warn('fit_to_shape center argument no longer has any effect')
         return self.reshape(shape, copy)
 
-    def conform(self, shape=None, voxsize=1.0, orientation='LIA', method='linear', dtype=None, copy=True):
+    def conform(self, shape=None, voxsize=None, orientation=None, dtype=None, method='linear', copy=True):
         """
         Conforms image to a specific shape, type, resolution, and orientation.
 
@@ -614,8 +686,10 @@ class FramedImage(FramedArray):
         arr : !class
             Conformed image.
         """
-        conformed = self.reorient(orientation, copy=False)
-        conformed = conformed.resize(voxsize, method=method, copy=False)
+        if orientation is not None:
+            conformed = self.reorient(orientation, copy=False)
+        if voxsize is not None:
+            conformed = conformed.resize(voxsize, method=method, copy=False)
         if shape is not None:
             conformed = conformed.reshape(shape, copy=False)
         if dtype is not None:
@@ -650,7 +724,83 @@ class FramedImage(FramedArray):
                                          bounds_error=bounds_error, fill_value=fill)
         sampled = interp(points)
         return sampled
-        
+
+    def barycenters(self, labels=None, space='image'):
+        """
+        Compute barycenters of the image data. If labels are not provided, the barycenter of each
+        full image frame are returned.
+
+        Parameters
+        ----------
+        labels : int or array of int
+            Label values to compute barycenters for.
+        space : Space
+            Coordinate space of computed barycenters.
+
+        Returns
+        -------
+        points : array of float
+            Barycenter points. If $L$ labels are specified, the output will be of shape $(L, D)$,
+            where $D$ is the dimension of the image. If the number of image frames $F$ is greater than
+            one, the barycenter array will be of shape $(F, L, D)$.
+        """
+        if labels is not None:
+            # 
+            if not np.issubdtype(self.dtype, np.integer):
+                raise ValueError('expected int dtype for computing barycenters on 1D, '
+                                 f'but got dtype {self.dtype}')
+            weights = np.ones(self.baseshape, dtype=np.float32)
+            centers = [center_of_mass(weights, self.framed_data[..., i], labels) for i in range(self.nframes)]
+        else:
+            # 
+            centers = [center_of_mass(self.framed_data[..., i]) for i in range(self.nframes)]
+
+        # 
+        centers = np.squeeze(centers)
+
+        # 
+        space = cast_space(space)
+        if space != 'image':
+            centers = self.geom.affine('image', space)(centers)
+        return centers
+
+    def connected_components(self):
+        """
+        Find all connected components in the image data.
+
+        Returns
+        -------
+        components : !class
+            Label map of all individual connected components. The order of these labels is arbitrary.
+        """
+        cc = [self.new(scipy.ndimage.label(self.framed_data[..., i])[0]) for i in range(self.nframes)]
+        return stack(cc)
+
+    def connected_component_mask(self, k=1, fill=False):
+        """
+        Compute a mask corresponding to the top $k$ largest connected components in the image data.
+
+        Parameters
+        ----------
+        k : int
+            Top $k$ largest connected components to include in the mask.
+        fill : bool
+            Binary fill all holes in the computed mask.
+
+        Returns
+        -------
+        masks : !class
+            Binary mask of the connected component.
+        """
+        cc = self.connected_components()
+        bincounts = [np.bincount(cc.framed_data[..., i].flat)[1:] for i in range(cc.nframes)]
+        topk = [(-bc).argsort()[:k] + 1 for bc in bincounts]
+        mask = [np.isin(cc.framed_data[..., i], topk[i]) for i in range(self.nframes)]
+        if fill:
+            mask = [scipy.ndimage.binary_fill_holes(m) for m in mask]
+        return stack([self.new(m) for m in mask])
+
+
 class Slice(FramedImage):
 
     def __init__(self, data, geometry=None, labels=None, metadata=None):
@@ -691,7 +841,7 @@ class Volume(FramedImage):
         super().__init__(basedim=3, data=data, geometry=geometry, labels=labels, metadata=metadata)
 
 
-def cast_image(obj, allow_none=True, copy=False):
+def cast_image(obj, allow_none=True, copy=False, fallback_geom=None):
     """
     Cast object to `Volume` or `Slice` type.
 
@@ -703,6 +853,8 @@ def cast_image(obj, allow_none=True, copy=False):
         Allow for `None` to be successfully passed and returned by cast.
     copy : bool
         Return copy if object is already the correct type.
+    fallback_geom : ImageGeometry
+        Geometry to use if the input object does not have any, e.g. like a numpy array.
 
     Returns
     -------
@@ -716,7 +868,7 @@ def cast_image(obj, allow_none=True, copy=False):
         return obj.copy() if copy else obj
 
     if getattr(obj, '__array__', None) is not None:
-        return Volume(np.array(obj))
+        return Volume(np.array(obj), geometry=fallback_geom)
 
     # as a final test, check if the input is possibly a nibabel image
     # we don't want nibabel to be required though, so ignore import errors

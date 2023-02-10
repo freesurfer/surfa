@@ -97,6 +97,7 @@ def slice_direction(orientation):
     str
         Primary slice direction.
     """
+    orientation = orientation.upper()
     check_orientation(orientation)
     if orientation[2] in 'LR':
         return 'sagittal'
@@ -104,3 +105,29 @@ def slice_direction(orientation):
         return 'coronal'
     if orientation[2] in 'IS':
         return 'axial'
+
+
+def complete_name(orientation):
+    """
+    Get the complete anatomical description of an orientation.
+
+    Parameters
+    ----------
+    orientation : str
+        Case-insensitive orientation string.
+
+    Returns
+    -------
+    str
+        Full orientation name.
+    """
+    orientation = orientation.upper()
+    check_orientation(orientation)
+    name = '-'.join(orientation)
+    name = name.replace('L', 'left')
+    name = name.replace('R', 'right')
+    name = name.replace('P', 'posterior')
+    name = name.replace('A', 'anterior')
+    name = name.replace('I', 'inferior')
+    name = name.replace('S', 'superior')
+    return name

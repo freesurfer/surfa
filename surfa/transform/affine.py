@@ -40,7 +40,8 @@ class Affine:
         self.target = target
 
     def __repr__(self):
-        return repr(self.matrix).replace('array([', 'sf.Affine([\n       ')
+        with np.printoptions(precision=4, suppress=True):
+            return repr(self.matrix).replace('array([', 'sf.Affine([\n       ')
 
     @property
     def _writeable(self):
@@ -74,6 +75,10 @@ class Affine:
         # check writeable
         if self.matrix is not None:
             self._check_writeability()
+
+        # check if input is actually an Affine object
+        if isinstance(mat, Affine):
+            mat = mat.matrix.copy()
 
         # check input shape
         mat = np.ascontiguousarray(mat, dtype='float')
@@ -163,6 +168,15 @@ class Affine:
         aff._writeable = True
         return aff
 
+    def new(self, matrix):
+        """
+        Return a new instance of the affine with an updated matrix and
+        preserved metadata.
+        """
+        aff = self.copy()
+        aff.matrix = matrix
+        return aff
+
     @property
     def ndim(self):
         """
@@ -209,7 +223,7 @@ class Affine:
             raise ValueError('use image.transform(affine) to apply an affine to an image')
 
         # convert to array
-        np.ascontiguousarray(points)
+        points = np.ascontiguousarray(points)
 
         # check correct dimensionality
         if points.shape[-1] != self.ndim:
@@ -682,3 +696,26 @@ def random_affine(
         **kwargs,
     )
     return aff
+
+
+def center_to_corner_rotation(affine, image_shape):
+    """
+    Convert an affine matrix that rotates around an image center to
+    a standard-format affine that rotates around the corner (origin).
+
+    Parameters
+    ----------
+    affine : Affine
+        Affine matrix with center rotation.
+    input_shape: tuple of int
+        Shape of the base image.
+
+    Returns
+    -------
+    Affine
+        Converted affine matrix with corner rotation.
+    """
+    center = identity()
+    center[:3, -1] = -0.5 * (np.asarray(image_shape[:affine.ndim]) - 1)
+    shifted = center.inv() @ (affine @ center)
+    return affine.new(shifted)

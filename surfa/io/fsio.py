@@ -206,14 +206,17 @@ def image_geometry_to_string(geom):
         valid = 0
         geom = ImageGeometry(shape=(256, 256, 256))
 
+    # the FS-style geometry cannot store shear parameters
+    voxsize, rotation, center = geom.shearless_components()
+
     string  = 'valid = %d\n' % valid
     string += 'filename = none\n'
     string += 'volume = %d %d %d\n' % tuple(geom.shape)
-    string += 'voxelsize = %.15e %.15e %.15e\n' % tuple(geom.voxsize)
-    string += 'xras   = %.15e %.15e %.15e\n' % tuple(geom.rotation[:, 0])
-    string += 'yras   = %.15e %.15e %.15e\n' % tuple(geom.rotation[:, 1])
-    string += 'zras   = %.15e %.15e %.15e\n' % tuple(geom.rotation[:, 2])
-    string += 'cras   = %.15e %.15e %.15e\n' % tuple(geom.center)
+    string += 'voxelsize = %.15e %.15e %.15e\n' % tuple(voxsize)
+    string += 'xras   = %.15e %.15e %.15e\n' % tuple(rotation[:, 0])
+    string += 'yras   = %.15e %.15e %.15e\n' % tuple(rotation[:, 1])
+    string += 'zras   = %.15e %.15e %.15e\n' % tuple(rotation[:, 2])
+    string += 'cras   = %.15e %.15e %.15e\n' % tuple(center)
     return string
 
 

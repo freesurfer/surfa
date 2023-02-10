@@ -2,6 +2,12 @@
 
 All notable changes to the surfa package are documented in this file.
 
+## Unreleased
+- Added mesh transforming and fast self-intersection detection and removal
+- Improved management of image geometry and transformations
+- Account for image shear when saving to MGZ style file types
+- Fixed bugs in freeview wrapping, spherical interpolation, and dice score
+
 ## [0.3.7] - 2022-12-23
 - Fixed resampling error introduced by numpy deprecations
 

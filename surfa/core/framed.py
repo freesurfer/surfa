@@ -424,7 +424,7 @@ class FramedArray:
             raise ValueError(f'cannot onehot-encode labels with more than 1 frame, but array has {self.nframes} frames')
 
         if not np.issubdtype(self.dtype, np.integer):
-            raise ValueError('cannot onehot-encode a non-integer array, got dtype {self.dtype}')
+            raise ValueError(f'cannot onehot-encode a non-integer array, got dtype {self.dtype}')
 
         mapping = np.asarray(mapping)
         if mapping.ndim != 1:

@@ -1,6 +1,73 @@
 import numpy as np
 
 
+def slicing_to_coords(slicing):
+    """
+    Convert a N dimensional slicing to a pair of low and high coordinates.
+
+    Parameters
+    ----------
+    slicing : tuple of slice
+        Cropping index to convert to coordintes.
+
+    Returns
+    -------
+    coordinates : (2, N) int
+        Low and high cropping coordinate pair.
+    """
+    coords = np.asarray([
+        [s.start for s in slicing],
+        [s.stop  for s in slicing]])
+    return coords
+
+
+def coords_to_slicing(coords):
+    """
+    Convert low and high cropping coordinates to a slicing object.
+
+    Parameters
+    ----------
+    coordinates : (2, N) float
+        Low and high cropping coordinate pair.
+
+    Returns
+    -------
+    slicing : tuple of slice
+        Cropping index.
+    """
+    if len(coords) != 2:
+        raise ValueError('expected 2 sets of coords (start and stop) for slicing')
+    return tuple([slice(a, b) for a, b in zip(*coords.astype(np.int64))])
+
+
+def expand_slicing(slicing, baseshape, delta):
+    """
+    Expand (or contract) the size of the cropping window.
+
+    Parameters
+    ----------
+    slicing : tuple of slice
+        Cropping index to expand.
+
+    baseshape: tuple of int
+        The slicing will not exceed this size.
+
+    delta: scalar or array of scalars
+        The amount to increase the cropping window. Negative
+        values will decrease the size.
+
+    Returns
+    -------
+    slicing : tuple of slice
+        Modified cropping index.
+    """
+    coords = slicing_to_coords(slicing).astype(np.float32)
+    coords[0] = np.floor(coords[0] - delta)
+    coords[1] = np.ceil(coords[1] + delta)
+    coords = np.clip(coords, 0, baseshape)
+    return coords_to_slicing(coords)
+
+
 def sane_slicing(shape, index_expression):
     """
     Clean up an index expression such that the result is a tuple with
