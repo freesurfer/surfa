@@ -1,6 +1,7 @@
 import os
-import numpy as np
+import warnings
 import gzip
+import numpy as np
 
 from surfa import Volume
 from surfa import Slice
@@ -431,6 +432,21 @@ class NiftiArrayIO(protocol.IOProtocol):
             raise ImportError('the `nibabel` python package must be installed for nifti IO')
         self.nib = nib
 
+        # define space and time units
+        self.units_to_code = {
+            'unknown': 0,
+            'm':       1,
+            'mm':      2,
+            'um':      3,
+            'sec':     8,
+            'msec':    16,
+            'usec':    24,
+            'hz':      32,
+            'ppm':     40,
+            'rads':    48,
+        }
+        self.code_to_units = {v: k for k, v in self.units_to_code.items()}
+
     def load(self, filename, atype):
         """
         Read array from a nifiti file.
@@ -448,13 +464,23 @@ class NiftiArrayIO(protocol.IOProtocol):
             Array object loaded from file.
         """
         nii = self.nib.load(filename)
-        data = nii.get_data()
+        data = np.asanyarray(nii.dataobj)
         arr = framed_array_from_4d(atype, data)
         if isinstance(arr, FramedImage):
             voxsize = nii.header['pixdim'][1:4]
             arr.geom.update(vox2world=nii.affine, voxsize=voxsize)
             arr.metadata['qform_code'] = int(nii.header['qform_code'])
             arr.metadata['sform_code'] = int(nii.header['sform_code'])
+            # temporal unit
+            time_units_code = nii.header['xyzt_units'] & 56
+            arr.metadata['frame_units'] = self.code_to_units.get(time_units_code, 0)
+            arr.metadata['frame_dim'] = nii.header['pixdim'][4]
+            # spatial unit: always convert to mm and assume unknown is also mm
+            spatial_units_code = nii.header['xyzt_units'] & 7
+            if spatial_units_code == self.units_to_code['m']:
+                arr.geom.voxsize = arr.geom.voxsize * 1000
+            elif spatial_units_code == self.units_to_code['um']:
+                arr.geom.voxsize = arr.geom.voxsize * 0.001
         return arr
 
     def save(self, arr, filename):
@@ -484,13 +510,34 @@ class NiftiArrayIO(protocol.IOProtocol):
         if arr.nframes == 1:
             shape = shape[:-1]
 
-        # edit header data
+        # make image object and complete header data
         nii = self.nib.Nifti1Image(data.reshape(shape), np.eye(4))
+
+        # initialize spatial and temporal spacing
         nii.header['pixdim'][:] = 1
+        nii.header['pixdim'][4] = arr.metadata.get('frame_dim', 1)
+
+        # for now we pretty much have to enforce spatial units of mm
+        # and if frame units isn't specified, fallback to seconds
+        spatial_units_code = self.units_to_code['mm']
+        frame_units_code = self.units_to_code['sec']
+        # check if frame units is set in metadata
+        frame_units = arr.metadata.get('frame_units')
+        if frame_units is not None:
+            metadata_code = self.units_to_code.get(frame_units)
+            if metadata_code is None:
+                warnings.warn(f'unknown frame units \'{frame_units}\', using seconds instead')
+            else:
+                frame_units_code = metadata_code
+
+        nii.header['xyzt_units'] = np.asarray(spatial_units_code, dtype=np.uint8) | \
+                                   np.asarray(frame_units_code, dtype=np.uint8)
+
+        # geometry-specific header data
         if is_image:
-            nii.header['pixdim'][1:4] = arr.geom.voxsize
             nii.set_sform(arr.geom.vox2world.matrix, arr.metadata.get('sform_code', 1))
             nii.set_qform(arr.geom.vox2world.matrix, arr.metadata.get('qform_code', 1))
+            nii.header['pixdim'][1:4] = arr.geom.voxsize.astype(np.float32)
 
         # write
         self.nib.save(nii, filename)
