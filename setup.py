@@ -7,17 +7,8 @@ from setuptools import setup
 from setuptools import dist
 from setuptools.extension import Extension
 
-# TODO: we should make it so that cython is not required when
-# pip-installing, we just have to ensure that the cython-generated
-# *.c files are included when pushing the sdist to pypi
-dist.Distribution().fetch_build_eggs(['cython', 'numpy'])
-
-import numpy as np
-from Cython.Build import cythonize
-
 
 requirements = [
-    'cython',
     'numpy',
     'scipy',
     'nibabel>=2.1',
@@ -38,14 +29,29 @@ packages = [
 # base source directory
 base_dir = pathlib.Path(__file__).parent.resolve()
 
-# build cython modules
-extension_params = dict(extra_compile_args=['-O3', '-std=c99'])
-ext_modules = cythonize([
-        Extension('surfa.image.interp', ['surfa/image/interp.pyx'], **extension_params),
-        Extension('surfa.mesh.intersection', ['surfa/mesh/intersection.pyx'], **extension_params),
-    ],
-    compiler_directives={'language_level' : '3'})
+# we don't want to require cython for package install from
+# source distributions, like pypi installs, and the best way I
+# can think of to detect this is by checking if PKG-INFO exists
+cython_build = not base_dir.joinpath('PKG-INFO').is_file()
 
+# configure c extensions
+ext = 'pyx' if cython_build else 'c'
+ext_opts = dict(extra_compile_args=['-O3', '-std=c99'])
+extensions = [
+    Extension('surfa.image.interp', [f'surfa/image/interp.{ext}'], **ext_opts),
+    Extension('surfa.mesh.intersection', [f'surfa/mesh/intersection.{ext}'], **ext_opts),
+]
+
+# if building locally or installing from somewhere that isn't
+# an sdist, like directly from github, we'll want to cythonize
+# the pyx files, so cython is a hard requirement here
+if cython_build:
+    from Cython.Build import cythonize
+    extensions = cythonize(extensions, compiler_directives={'language_level' : '3'})
+
+# since we interface the c stuff with numpy, it's another hard
+# requirement at build-time
+import numpy as np
 include_dirs = [np.get_include()]
 
 # extract the current version
@@ -75,9 +81,9 @@ setup(
     url='https://github.com/freesurfer/surfa',
     python_requires='>=3.6',
     packages=packages,
-    ext_modules=ext_modules,
+    ext_modules=extensions,
     include_dirs=include_dirs,
-    package_data={'': ['*.pyx']},
+    package_data={'': ['*.pyx'], '': ['*.h']},
     install_requires=requirements,
     classifiers=[
         'Development Status :: 3 - Alpha',

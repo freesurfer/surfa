@@ -2,6 +2,9 @@
 
 All notable changes to the surfa package are documented in this file.
 
+## [0.4.1] - 2023-02-13
+- Fixed an installation bug caused by missing headers in sdist
+
 ## [0.4.0] - 2023-02-12
 - Added mesh transforming and fast self-intersection detection and removal
 - Improved management of image geometry and transformations
