@@ -2,6 +2,9 @@
 
 All notable changes to the surfa package are documented in this file.
 
+## [0.4.2] - 2023-02-13
+- Set numpy as automatic build dependency
+
 ## [0.4.1] - 2023-02-13
 - Fixed an installation bug caused by missing headers in sdist
 
