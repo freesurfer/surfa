@@ -686,8 +686,9 @@ class FramedImage(FramedArray):
         arr : !class
             Conformed image.
         """
+        conformed = self
         if orientation is not None:
-            conformed = self.reorient(orientation, copy=False)
+            conformed = conformed.reorient(orientation, copy=False)
         if voxsize is not None:
             conformed = conformed.resize(voxsize, method=method, copy=False)
         if shape is not None:
