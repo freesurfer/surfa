@@ -63,7 +63,7 @@ class Mesh:
         Return a deep copy of the object.
         """
         copied = deepcopy(self)
-        # intersection query will return None upon deep copy
+        # ray query will return None upon deep copy
         # so let's remember to clear it from the cache
         copied._cache.pop('_iq', None)
         return copied
@@ -424,12 +424,10 @@ class Mesh:
 
         Returns
         -------
-        faces : (n,) int
-            Indices of intersected faces. Index will be -1 if intersection was not found.
+        vertices : (n,) int
+            Indices of nearest vertices.
         dists : (n,) float
-            Distance to intersection point from ray origin.
-        bary : (n, 3) float
-            Barycentric weights representing the intersection point on the triangle face.
+            Distance to vertex.
         """
         dist, nn = self.kdtree.query(points, k=k, workers=-1)
         return (nn, dist)

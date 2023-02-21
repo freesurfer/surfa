@@ -1,17 +1,134 @@
 .prev-next-area a p.prev-next-title {
-    font-size: 0.8em;
+    font-size: 0.9em;
 }
 
 .prev-next-area a .prev-next-info .prev-next-subtitle {
-    font-size: 0.8em;
+    font-size: 0.9em;
 }
 
 footer.bd-footer {
     font-size: 0.7em;
 }
 
-/*@media (min-width: 768px)*/
 div.navbar-brand-box a.navbar-brand img {
     max-height: 8vh!important;
 }
 
+#site-navigation {
+    width: 350px;
+    background: #f3f4f7;
+    border-right: none;
+}
+
+container, .container-fluid, .container-lg,
+.container-md, .container-sm, .container-xl {
+    margin-left: 0;
+}
+
+.bd-sidebar label {
+    justify-content: normal;
+}
+
+.scrolled .header-article {
+    box-shadow: none;
+}
+
+.header-article .header-article-main {
+    border-bottom: 1px solid #eee;
+}
+
+.bd-search input {
+    border: none;
+}
+
+pre {
+    padding: 1.2rem;
+    background-color: #f8f8f8;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.heading-style, h1, h2, h3, h4, h5, h6 {
+    font-variant-caps: petite-caps;
+}
+
+.content-container h1, .content-container h2, .content-container h3,
+.content-container h4, .content-container h5, .content-container h6 {
+    color: #4d4d4d;
+}
+
+.content-container h3, .content-container h4, .content-container h5, .content-container h6 {
+    font-size: 1.2rem;
+    font-weight: 500;
+}
+
+div.navbar-brand-box a.navbar-brand {
+    flex-direction: row;
+}
+
+#site-navigation h1.site-logo {
+    margin: 0 0 0 0;
+    font-size: 2em;
+    text-align: center;
+    font-family: "Exo", sans-serif;
+    font-weight: 900;
+    text-transform: uppercase; 
+    background-image: url("logo-bg.svg");
+    background-size: 100% auto;
+    background-position: center;
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+}
+
+#site-navigation .navbar-brand:hover .site-logo {
+    background-image: url("logo-bg-hover.svg");
+}
+
+.highlight .gp {
+    color: #bebebe;
+}
+
+.highlight .go {
+    color: #717171;
+    font-style: normal;
+}
+
+.highlight .s1 {
+    color: #808080;
+}
+
+.highlight .c1 {
+    color: #a1a1a1;
+    font-style: normal;
+}
+
+.highlight .mi {
+    color: #808080;
+    font-weight: normal;
+}
+
+.highlight .k {
+    color: rgba(var(--pst-color-link),1);
+    font-weight: bold;
+}
+
+.highlight .kn {
+    color: rgba(var(--pst-color-link),1);
+    font-weight: bold;
+}
+
+.highlight .o {
+    color: rgba(var(--pst-color-link),1);
+    font-weight: bold;
+}
+
+code {
+    color: #212529;
+    font-weight: bold;
+}
+
+dt:target, span.highlighted {
+    background-color: rgb(132 132 132 / 26%);
+}

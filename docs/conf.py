@@ -29,8 +29,6 @@ html_theme = 'sphinx_book_theme'
 html_static_path = ['static']
 html_css_files = ['style.css']
 
-html_logo = 'static/logo.svg'
-
 html_context = {
     'default_mode': 'light',
     'display_github': True,
@@ -40,12 +38,10 @@ html_context = {
     'conf_py_path': '/docs/',
 }
 
-html_theme_options = {
-    'logo_only': True,
-}
-
 add_module_names = True
 autoclass_content = 'both'
+
+html_title = 'Surfa'
 
 # -- custom processing -------------------------------------------------------
 
@@ -58,3 +54,4 @@ def process_docstring(app, what, name, obj, options, lines):
 
 def setup(app):
     app.connect('autodoc-process-docstring', process_docstring)
+    app.add_css_file('https://fonts.googleapis.com/css2?family=Exo:ital,wght@0,900;1,900&display=swap')

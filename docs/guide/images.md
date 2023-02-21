@@ -153,24 +153,26 @@ To re-order the image data to a particular orientation while preserving the corr
 
 ## Transforming and Resampling
 
-Other functions can be used to modify the underlying image data while correctly updating (or preserving) image geometry.
+Other functions can be used to modify the underlying image data while correctly updating (or preserving) image geometry. To resample the image data to a particular voxel size:
 
 ```python
-# resample the image data to a particular voxel size
 >>> resized = image.resize((2, 2, 2), method='linear')
 >>> resized.geom.voxsize
-array(['2.', '2.', '2.'])
+array([2., 2., 2.])
+```
 
-# fit the image to a particular by padding or cropping around the center
+To fit the image to a particular shape by padding or cropping around the center:
+
+```python
 >>> reshaped = image.reshape((180, 256, 180))
 >>> reshaped.shape
 (180, 256, 180)
 ```
 
-Images can be conformed to a particular set of geometric requirements all at once:
+Images can be conformed to a particular set of geometric requirements all at once using the `conform` function:
 
 ```python
->>> conformed = image.conform(shape=(180, 180, 180), voxsize=1, orientation='LIA')
+>>> conformed = image.conform(voxsize=2, orientation='LIA')
 ```
 
 To resample an image with a particular target geometry, use the `resample_like` function.
@@ -179,7 +181,7 @@ To resample an image with a particular target geometry, use the `resample_like` 
 >>> resampled = conformed.resample_like(image)
 ```
 
-**Affine Transformation**
+### Affine Transformation
 
 To linear resample the image data with an affine transform matrix, use the `transform` function.
 
@@ -188,7 +190,7 @@ To linear resample the image data with an affine transform matrix, use the `tran
 >>> rotated = image.transform(affine, method='linear', rotation='center')
 ```
 
-**Deformation**
+### Deformation
 
 Voxel displacement fields can also be applied to the image to transform it nonlinearly.
 
