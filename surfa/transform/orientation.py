@@ -131,3 +131,18 @@ def complete_name(orientation):
     name = name.replace('I', 'inferior')
     name = name.replace('S', 'superior')
     return name
+
+
+def random_orientation():
+    """
+    Generate a random orientation string.
+
+    Returns
+    -------
+    str
+        Random orientation.
+    """
+    orientation = [d[np.random.randint(2)] for d in ('LR', 'PA', 'IS')]
+    orientation = np.asarray(orientation)
+    orientation = ''.join(orientation[np.random.permutation(3)])
+    return orientation
