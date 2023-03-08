@@ -404,7 +404,7 @@ class FramedArray:
         """
         return np.unique(self)
 
-    def onehot(self, mapping, dtype=np.uint32):
+    def onehot(self, mapping, dtype=np.int32):
         """
         Convert discrete labels to a one-hot encoded probabilistic map.
 
