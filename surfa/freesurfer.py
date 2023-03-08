@@ -59,7 +59,7 @@ def getfile(subpath):
     -------
     path : str
     """
-    return os.path.join(fshome(), subpath)
+    return os.path.join(home(), subpath)
 
 
 def labels():
