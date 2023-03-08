@@ -1,6 +1,23 @@
 import numpy as np
 
 
+def slicing_shape(slicing):
+    """
+    Compute the shape of region defined by the slicing.
+
+    Parameters
+    ----------
+    slicing : tuple of slice
+        Cropping index.
+
+    Returns
+    -------
+    shape : tuple of int
+        Shape of the slicing region.
+    """
+    return tuple([s.stop - s.start for s in slicing])
+
+
 def slicing_to_coords(slicing):
     """
     Convert a N dimensional slicing to a pair of low and high coordinates.
@@ -37,7 +54,9 @@ def coords_to_slicing(coords):
     """
     if len(coords) != 2:
         raise ValueError('expected 2 sets of coords (start and stop) for slicing')
-    return tuple([slice(a, b) for a, b in zip(*coords.astype(np.int64))])
+    low = np.floor(coords.min(0)).astype(np.int64)
+    high = np.ceil(coords.max(0)).astype(np.int64)
+    return tuple([slice(a, b) for a, b in zip(low, high)])
 
 
 def expand_slicing(slicing, baseshape, delta):
@@ -48,10 +67,8 @@ def expand_slicing(slicing, baseshape, delta):
     ----------
     slicing : tuple of slice
         Cropping index to expand.
-
     baseshape: tuple of int
         The slicing will not exceed this size.
-
     delta: scalar or array of scalars
         The amount to increase the cropping window. Negative
         values will decrease the size.
@@ -64,6 +81,55 @@ def expand_slicing(slicing, baseshape, delta):
     coords = slicing_to_coords(slicing).astype(np.float32)
     coords[0] = np.floor(coords[0] - delta)
     coords[1] = np.ceil(coords[1] + delta)
+    coords = np.clip(coords, 0, baseshape)
+    return coords_to_slicing(coords)
+
+
+def fit_slicing_to_shape(slicing, baseshape, target_shape):
+    """
+    Pad or shrink the slicing to attempt to fit a target shape.
+
+    Parameters
+    ----------
+    slicing : tuple of slice
+        Cropping index to expand.
+    baseshape: tuple of int
+        The slicing will not exceed this size.
+    target_shape: tuple of int
+        The target shape of the slicing regions.
+
+    Returns
+    -------
+    slicing : tuple of slice
+        Modified cropping index.
+    """
+    delta = (np.asarray(target_shape) - slicing_shape(slicing)) / 2
+    coords = slicing_to_coords(slicing)
+    coords[0] -= np.floor(delta).astype(np.int64)
+    coords[1] += np.ceil(delta).astype(np.int64)
+    coords = np.clip(coords, 0, baseshape)
+    return coords_to_slicing(coords)
+
+
+def convert_slicing(slicing, baseshape, affine):
+    """
+    Apply a voxel-space transform to a slicing.
+
+    Parameters
+    ----------
+    slicing : tuple of slice
+        Cropping index to expand.
+    baseshape: tuple of int
+        The slicing will not exceed this size.
+    affine: Affine
+        Voxel-space affine transform of coordinates.
+
+    Returns
+    -------
+    slicing : tuple of slice
+        Transformed cropping index.
+    """
+    coords = affine.transform(slicing_to_coords(slicing))
     coords = np.clip(coords, 0, baseshape)
     return coords_to_slicing(coords)
 
