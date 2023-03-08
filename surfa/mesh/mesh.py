@@ -1,4 +1,5 @@
 import os
+import warnings
 import numpy as np
 from copy import deepcopy
 from scipy.spatial import cKDTree
@@ -9,6 +10,7 @@ from surfa.core.array import normalize
 from surfa.core.array import make_writeable
 from surfa.mesh.cache import cached_mesh_property
 from surfa.mesh.overlay import cast_overlay
+from surfa.mesh.overlay import Overlay
 from surfa.mesh.sphere import mesh_is_sphere
 from surfa.mesh.ray import RayIntersectionQuery
 from surfa.mesh.intersection import triangle_intersections
@@ -551,7 +553,7 @@ class Mesh:
         overlay : Overlay
             Face overlay to convert, must have points equal to the number
             of mesh faces.
-        method: {'mean', 'min', 'max'}
+        method: {'mean', 'min', 'max', 'sum'}
             Reduction method to gather face scalars over vertices.
 
         Returns
@@ -563,26 +565,32 @@ class Mesh:
                              f'the number of mesh faces, but instead got {overlay.shape[0]}')
         overlay = cast_overlay(overlay)
   
-        # 
+        shape = (self.nvertices, overlay.nframes)
+
         method = str(method).lower()
         if method == 'mean':
-            buffer = np.zeros(self.nvertices)
+            buffer = np.zeros(shape)
             np.add.at(buffer, self.faces[:, 0], overlay)
             np.add.at(buffer, self.faces[:, 1], overlay)
             np.add.at(buffer, self.faces[:, 2], overlay)
-            buffer /= np.bincount(self.faces.flat)
+            buffer /= np.bincount(self.faces.flat).reshape(-1, 1)
         elif method == 'max':
-            buffer = np.full(self.nvertices, overlay.min(), dtype=overlay.dtype)
+            buffer = np.full(shape, overlay.min(), dtype=overlay.dtype)
             np.maximum.at(buffer, self.faces[:, 0], overlay)
             np.maximum.at(buffer, self.faces[:, 1], overlay)
             np.maximum.at(buffer, self.faces[:, 2], overlay)
         elif method == 'min':
-            buffer = np.full(self.nvertices, overlay.max(), dtype=overlay.dtype)
+            buffer = np.full(shape, overlay.max(), dtype=overlay.dtype)
             np.minimum.at(buffer, self.faces[:, 0], overlay)
             np.minimum.at(buffer, self.faces[:, 1], overlay)
             np.minimum.at(buffer, self.faces[:, 2], overlay)
+        elif method == 'sum':
+            buffer = np.zeros(shape, dtype=overlay.dtype)
+            np.add.at(buffer, self.faces[:, 0], overlay)
+            np.add.at(buffer, self.faces[:, 1], overlay)
+            np.add.at(buffer, self.faces[:, 2], overlay)
         else:
-            raise ValueError(f'unknown method `{method}`, expected one of: mean/min/max')
+            raise ValueError(f'unknown method `{method}`, expected one of: mean/min/max/sum')
 
         return overlay.new(buffer)
 
@@ -595,7 +603,7 @@ class Mesh:
         overlay : Overlay
             Vertex overlay to convert, must have points equal to the number
             of mesh vertices.
-        method: {'mean', 'min', 'max'}
+        method: {'mean', 'min', 'max', 'sum'}
             Reduction method to gather vertex scalars over faces.
 
         Returns
@@ -618,8 +626,10 @@ class Mesh:
             reduced = gathered.max(1)
         elif method == 'min':
             reduced = gathered.min(1)
+        elif method == 'sum':
+            reduced = gathered.sum(1)
         else:
-            raise ValueError(f'unknown method `{method}`, expected one of: mean/min/max')
+            raise ValueError(f'unknown method `{method}`, expected one of: mean/min/max/sum')
 
         return overlay.new(reduced)
 
@@ -648,6 +658,7 @@ class Mesh:
         # the intesection code will be smart enough to ignore self-referencing hits
         # as well as immediate neighboring faces
         centers = self.triangles.mean(1)
+        knn = min([centers.shape[0], knn])
         _, neighbors = cKDTree(centers).query(centers, k=knn, workers=-1)
 
         # given this list of neighboring faces, compute triangle-triangle intersections
