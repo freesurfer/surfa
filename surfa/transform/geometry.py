@@ -16,7 +16,7 @@ class ImageGeometry:
     def __init__(self, shape, voxsize=None, rotation=None, center=None, shear=None, vox2world=None):
         """
 
-        Defines the correspondence between voxel coordinates and world coordinates for an image.
+        Defines the correspondence between voxel coordinates and "world" coordinates, eg, RAS, for an image.
 
         This correspondence can be represented by either a singular affine (voxel-to-world
         transform matrix) or a set of linear components (voxel scale, position, rotation,
