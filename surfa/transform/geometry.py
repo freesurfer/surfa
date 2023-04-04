@@ -299,8 +299,11 @@ class ImageGeometry:
 
     @property
     def vox2surf(self):
-        """
-        Affine transform that maps voxel (image) to surface coordinates.
+        """Affine transform that maps voxel (image) to surface
+        coordinates. Surface coordinates are centered near the center
+        of the volume and aligned with the voxel coordinates in LIA
+        rotation.
+
         """
         def func():
             rot = orientation_to_rotation_matrix('LIA')
