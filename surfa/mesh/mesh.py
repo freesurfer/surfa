@@ -12,7 +12,6 @@ from surfa.mesh.cache import cached_mesh_property
 from surfa.mesh.overlay import cast_overlay
 from surfa.mesh.overlay import Overlay
 from surfa.mesh.sphere import mesh_is_sphere
-from surfa.mesh.ray import RayIntersectionQuery
 from surfa.mesh.intersection import triangle_intersections
 from surfa.transform import ImageGeometry
 from surfa.transform import image_geometry_equal
@@ -64,11 +63,7 @@ class Mesh:
         """
         Return a deep copy of the object.
         """
-        copied = deepcopy(self)
-        # ray query will return None upon deep copy
-        # so let's remember to clear it from the cache
-        copied._cache.pop('_iq', None)
-        return copied
+        return deepcopy(self)
 
     def save(self, filename, fmt=None):
         """
@@ -419,10 +414,10 @@ class Mesh:
 
         Parameters
         ----------
-        origins : (n, 3) float
-            Ray vector origin points.
-        origins : (n, 3) float
-            Ray vector directions (can be unnormalized).
+        points : (n, 3) float
+            Point or list of points to query.
+        k : int, optional
+            Number of nearest vertices to search for.
 
         Returns
         -------
@@ -433,35 +428,6 @@ class Mesh:
         """
         dist, nn = self.kdtree.query(points, k=k, workers=-1)
         return (nn, dist)
-
-    @cached_mesh_property
-    def _iq(self):
-        """
-        Cached intersection query for ray-tracing.
-        """
-        return RayIntersectionQuery(self)
-
-    def ray_intersection(self, origins, dirs):
-        """
-        Compute intersections between rays and mesh triangles.
-
-        Parameters
-        ----------
-        origins : (n, 3) float
-            Ray vector origin points.
-        origins : (n, 3) float
-            Ray vector directions (can be unnormalized).
-
-        Returns
-        -------
-        faces : (n,) int
-            Indices of intersected faces. Index will be -1 if intersection was not found.
-        dists : (n,) float
-            Distance to intersection point from ray origin.
-        bary : (n, 3) float
-            Barycentric weights representing the intersection point on the triangle face.
-        """
-        return self._iq.ray_intersection(origins, dirs)
 
     def smooth_overlay(self, overlay, iters=10, step=0.5, weighted=True, pinned=None):
         """

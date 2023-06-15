@@ -9,10 +9,6 @@ pip install surfa
 
 The above command should run smoothly and require no further steps, but if your system does not have a c compiler installed it will throw an error.  To resolve this potential issue, review the suggested steps in the troubleshooting section below.
 
-**Extra Package Dependencies**
-
-Surfa requires a handful of packages that are installed automatically as pip dependencies. The only exception is [pyembree](https://github.com/scopatz/pyembree), an optional package necessary for methods using ray-tracing, like spherical parameterization. Pyembree can be installed with pip (only for Python 3.8+) or conda.
-
 **Troubleshooting Installation Errors**
 
 When surfa is pip-installed, utilities written in c must be built from source on the system. In most cases, this process will occur behind the scenes without issue, but on barebones systems, the install might throw an error because a c compiler was not found. You will need to install these tools with the commands below (these might require sudo).

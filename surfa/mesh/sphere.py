@@ -1,6 +1,7 @@
 import numpy as np
 import surfa as sf
 
+from scipy.spatial import cKDTree
 from scipy.interpolate import RegularGridInterpolator
 
 from surfa.core.array import normalize
@@ -53,6 +54,24 @@ def require_sphere(mesh):
         raise ValueError(message)
 
 
+def conform_sphere(mesh):
+    """
+    Conform sphere mesh to a guaranteed radius of 1.
+    
+    Parameters
+    ----------
+    mesh : Mesh
+        Spherical mesh to conform.
+
+    Returns
+    -------
+    conformed : Mesh
+    """
+    mesh = mesh.copy()
+    normalize(mesh.vertices, inplace=True)
+    return mesh
+
+
 def cartesian_to_spherical(points):
     """
     Convert a set of cartesian points to spherical coordinates (phi, theta) around the origin.
@@ -92,6 +111,113 @@ def spherical_to_cartesian(points):
     y = np.sin(points[:, 0]) * np.sin(points[:, 1])
     z = np.cos(points[:, 0])
     return np.stack([x, y, z], axis=1)
+
+
+def barycentric_spherical_map(source, target, neighborhood=10):
+    """
+    Map the points of a target sphere to the barycentric coordinates of the nearest
+    triangle on a source sphere.
+
+    Parameters
+    ----------
+    source : Mesh
+        Source sphere mesh.
+    target : Mesh
+        Target sphere mesh.
+    neighborhood : int, optional
+        Max number of nearest triangles to consider for each target point.
+
+    Returns
+    -------
+    faces, barycenters : (n, 3) int, (n, 3) float
+    """
+    source = conform_sphere(source)
+    target = conform_sphere(target)
+
+    # compute the k-nearest triangles to each target point. this is used to limit the
+    # number of triangles that are considered for each target point
+    centers = source.triangles.mean(1)
+    nearest = cKDTree(centers).query(target.vertices, k=neighborhood, workers=-1)[1].T
+
+    # initialize
+    intersecting_faces = np.full(target.nvertices, -1, dtype=np.int64)
+    intersecting_barycenters = np.zeros((target.nvertices, 3), dtype=np.float64)
+
+    dot = lambda a, b: np.dot(a * b, [1.0] * a.shape[1])
+    tolerance = np.finfo(np.float64).resolution * 100
+
+    # iterate over the nearest triangles, in order of increasing distance
+    for faces in nearest:
+
+        # mark target points that have not yet been assigned a face
+        remaining = intersecting_faces == -1
+
+        # stop if all target points have been assigned a face
+        if np.count_nonzero(remaining) == 0:
+            break
+
+        # gather triangle properties
+        faces = faces[remaining]
+        triangles = source.triangles[faces]
+        normals = source.face_normals[faces]
+
+        # the ray is the vector represented by the target point since the
+        # spheres should be centered at the origin. the ray is scaled to be
+        # just shy of the radius of the sphere to avoid missing the triangle
+        rays = target.vertices[remaining] * 0.95
+
+        # find the intersection location of the rays with the planes
+        projection_ori = dot(triangles[:, 0], normals)
+        projection_dir = dot(rays, normals)
+        
+        # first check if the ray intersects the triangle plane
+        hits = np.abs(projection_dir) > 1e-5
+        
+        # filter the triangles that do intersect
+        remaining[remaining] = hits
+        rays = rays[hits]
+        triangles = triangles[hits]
+
+        # find the distance to the intersection point
+        distance = np.divide(projection_ori[hits], projection_dir[hits])
+        location = rays[hits] * distance.reshape((-1, 1))
+
+        # find the barycentric coordinates of each plane intersection on the triangle
+
+        edges = triangles[:, 1:] - triangles[:, :1]
+        w = location - triangles[:, 0].reshape((-1, 3))
+
+        dot00 = dot(edges[:, 0], edges[:, 0])
+        dot01 = dot(edges[:, 0], edges[:, 1])
+        dot02 = dot(edges[:, 0], w)
+        dot11 = dot(edges[:, 1], edges[:, 1])
+        dot12 = dot(edges[:, 1], w)
+
+        inverse_denominator = 1.0 / (dot00 * dot11 - dot01 * dot01)
+        barycentric = np.zeros((len(triangles), 3), dtype=np.float64)
+        barycentric[:, 2] = (dot00 * dot12 - dot01 * dot02) * inverse_denominator
+        barycentric[:, 1] = (dot11 * dot02 - dot01 * dot12) * inverse_denominator
+        barycentric[:, 0] = 1 - barycentric[:, 1] - barycentric[:, 2]
+
+        # the plane intersection is inside the triangle if all barycentric
+        # coordinates are between 0.0 and 1.0
+        hits = np.logical_and((barycentric > -tolerance).all(axis=1),
+                              (barycentric < (1 + tolerance)).all(axis=1),
+                              dot(location, rays) > -1e-6)
+
+        # filter the triangles that pass all intersection tests
+        remaining[remaining] = hits
+        intersecting_faces[remaining] = faces[hits]
+        intersecting_barycenters[remaining] = barycentric[hits]
+
+    # if any target points were not assigned a face, just assign them the
+    # center of the nearest face
+    if np.count_nonzero(remaining) != 0:
+        missing = intersecting_faces == -1
+        intersecting_faces[missing] = nearest[0][missing]
+        intersecting_barycenters[missing] = 0.33333333
+
+    return intersecting_faces, intersecting_barycenters
 
 
 class SphericalResamplingNearest:
@@ -151,10 +277,7 @@ class SphericalResamplingBarycentric:
         require_sphere(source)
         require_sphere(target)
 
-        dirs = normalize(target.vertices)
-        min_radius = np.sqrt(np.sum(source.vertices ** 2, 1)).min() * 0.99
-        origins = dirs * min_radius
-        faces, dists, bary = source.ray_intersection(origins, dirs)
+        faces, bary = barycentric_spherical_map(source, target)
 
         self._nv = source.nvertices
         self._vertices = source.faces[faces]
@@ -278,10 +401,9 @@ class SphericalMapBarycentric:
         points[:, :, 0] = np.linspace(0, np.pi, shape[0])[:, np.newaxis]
         points[:, :, 1] = np.linspace(0, 2 * np.pi, shape[1] + 1)[np.newaxis, :-1]
         points = points.reshape((-1, 2), order='C')
-        
+
         dirs = spherical_to_cartesian(points)
-        origins = dirs * np.sqrt(np.sum(sphere.vertices ** 2, 1)).min() * 0.99
-        faces, dists, bary = sphere.ray_intersection(origins, dirs)
+        faces, bary = barycentric_spherical_map(sphere, sf.Mesh(dirs))
 
         self._forward_vertices = sphere.faces[faces]
         self._forward_weights = bary[:, :, np.newaxis]

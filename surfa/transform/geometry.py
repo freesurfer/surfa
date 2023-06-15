@@ -16,7 +16,7 @@ class ImageGeometry:
     def __init__(self, shape, voxsize=None, rotation=None, center=None, shear=None, vox2world=None):
         """
 
-        Defines the correspondence between voxel coordinates and world coordinates for an image.
+        Defines the correspondence between voxel coordinates and "world" coordinates, eg, RAS, for an image.
 
         This correspondence can be represented by either a singular affine (voxel-to-world
         transform matrix) or a set of linear components (voxel scale, position, rotation,
@@ -299,8 +299,11 @@ class ImageGeometry:
 
     @property
     def vox2surf(self):
-        """
-        Affine transform that maps voxel (image) to surface coordinates.
+        """Affine transform that maps voxel (image) to surface
+        coordinates. Surface coordinates are centered near the center
+        of the volume and aligned with the voxel coordinates in LIA
+        rotation.
+
         """
         def func():
             rot = orientation_to_rotation_matrix('LIA')
@@ -331,6 +334,19 @@ class ImageGeometry:
         func = lambda : self.vox2world @ self.surf2vox
         return self._retrieve_or_compute_affine('sw', func)
 
+    @property
+    def vox2vxm(self):
+        # voxel morph centers the col,row,slice
+        M = np.eye(4);
+        M[0][3] = (self._shape[0]-1)/2;
+        M[1][3] = (self._shape[1]-1)/2;
+        M[2][3] = (self._shape[2]-1)/2;
+        return(Affine(M));
+
+    @property
+    def vxm2vox(self):
+        return(self.vox2vxm.inv())
+
     def _retrieve_or_compute_affine(self, name, func):
         """
         Internal utility to compute and cache affine matrices when called.
@@ -359,6 +375,7 @@ class ImageGeometry:
         Affine
             Retrieved affine.
         """
+        # Andrew, what were you thinking?
         a = str(cast_space(source))[0]
         b = str(cast_space(target))[0]
         # lets use the first character of the space for a quick lookup
@@ -398,6 +415,7 @@ class ImageGeometry:
             return (voxsize, rotation, center)
         else:
             return (self.voxsize, self.rotation, self.center)
+
 
 
 def decompose_centered_affine(shape, affine):
@@ -527,3 +545,5 @@ def image_geometry_equal(a, b, tol=0.0):
         return False
 
     return True
+
+    
