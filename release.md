@@ -6,7 +6,7 @@ Follow these steps to release a new version.
 
 1. Make sure things have been tested... we've got to add some tests!
 2. Summarize major changes in `changelog.md`.
-3. Increase the `__version__` string in `surfa/__init__.py`. If the changes only involve bug fixes, documentation, or behind-the-scenes updates, increase the patch version, otherwise increase the minor version (or even major version).
+3. Increase the `__version__` string in `surfa/__init__.py`. If the changes only involve bug fixes, documentation, or behind-the-scenes updates, increase the patch version, otherwise increase the minor version.
 4. Commit these edits to `surfa/__init__.py` and `changelog.md`.
 5. Tag the commit with the appropriate version `git tag vX.X.X`.
 6. Push upstream with `git push && git push --tags`

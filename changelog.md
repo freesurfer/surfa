@@ -2,6 +2,11 @@
 
 All notable changes to the surfa package are documented in this file.
 
+## [0.6.0] - 2023-06-15
+- Replaced embree based ray tracing with a pure python implementation
+- Improved label map utilities
+- Fixed intersection, overlay, and orientation bugs
+
 ## [0.4.2] - 2023-02-13
 - Set numpy as automatic build dependency
 
