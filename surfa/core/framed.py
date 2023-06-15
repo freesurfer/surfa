@@ -432,7 +432,7 @@ class FramedArray:
 
         nlabels = len(mapping)
         inttype = np.uint16 if nlabels < np.iinfo(np.uint16).max else np.uint32
-        recoder = np.zeros(self.max() + 1, dtype=inttype)
+        recoder = np.zeros(max(nlabels, self.max() + 1), dtype=inttype)
         recoder[mapping] = np.arange(nlabels)
 
         dsize = self.data.size
