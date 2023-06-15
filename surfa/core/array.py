@@ -107,20 +107,26 @@ def check_array(arr, dtype=None, ndim=None, shape=None, name=None):
             raise ValueError(f'{name} must have shape {reqs}, but got shape {arr.shape}')
 
 
-def normalize(vec):
+def normalize(vec, inplace=False):
     """
     L2 vector normalization.
 
     Parameters
     ----------
     vec : ndarray
-        Array to check.
+        Array to normalize.
+    inplace : bool, optional
+        If True, normalize the array in-place.
 
     Returns
     -------
     normed : ndarray
     """
-    return vec / np.sqrt(np.sum(vec * vec, -1)).reshape((-1, 1))
+    lengths = np.sqrt(np.sum(vec * vec, -1)).reshape((-1, 1))
+    if inplace:
+        vec /= lengths
+        return vec
+    return vec / lengths
 
 
 def make_writeable(arr):

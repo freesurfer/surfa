@@ -483,7 +483,7 @@ class FramedImage(FramedArray):
             if rotation not in ('center', 'corner'):
                 raise ValueError("rotation must be 'center' or 'corner'")
             elif rotation == 'center':
-                affine = center_to_corner_rotation(affine, source.baseshape)
+                affine = center_to_corner_rotation(affine, self.baseshape)
             
             # make sure the matrix is actually inverted since we want a target to
             # source voxel mapping for resampling

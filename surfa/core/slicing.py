@@ -54,6 +54,7 @@ def coords_to_slicing(coords):
     """
     if len(coords) != 2:
         raise ValueError('expected 2 sets of coords (start and stop) for slicing')
+    coords = np.asarray(coords)
     low = np.floor(coords.min(0)).astype(np.int64)
     high = np.ceil(coords.max(0)).astype(np.int64)
     return tuple([slice(a, b) for a, b in zip(low, high)])
