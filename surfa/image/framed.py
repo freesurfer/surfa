@@ -726,6 +726,44 @@ class FramedImage(FramedArray):
         sampled = interp(points)
         return sampled
 
+    def dilate(self, steps, kernel=None, mask=None):
+        """
+        Dilate binary image data.
+
+        Parameters
+        ----------
+        steps : int
+            Number of dilation steps.
+        kernel : array
+            Dilation kernel.
+        mask : array
+            Mask to apply dilation to.
+
+        Returns
+        -------
+        dilated : Image
+        """
+        return self.new(scipy.ndimage.binary_dilation(self.data, iterations=steps, structure=kernel, mask=mask))
+
+    def erode(self, steps, kernel=None, mask=None):
+        """
+        Erode binary image data.
+
+        Parameters
+        ----------
+        steps : int
+            Number of erosion steps.
+        kernel : array
+            Erosion kernel.
+        mask : array
+            Mask to apply erosion to.
+
+        Returns
+        -------
+        eroded : Image
+        """
+        return self.new(scipy.ndimage.binary_erosion(self.data, iterations=steps, structure=kernel, mask=mask))
+
     def barycenters(self, labels=None, space='image'):
         """
         Compute barycenters of the image data. If labels are not provided, the barycenter of each
