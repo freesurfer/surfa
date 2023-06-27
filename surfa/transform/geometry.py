@@ -338,9 +338,8 @@ class ImageGeometry:
     def vox2vxm(self):
         # voxel morph centers the col,row,slice
         M = np.eye(4)
-        M[0][3] = (self._shape[0]-1)/2 * -1
-        M[1][3] = (self._shape[1]-1)/2 * -1
-        M[2][3] = (self._shape[2]-1)/2 * -1
+        M[:3,3] = -((np.array(self._shape) - 1) / 2)
+
         return(Affine(M))
 
     @property
