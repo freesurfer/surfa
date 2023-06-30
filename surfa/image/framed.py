@@ -839,6 +839,40 @@ class FramedImage(FramedArray):
             mask = [scipy.ndimage.binary_fill_holes(m) for m in mask]
         return stack([self.new(m) for m in mask])
 
+    def distance(self):
+        """
+        Compute the distance transform representing distances outside the binary object.
+
+        See Also
+        --------
+        signed_distance : Compute the signed distance transform.
+
+        Returns
+        -------
+        sdt : !class
+        """
+        sampling = self.geom.voxsize[:self.basedim]
+        dt = lambda x: scipy.ndimage.distance_transform_edt(1 - x, sampling=sampling)
+        return stack([self.new(dt(self.framed_data[..., i])) for i in range(self.nframes)])
+
+    def signed_distance(self):
+        """
+        Compute the signed distance transform of the binary image. Negative values represent
+        distances inside the binary object, and positive values represent distances outside the object.
+
+        See Also
+        --------
+        signed_distance : Compute the distance transform outside the binary object.
+
+        Returns
+        -------
+        sdt : !class
+        """
+        sampling = self.geom.voxsize[:self.basedim]
+        dt = lambda x: scipy.ndimage.distance_transform_edt(x, sampling=sampling)
+        sdt = lambda x: dt(1 - x) - dt(x)
+        return stack([self.new(sdt(self.framed_data[..., i])) for i in range(self.nframes)])
+
 
 class Slice(FramedImage):
 
