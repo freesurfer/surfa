@@ -2,6 +2,11 @@
 
 All notable changes to the surfa package are documented in this file.
 
+## [0.6.0] - 2023-06-30
+- Added surface distance metrics
+- Added signed distance transform utilities for image data
+- Support wavefront obj file IO
+
 ## [0.5.0] - 2023-06-15
 - Replaced embree based ray tracing with a pure python implementation
 - Improved label map utilities
