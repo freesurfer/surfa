@@ -1,5 +1,4 @@
 sphinx
-pydata-sphinx-theme
-sphinx-book-theme
+sphinx-book-theme==0.3.3
 myst-parser
 pandoc
