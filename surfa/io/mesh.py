@@ -365,8 +365,62 @@ class GiftiIO(protocol.IOProtocol):
         self.nib.gifti.write(gii, filename)
 
 
+class WavefrontIO(protocol.IOProtocol):
+    """
+    Mesh IO protocol for wavefront obj files.
+    """
+
+    name = 'obj'
+    extensions = ('.obj',)
+
+    def __init__(self):
+        try:
+            import trimesh
+        except ImportError:
+            raise ImportError('the trimesh python package must be installed for wavefront surface IO')
+        self.trimesh = trimesh
+
+    def load(self, filename):
+        """
+        Load a wavefront mesh file into a Mesh object.
+
+        Parameters
+        ----------
+        filename : str
+            File path to read.
+
+        Returns
+        -------
+        mesh : Mesh
+            A Mesh object loaded from file.
+        """
+        tmesh = self.trimesh.exchange.load(filename, process=False)
+        return Mesh(tmesh.vertices, tmesh.faces, space='world')
+
+    def save(self, mesh, filename):
+        """
+        Save a Mesh object to a wavefront mesh file.
+
+        Parameters
+        ----------
+        mesh : Mesh
+            Mesh to save.
+        filename : str
+            Destination file path.
+        """
+        parameters = dict(
+            header='SPACE=RAS\n',
+            include_color=False,
+            include_texture=False,
+            return_texture=False,
+            write_texture=True)
+        mesh = mesh.convert(space='world')
+        self.trimesh.Trimesh(mesh.vertices, mesh.faces, process=False).export(filename, **parameters)
+
+
 # enabled mesh IO protocol classes
 mesh_io_protocols = [
     FreesurferSurfaceIO,
     GiftiIO,
+    WavefrontIO,
 ]
