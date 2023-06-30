@@ -139,6 +139,10 @@ def barycentric_spherical_map(source, target, neighborhood=10):
     centers = source.triangles.mean(1)
     nearest = cKDTree(centers).query(target.vertices, k=neighborhood, workers=-1)[1].T
 
+    # ensure nearest is a 2D array
+    if neighborhood == 1:
+        nearest = nearest[np.newaxis, :]
+
     # initialize
     intersecting_faces = np.full(target.nvertices, -1, dtype=np.int64)
     intersecting_barycenters = np.zeros((target.nvertices, 3), dtype=np.float64)
