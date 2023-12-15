@@ -13,7 +13,7 @@ class Affine:
 
     def __init__(self, matrix, source=None, target=None, space=None):
         """
-        N-D linear transform, represented by an (N, N) affine matrix, that
+        N-D transform, represented by an (N+1, N+1) affine matrix, that
         tracks source and target geometries as well as coordinate space.
 
         Parameters
@@ -90,7 +90,7 @@ class Affine:
 
         # conform to square matrix
         square = np.eye(ndim + 1)
-        square[: square.shape[0], :] = mat
+        square[: mat.shape[0], :] = mat
         self._matrix = square
 
     def __array__(self):
