@@ -98,3 +98,68 @@ def write_bytes(file, value, dtype):
         Datatype to save as.
     """
     file.write(np.asarray(value).astype(dtype, copy=False).tobytes())
+
+
+# read VOL_GEOM
+# also see VOL_GEOM.read() in mri.h 
+def read_volgeom(file):
+    volgeom = dict(
+        valid  = read_bytes(file, '>i4', 1),
+                        
+        width  = read_bytes(file, '>i4', 1),
+        height = read_bytes(file, '>i4', 1),
+        depth  = read_bytes(file, '>i4', 1),
+                       
+        xsize  = read_bytes(file, '>f4', 1),
+        ysize  = read_bytes(file, '>f4', 1),
+        zsize  = read_bytes(file, '>f4', 1),
+                        
+        x_r    = read_bytes(file, '>f4', 1),
+        x_a    = read_bytes(file, '>f4', 1),
+        x_s    = read_bytes(file, '>f4', 1),
+        y_r    = read_bytes(file, '>f4', 1),
+        y_a    = read_bytes(file, '>f4', 1),
+        y_s    = read_bytes(file, '>f4', 1),
+        z_r    = read_bytes(file, '>f4', 1),
+        z_a    = read_bytes(file, '>f4', 1),
+        z_s    = read_bytes(file, '>f4', 1),
+                        
+        c_r    = read_bytes(file, '>f4', 1),
+        c_a    = read_bytes(file, '>f4', 1),
+        c_s    = read_bytes(file, '>f4', 1),
+
+        fname  = file.read(512).decode('utf-8').rstrip('\x00')
+        )
+    return volgeom
+
+
+# output VOL_GEOM
+# also see VOL_GEOM.write() in mri.h
+def write_volgeom(file, volgeom):
+    write_bytes(file, volgeom['valid'], '>i4')
+                        
+    write_bytes(file, volgeom['width'], '>i4')
+    write_bytes(file, volgeom['height'], '>i4')
+    write_bytes(file, volgeom['depth'], '>i4')
+                       
+    write_bytes(file, volgeom['xsize'], '>f4')
+    write_bytes(file, volgeom['ysize'], '>f4')
+    write_bytes(file, volgeom['zsize'], '>f4')
+                        
+    write_bytes(file, volgeom['x_r'], '>f4')
+    write_bytes(file, volgeom['x_a'], '>f4')
+    write_bytes(file, volgeom['x_s'], '>f4')
+    write_bytes(file, volgeom['y_r'], '>f4')
+    write_bytes(file, volgeom['y_a'], '>f4')
+    write_bytes(file, volgeom['y_s'], '>f4')
+    write_bytes(file, volgeom['z_r'], '>f4')
+    write_bytes(file, volgeom['z_a'], '>f4')
+    write_bytes(file, volgeom['z_s'], '>f4')
+
+    write_bytes(file, volgeom['c_r'], '>f4')
+    write_bytes(file, volgeom['c_a'], '>f4')
+    write_bytes(file, volgeom['c_s'], '>f4')
+
+    # output 512 bytes padded with '/x00'
+    file.write(volgeom['fname'].ljust(512, '\x00').encode('utf-8'))
+

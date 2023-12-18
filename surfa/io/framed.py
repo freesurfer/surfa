@@ -9,6 +9,7 @@ from surfa import Overlay
 from surfa import ImageGeometry
 from surfa.core.array import pad_vector_length
 from surfa.core.framed import FramedArray
+from surfa.core.framed import FramedArrayIntents
 from surfa.image.framed import FramedImage
 from surfa.io import fsio
 from surfa.io import protocol
@@ -16,6 +17,8 @@ from surfa.io.utils import read_int
 from surfa.io.utils import write_int
 from surfa.io.utils import read_bytes
 from surfa.io.utils import write_bytes
+from surfa.io.utils import read_volgeom
+from surfa.io.utils import write_volgeom
 from surfa.io.utils import check_file_readability
 
 
@@ -117,7 +120,8 @@ def load_framed_array(filename, atype, fmt=None):
     return iop().load(filename, atype)
 
 
-def save_framed_array(arr, filename, fmt=None):
+# optional parameter to specify FramedArray intent, default is MRI data
+def save_framed_array(arr, filename, fmt=None, intent=FramedArrayIntents.mri):
     """
     Save a `FramedArray` object to file.
 
@@ -141,7 +145,11 @@ def save_framed_array(arr, filename, fmt=None):
             raise ValueError(f'unknown file format {fmt}')
         filename = iop.enforce_extension(filename)
 
-    iop().save(arr, filename)
+    # pass intent if iop() is an instance of MGHArrayIO
+    if (isinstance(iop(), MGHArrayIO)):
+       iop().save(arr, filename, intent=intent)
+    else:
+        iop().save(arr, filename)
 
 
 def framed_array_from_4d(atype, data):
@@ -231,8 +239,8 @@ class MGHArrayIO(protocol.IOProtocol):
         fopen = gzip.open if filename.lower().endswith('gz') else open
         with fopen(filename, 'rb') as file:
 
-            # skip version tag
-            file.read(4)
+            # read version number, retrieve intent
+            intent = read_bytes(file, '>i4', 1) >> 8 & 0xff
 
             # read shape and type info
             shape = read_bytes(file, '>u4', 4)
@@ -283,6 +291,7 @@ class MGHArrayIO(protocol.IOProtocol):
             if isinstance(arr, FramedImage):
                 arr.geom.update(**geom_params)
                 arr.metadata.update(scan_params)
+                arr.metadata['intent'] = intent
 
             # read metadata tags
             while True:
@@ -312,13 +321,28 @@ class MGHArrayIO(protocol.IOProtocol):
                 elif tag == fsio.tags.fieldstrength:
                     arr.metadata['field-strength'] = read_bytes(file, dtype='>f4')
 
+                # gcamorph src & trg geoms (mgz warp)
+                elif tag == fsio.tags.gcamorph_geom:
+                    # read src vol geom
+                    arr.metadata['gcamorph_volgeom_src'] = read_volgeom(file)
+
+                    # read trg vol geom
+                    arr.metadata['gcamorph_volgeom_trg'] = read_volgeom(file)
+                    
+                # gcamorph meta (mgz warp: int int float)
+                elif tag == fsio.tags.gcamorph_meta:
+                    arr.metadata['warpfield_dtfmt']  = read_bytes(file, dtype='>i4')
+                    arr.metadata['gcamorph_spacing'] = read_bytes(file, dtype='>i4')
+                    arr.metadata['gcamorph_exp_k']   = read_bytes(file, dtype='>f4')
+
                 # skip everything else
                 else:
                     file.read(length)
 
         return arr
 
-    def save(self, arr, filename):
+    # optional parameter to specify FramedArray intent, default is MRI data
+    def save(self, arr, filename, intent=FramedArrayIntents.mri):
         """
         Write array to a MGH/MGZ file.
 
@@ -364,7 +388,8 @@ class MGHArrayIO(protocol.IOProtocol):
             shape[-1] = arr.nframes
 
             # begin writing header
-            write_bytes(file, 1, '>u4')  # version
+            version = ((intent & 0xff) << 8) | 1  # encode intent in version
+            write_bytes(file, version, '>u4')  # version
             write_bytes(file, shape, '>u4')  # shape
             write_bytes(file, dtype_id, '>u4')  # MGH data type
             write_bytes(file, 1, '>u4')  # DOF
@@ -412,6 +437,19 @@ class MGHArrayIO(protocol.IOProtocol):
             fsio.write_tag(file, fsio.tags.fieldstrength, 4)
             write_bytes(file, arr.metadata.get('field-strength', 0.0), '>f4')
 
+            # gcamorph geom and gcamorph meta for mgz warp
+            if (intent == FramedArrayIntents.warpmap):
+                # gcamorph src & trg geoms (mgz warp)
+                fsio.write_tag(file, fsio.tags.gcamorph_geom)
+                write_volgeom(file, arr.metadata['gcamorph_volgeom_src'])
+                write_volgeom(file, arr.metadata['gcamorph_volgeom_trg'])
+                    
+                # gcamorph meta (mgz warp: int int float)
+                fsio.write_tag(file, fsio.tags.gcamorph_meta, 12)
+                write_bytes(file, arr.metadata.get('warpfield_dtfmt', 0),    dtype='>i4')
+                write_bytes(file, arr.metadata.get('gcamorph_spacing', 0.0), dtype='>i4')
+                write_bytes(file, arr.metadata.get('gcamorph_exp_k', 0.0),   dtype='>f4')
+           
             # write history tags
             for hist in arr.metadata.get('history', []):
                 fsio.write_tag(file, fsio.tags.history, len(hist))

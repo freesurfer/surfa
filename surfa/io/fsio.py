@@ -17,8 +17,13 @@ class tags:
     gcamorph_geom = 10
     gcamorph_type = 11
     gcamorph_labels = 12
+    gcamorph_meta = 13    # introduced for mgz warpfield
+    gcamorph_affine = 14  # introduced for mgz warpfield (m3z outputs the same information under xform)
     old_surf_geom = 20
     surf_geom = 21
+    surf_dataspace = 22   # surface tag - surface [x y z] space
+    surf_matrixdata = 23  # surface tag - transform matrix going from surf_dataspace to surf_transformedspace
+    surf_transformedspace = 24  # surface tag - surface [x y z] space after applying the transform matrix
     old_xform = 30
     xform = 31
     group_avg_area = 32
@@ -27,14 +32,22 @@ class tags:
     pedir = 41
     mri_frame = 42
     fieldstrength = 43
+    orig_ras2vox  = 44   # ???
 
 
 # these are FreeSurfer tags that have a
 # buffer with hardcoded length
+# notes:
+# 1. there seems to be some special handling of 'old_xform' for backwards compatibility
+# 2. 'xform' is used in both m3z and mgz, but with different formats.
+#    it is lengthless for m3z, but it has a data-length for mgz
 lengthless_tags = [
     tags.old_surf_geom,
     tags.old_real_ras,
     tags.old_colortable,
+    tags.gcamorph_geom,
+    tags.gcamorph_type,
+    tags.gcamorph_labels
 ]
 
 
