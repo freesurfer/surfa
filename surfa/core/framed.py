@@ -379,7 +379,7 @@ class FramedArray:
         data = self.data
         if nonzero:
             data = data[data.nonzero()]
-        return np.percentile(data, percentiles, interpolation=method)
+        return np.percentile(data, percentiles, method=method)
 
     def clip(self, a_min, a_max):
         """
