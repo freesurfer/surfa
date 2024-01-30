@@ -100,10 +100,10 @@ class DeformField:
         self._format = mgzwarp.metadata['warpfield_dtfmt']
 
         # create ImageGeometry object self._source from mgzwarp.metadata['gcamorph_volgeom_src']
-        self._source = _volgeom_dict2image_geometry(mgzwarp.metadata['gcamorph_volgeom_src'])
+        self._source = sf.transform.geometry.volgeom_dict2image_geometry(mgzwarp.metadata['gcamorph_volgeom_src'])
 
         # create ImageGeometry object self._target from mgzwarp.metadata['gcamorph_volgeom_trg']
-        self._target = _volgeom_dict2image_geometry(mgzwarp.metadata['gcamorph_volgeom_trg'])
+        self._target = sf.transform.geometry.volgeom_dict2image_geometry(mgzwarp.metadata['gcamorph_volgeom_trg'])
 
         # not sure if these two are necessary
         self._spacing   = mgzwarp.metadata['gcamorph_spacing']
@@ -127,8 +127,8 @@ class DeformField:
         
         # set metadata
         mgzwarp.metadata['intent'] = sf.core.framed.FramedArrayIntents.warpmap
-        mgzwarp.metadata['gcamorph_volgeom_src'] = _image_geometry2volgeom_dict(self._source)
-        mgzwarp.metadata['gcamorph_volgeom_trg'] = _image_geometry2volgeom_dict(self._target)
+        mgzwarp.metadata['gcamorph_volgeom_src'] = sf.transform.geometry.image_geometry2volgeom_dict(self._source)
+        mgzwarp.metadata['gcamorph_volgeom_trg'] = sf.transform.geometry.image_geometry2volgeom_dict(self._target)
         
         mgzwarp.metadata['warpfield_dtfmt']  = self._format
         mgzwarp.metadata['gcamorph_spacing'] = self._spacing
@@ -165,7 +165,7 @@ class DeformField:
         trg_vox2ras = self._target.vox2world.matrix.astype('float32')
 
         # reshape self._data to (3, n) array, n = c * s * r
-        transform = self._data
+        transform = self._data.astype('float32')
         transform = transform.reshape(-1, 3)     # (n, 3)
         transform = transform.transpose()        # (3, n)
 
@@ -324,74 +324,4 @@ class DeformField:
     def target(self, geom):
         self._target = geom
 
-#
-# create volgeom dict from an ImageGeometry object
-def _image_geometry2volgeom_dict(imagegeometryObj):
-    """
-    Create vol_geom dict from an ImageGeometry object
-
-    Parameters
-    ----------
-    imagegeometryObj : ImageGeometry
-        input ImageGeometry object
-
-    Returns
-    -------
-    volgeom : dict
-        vol_geom dict
-    """
-    
-    volgeom = dict(
-        valid  = 1,
-        width  = imagegeometryObj.shape[0],
-        height = imagegeometryObj.shape[1],
-        depth  = imagegeometryObj.shape[2],
-
-        xsize  = imagegeometryObj.voxsize[0],
-        ysize  = imagegeometryObj.voxsize[1],
-        zsize  = imagegeometryObj.voxsize[2],
-
-        x_r    = imagegeometryObj.rotation[:,0][0],
-        x_a    = imagegeometryObj.rotation[:,0][1],
-        x_s    = imagegeometryObj.rotation[:,0][2],
-        y_r    = imagegeometryObj.rotation[:,1][0],
-        y_a    = imagegeometryObj.rotation[:,1][1],
-        y_s    = imagegeometryObj.rotation[:,1][2],
-        z_r    = imagegeometryObj.rotation[:,2][0],
-        z_a    = imagegeometryObj.rotation[:,2][1],
-        z_s    = imagegeometryObj.rotation[:,2][2],
-                        
-        c_r    = imagegeometryObj.center[0],
-        c_a    = imagegeometryObj.center[1],
-        c_s    = imagegeometryObj.center[2],
-
-        fname  = ''
-    )
-    return volgeom
-
-    
-#
-# create an ImageGeometry object from volgeom dict
-def _volgeom_dict2image_geometry(volgeom):
-    """
-    Create vol_geom dict from an ImageGeometry object
-
-    Parameters
-    ----------
-    volgeom : dict
-        volgeom dict
-
-    Returns
-    -------
-    imagegeometryObj : ImageGeometry
-        input ImageGeometry object
-    """
-
-    imagegeom = sf.transform.geometry.ImageGeometry(
-            shape    = np.array([volgeom['width'], volgeom['height'], volgeom['depth']], dtype=int),
-            center   = np.array([volgeom['c_r'], volgeom['c_a'], volgeom['c_s']]),
-            rotation = np.array([[volgeom['x_r'], volgeom['y_r'], volgeom['z_r']], [volgeom['x_a'], volgeom['y_a'], volgeom['z_a']], [volgeom['x_s'], volgeom['y_s'], volgeom['z_s']]]),
-            voxsize  = np.array([volgeom['xsize'], volgeom['ysize'], volgeom['zsize']])
-    )
-    return imagegeom
 
