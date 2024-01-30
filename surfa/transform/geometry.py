@@ -546,3 +546,73 @@ def image_geometry_equal(a, b, tol=0.0):
     return True
 
     
+#
+# create volgeom dict from an ImageGeometry object
+def image_geometry2volgeom_dict(imagegeometryObj):
+    """
+    Create vol_geom dict from an ImageGeometry object
+
+    Parameters
+    ----------
+    imagegeometryObj : ImageGeometry
+        input ImageGeometry object
+
+    Returns
+    -------
+    volgeom : dict
+        vol_geom dict
+    """
+    
+    volgeom = dict(
+        valid  = 1,
+        width  = imagegeometryObj.shape[0],
+        height = imagegeometryObj.shape[1],
+        depth  = imagegeometryObj.shape[2],
+
+        xsize  = imagegeometryObj.voxsize[0],
+        ysize  = imagegeometryObj.voxsize[1],
+        zsize  = imagegeometryObj.voxsize[2],
+
+        x_r    = imagegeometryObj.rotation[:,0][0],
+        x_a    = imagegeometryObj.rotation[:,0][1],
+        x_s    = imagegeometryObj.rotation[:,0][2],
+        y_r    = imagegeometryObj.rotation[:,1][0],
+        y_a    = imagegeometryObj.rotation[:,1][1],
+        y_s    = imagegeometryObj.rotation[:,1][2],
+        z_r    = imagegeometryObj.rotation[:,2][0],
+        z_a    = imagegeometryObj.rotation[:,2][1],
+        z_s    = imagegeometryObj.rotation[:,2][2],
+                        
+        c_r    = imagegeometryObj.center[0],
+        c_a    = imagegeometryObj.center[1],
+        c_s    = imagegeometryObj.center[2],
+
+        fname  = ''
+    )
+    return volgeom
+
+    
+#
+# create an ImageGeometry object from volgeom dict
+def volgeom_dict2image_geometry(volgeom):
+    """
+    Create vol_geom dict from an ImageGeometry object
+
+    Parameters
+    ----------
+    volgeom : dict
+        volgeom dict
+
+    Returns
+    -------
+    imagegeometryObj : ImageGeometry
+        input ImageGeometry object
+    """
+
+    imagegeom = ImageGeometry(
+            shape    = np.array([volgeom['width'], volgeom['height'], volgeom['depth']], dtype=int),
+            center   = np.array([volgeom['c_r'], volgeom['c_a'], volgeom['c_s']]),
+            rotation = np.array([[volgeom['x_r'], volgeom['y_r'], volgeom['z_r']], [volgeom['x_a'], volgeom['y_a'], volgeom['z_a']], [volgeom['x_s'], volgeom['y_s'], volgeom['z_s']]]),
+            voxsize  = np.array([volgeom['xsize'], volgeom['ysize'], volgeom['zsize']])
+    )
+    return imagegeom
