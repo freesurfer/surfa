@@ -216,7 +216,7 @@ class Affine:
             Transformed N-D point array if (input is N-D point)
 
         transformed : Volume
-            transformed image if (input is an image)
+            Transformed image if (input is an image)
         """
         # a common mistake is to use this function for transforming a mesh,
         # so run this check to help the user out a bit

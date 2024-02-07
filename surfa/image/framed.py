@@ -424,7 +424,7 @@ class FramedImage(FramedArray):
                           DeprecationWarning, stacklevel=2)
 
             from surfa.transform.deformfield import DeformField
-            print("FramedImage.transform: create DeformField object")            
+            
             deformation = cast_image(trf, fallback_geom=self.geom)
             image = image.resample_like(deformation)
             transformer = DeformField(data=trf,
@@ -433,10 +433,8 @@ class FramedImage(FramedArray):
                                       format=DeformField.Format.disp_crs)
         
         if isinstance(transformer, Affine):
-            print("FramedImage.transform: Affine.transform")
             return transformer.transform(image, method, rotation, resample, fill)
         elif isinstance(transformer, DeformField):
-            print("FramedImage.transform: DeformField.transform")
             return transformer.transform(image, method, fill)
         
 
