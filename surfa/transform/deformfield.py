@@ -141,7 +141,7 @@ class DeformField:
     #
     # change deformation field data format
     # return new deformation field, self._data is not changed
-    def change_space(self, newformat=Format.abs_crs):
+    def convert(self, newformat=Format.abs_crs):
         """
         Change deformation field data format
 
@@ -247,7 +247,7 @@ class DeformField:
     #
     # apply _data on given image using Cython interpolation in image/interp.pyx
     # return transformed image
-    def apply(self, image, method='linear', fill=0):
+    def transform(self, image, method='linear', fill=0):
         """
         Apply dense deformation field to input image volume
 
@@ -264,14 +264,23 @@ class DeformField:
 
         # check if image is a Volume
         if (not isinstance(image, sf.image.framed.Volume)):
-            raise ValueError('DeformField::apply() - input is not a Volume')
+            raise ValueError('DeformField.transform() - input is not a Volume')
 
+        if image.basedim == 2:
+            raise NotImplementedError('DeformField.transform() is not yet implemented for 2D data')
+        
+        if self._data.shape[-1] != image.basedim:
+            raise ValueError(f'deformation ({self._data.shape[-1]}D) does not match '
+                             f'dimensionality of image ({image.basedim}D)')
+
+        """
         # get the image in the space of the deformation
         #source_data = image.resample_like(self._target).framed_data
+        """
         source_data = image.framed_data
 
         # convert deformation field to disp_crs
-        deformationfield = self.change_space(self.Format.disp_crs)
+        deformationfield = self.convert(self.Format.disp_crs)
 
         # do the interpolation, the function assumes disp_crs deformation field
         interpolated = interpolate(source=source_data,

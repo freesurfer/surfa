@@ -383,7 +383,7 @@ class FramedImage(FramedArray):
                                method=method, affine=affine.matrix, fill=fill)
         return self.new(interped, target_geom)
 
-    def transform(self, trf=None, method='linear', rotation='corner', resample=True, fill=0, affine=None):
+    def transform(self, trf=None, method='linear', rotation='corner', resample=True, fill=0):
         """
         Apply an affine or non-linear transform.
 
@@ -406,8 +406,6 @@ class FramedImage(FramedArray):
             be updated (this is not possible if a displacement field is provided).
         fill : scalar
             Fill value for out-of-bounds voxels.
-        affine : Affine
-            Deprecated. Use the `trf` argument instead.
 
         Returns
         -------
@@ -418,11 +416,32 @@ class FramedImage(FramedArray):
             raise NotImplementedError('transform() is not yet implemented for 2D data, '
                                       'contact andrew if you need this')
 
-        if affine is not None:
-            trf = affine
-            warnings.warn('The \'affine\' argument to transform() is deprecated. Just use '
-                          'the first positional argument to specify a transform.',
+        image = self.copy()
+        transformer = trf
+        if isinstance(transformer, np.ndarray):
+            warnings.warn('The option to pass \'trf\' argument as a numpy array is deprecated. '
+                          'Pass \'trf\' either an Affine or DeFormField object',
                           DeprecationWarning, stacklevel=2)
+
+            from surfa.transform.deformfield import DeformField
+            print("FramedImage.transform: create DeformField object")            
+            deformation = cast_image(trf, fallback_geom=self.geom)
+            image = image.resample_like(deformation)
+            transformer = DeformField(data=trf,
+                                      source=image.geom,
+                                      target=deformation.geom,
+                                      format=DeformField.Format.disp_crs)
+        
+        if isinstance(transformer, Affine):
+            print("FramedImage.transform: Affine.transform")
+            return transformer.transform(image, method, rotation, resample, fill)
+        elif isinstance(transformer, DeformField):
+            print("FramedImage.transform: DeformField.transform")
+            return transformer.transform(image, method, fill)
+        
+
+        """
+        the following codes have been moved to Affine.transform and DeformField.transform
 
         # one of these two will be set by the end of the function
         disp_data = None
@@ -519,6 +538,7 @@ class FramedImage(FramedArray):
                                    disp=disp_data,
                                    fill=fill)
         return self.new(interpolated, target_geom)
+        """
 
     def reorient(self, orientation, copy=True):
         """
