@@ -418,11 +418,13 @@ class FramedImage(FramedArray):
 
         image = self.copy()
         transformer = trf
-
+        if isinstance(transformer, Affine):
+            return transformer.transform(image, method, rotation, resample, fill)
+        
         from surfa.transform.deformfield import DeformField
         if isinstance(transformer, np.ndarray):    
             warnings.warn('The option to pass \'trf\' argument as a numpy array is deprecated. '
-                          'Pass \'trf\' either an Affine or DeFormField object',
+                          'Pass \'trf\' as either an Affine or DeFormField object',
                           DeprecationWarning, stacklevel=2)
             
             deformation = cast_image(trf, fallback_geom=self.geom)
@@ -431,11 +433,11 @@ class FramedImage(FramedArray):
                                       source=image.geom,
                                       target=deformation.geom,
                                       format=DeformField.Format.disp_crs)
+            
+        if not isinstance(transformer, DeformField):
+            raise ValueError("Pass \'trf\' as either an Affine or DeFormField object")
         
-        if isinstance(transformer, Affine):
-            return transformer.transform(image, method, rotation, resample, fill)
-        elif isinstance(transformer, DeformField):
-            return transformer.transform(image, method, fill)
+        return transformer.transform(image, method, fill)
         
 
         """
