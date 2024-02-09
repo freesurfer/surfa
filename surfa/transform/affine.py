@@ -201,7 +201,7 @@ class Affine:
         """
         return self.transform(*args, **kwargs)
 
-    def transform(self, data, method='linear', rotation='corner', resample=True, fill=0):
+    def transform(self, data, method='linear', rotation='corner', resample=True, fill=0, points=None):
         """
         Apply the affine transform matrix to the input data.
 
@@ -228,6 +228,12 @@ class Affine:
         transformed : Volume
             Transformed image if (input data is an image Volume)
         """
+        if points is not None:
+            data = points
+            warnings.warn('The \'points\' argument to transform() is deprecated. Just use '
+                          'the first positional argument to specify set of points or an image to transform.',
+                          DeprecationWarning, stacklevel=2)
+        
         # a common mistake is to use this function for transforming a mesh,
         # so run this check to help the user out a bit
         if ismesh(data):
