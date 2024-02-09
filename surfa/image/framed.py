@@ -387,14 +387,17 @@ class FramedImage(FramedArray):
         """
         Apply an affine or non-linear transform.
 
-        **Note on deformation fields:** Until we come up with a reasonable way to represent
-        deformation fields, they can be implemented as multi-frame images. It is assumed that
-        they represent a *displacement* vector field in voxel space. So under the hood, images
-        will be moved into the space of the deformation field if the image geometries differ.
+        **The original implementation has been moved to Affine.transform and Warp.transform.
+        **The method is now impemeted to transform image using Affine.transform and Warp.transform.
+
+        **Note on trf argument:** It accepts Affine/Warp object, or deformation fields (4D numpy array).
+        Pass trf argument as a numpy array is deprecated and will be removed in the future.
+        It is assumed that the deformation fields represent a *displacement* vector field in voxel space. 
+        So under the hood, images will be moved into the space of the deformation field if the image geometries differ.
 
         Parameters
         ----------
-        trf : Affine or !class
+        trf : Affine/Warp or !class
             Affine transform or nonlinear deformation (displacement) to apply to the image.
         method : {'linear', 'nearest'}
             Image interpolation method if resample is enabled.
@@ -421,124 +424,24 @@ class FramedImage(FramedArray):
         if isinstance(transformer, Affine):
             return transformer.transform(image, method, rotation, resample, fill)
         
-        from surfa.transform.deformfield import DeformField
+        from surfa.transform.warp import Warp
         if isinstance(transformer, np.ndarray):    
             warnings.warn('The option to pass \'trf\' argument as a numpy array is deprecated. '
-                          'Pass \'trf\' as either an Affine or DeFormField object',
+                          'Pass \'trf\' as either an Affine or Warp object',
                           DeprecationWarning, stacklevel=2)
             
             deformation = cast_image(trf, fallback_geom=self.geom)
             image = image.resample_like(deformation)
-            transformer = DeformField(data=trf,
+            transformer = Warp(data=trf,
                                       source=image.geom,
                                       target=deformation.geom,
-                                      format=DeformField.Format.disp_crs)
+                                      format=Warp.Format.disp_crs)
             
-        if not isinstance(transformer, DeformField):
-            raise ValueError("Pass \'trf\' as either an Affine or DeFormField object")
+        if not isinstance(transformer, Warp):
+            raise ValueError("Pass \'trf\' as either an Affine or Warp object")
         
         return transformer.transform(image, method, fill)
         
-
-        """
-        the following codes have been moved to Affine.transform and DeformField.transform
-
-        # one of these two will be set by the end of the function
-        disp_data = None
-        matrix_data = None
-
-        # first try to convert it to an affine matrix. if that fails
-        # we assume it has to be a deformation field
-        try:
-            trf = cast_affine(trf, allow_none=False)
-        except ValueError:
-            pass
-
-        if isinstance(trf, Affine):
-
-            # for clarity
-            affine = trf
-
-            # if not resampling, just change the image vox2world matrix and return
-            if not resample:
-                
-                # TODO: if affine is missing geometry info, do we assume that the affine
-                # is in world space or voxel space? let's do world for now
-                if affine.source is not None and affine.target is not None:
-                    affine = affine.convert(space='world', source=self)
-                    # TODO: must try this again once I changed everything around!!
-                elif affine.space is None:
-                    warnings.warn('Affine transform is missing metadata defining its coordinate '
-                                  'space or source and target geometry. Assuming matrix is a '
-                                  'world-space transform since resample=False, but this might '
-                                  'not always be the case. Best practice is to provide the '
-                                  'correct metadata in the affine')
-                elif affine.space != 'world':
-                    raise ValueError('affine must contain source and target info '
-                                     'if not in world space')
-
-                # apply forward transform to the header
-                transformed = self.copy()
-                transformed.geom.update(vox2world=affine @ affine.source.vox2world)
-                return transformed
-
-            # sanity check and preprocess the affine if resampling
-            target_geom = self.geom
-
-            if affine.source is not None and affine.target is not None:
-                # it should be assumed that the default affine space is voxel
-                # when both source and target are set
-                if affine.space is None:
-                    affine = affine.copy()
-                    affine.space = 'voxel'
-                # 
-                affine = affine.convert(space='voxel', source=self)
-                target_geom = affine.target
-            elif affine.space is not None and affine.space != 'voxel':
-                raise ValueError('affine must contain source and target info if '
-                                 'coordinate space is not \'voxel\'')
-
-            # ensure the rotation is around the image corner before interpolating
-            if rotation not in ('center', 'corner'):
-                raise ValueError("rotation must be 'center' or 'corner'")
-            elif rotation == 'center':
-                affine = center_to_corner_rotation(affine, self.baseshape)
-            
-            # make sure the matrix is actually inverted since we want a target to
-            # source voxel mapping for resampling
-            matrix_data = affine.inv().matrix
-            source_data = self.framed_data
-
-        else:
-            if not resample:
-                raise ValueError('transform resampling must be enabled when deformation is used')
-
-            # cast deformation as a framed image data. important that the fallback geometry
-            # here is the current image space
-            deformation = cast_image(trf, fallback_geom=self.geom)
-            if deformation.nframes != self.basedim:
-                raise ValueError(f'deformation ({deformation.nframes}D) does not match '
-                                 f'dimensionality of image ({self.basedim}D)')
-
-            # since we only support deformations in the form of voxel displacement
-            # currently, must get the image in the space of the deformation
-            source_data = self.resample_like(deformation).framed_data
-
-            # make sure to use the deformation as the target geometry
-            target_geom = deformation.geom
-
-            # get displacement data
-            disp_data = deformation.data
-
-        # do the interpolation
-        interpolated = interpolate(source=source_data,
-                                   target_shape=target_geom.shape,
-                                   method=method,
-                                   affine=matrix_data,
-                                   disp=disp_data,
-                                   fill=fill)
-        return self.new(interpolated, target_geom)
-        """
 
     def reorient(self, orientation, copy=True):
         """

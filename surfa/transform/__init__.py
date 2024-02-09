@@ -14,4 +14,4 @@ from .geometry import image_geometry_equal
 from .geometry import image_geometry2volgeom_dict
 from .geometry import volgeom_dict2image_geometry
 
-from .deformfield import DeformField
+from .warp import Warp

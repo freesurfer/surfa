@@ -194,52 +194,62 @@ class Affine:
         matrix = np.matmul(self.matrix, other.matrix)
         return Affine(matrix)
 
-    def __call__(self, points):
+    def __call__(self, *args, **kwargs):
         """
-        Apply the affine transform matrix to a set of points. Calls `self.transform(points)`
-        under the hood.
+        Apply the affine transform matrix to a set of points, or an image Volume.
+        Calls `self.transform()` under the hood.
         """
-        return self.transform(points)
+        return self.transform(*args, **kwargs)
 
-    def transform(self, points, method='linear', rotation='corner', resample=True, fill=0):
+    def transform(self, data, method='linear', rotation='corner', resample=True, fill=0):
         """
-        Apply the affine transform matrix to an N-D point (set of points), or an image.
+        Apply the affine transform matrix to the input data.
 
         Parameters
         ----------
-        points : (..., N) float
-            N-D point values to transform.
+        data : input data to transform
+            N-D point values, or image Volume
+        method : {'linear', 'nearest'}
+            Image interpolation method if resample is enabled.
+        rotation : {'corner', 'center'}
+            Apply affine with rotation axis at the image corner or center.
+        resample : bool
+            If enabled, voxel data will be interpolated and resampled, and geometry will be set
+            the target. If disabled, voxel data will not be modified, and only the geometry will
+            be updated (this is not possible if a displacement field is provided).
+        fill : scalar
+            Fill value for out-of-bounds voxels.
 
         Returns
         -------
         (..., N) float
-            Transformed N-D point array if (input is N-D point)
+            Transformed N-D point array if (input data is N-D point)
 
         transformed : Volume
-            Transformed image if (input is an image)
+            Transformed image if (input data is an image Volume)
         """
         # a common mistake is to use this function for transforming a mesh,
         # so run this check to help the user out a bit
-        if ismesh(points):
+        if ismesh(data):
             raise ValueError('use mesh.transform(affine) to apply an affine to a mesh')
         
-        if isimage(points):
-            return self.__transform_image(points, method, rotation, resample, fill)
+        if isimage(data):
+            return self.__transform_image(data, method, rotation, resample, fill)
 
         # convert to array
-        points = np.ascontiguousarray(points)
+        data = np.ascontiguousarray(data)
 
         # check correct dimensionality
-        if points.shape[-1] != self.ndim:
+        if data.shape[-1] != self.ndim:
             raise ValueError(f'transform() method expected {self.ndim}D points, but got '
-                             f'{points.shape[-1]}D input with shape {points.shape}')
+                             f'{data.shape[-1]}D input with shape {data.shape}')
 
         # account for multiple possible input axes and be sure to
         # always return the same shape
-        shape = points.shape
-        points = points.reshape(-1, self.ndim)
-        points = np.c_[points, np.ones(points.shape[0])].T
-        moved = np.dot(self.matrix, points).T[:, :-1]
+        shape = data.shape
+        data = data.reshape(-1, self.ndim)
+        data = np.c_[data, np.ones(data.shape[0])].T
+        moved = np.dot(self.matrix, data).T[:, :-1]
         return np.ascontiguousarray(moved).reshape(shape)
 
     def inv(self):
