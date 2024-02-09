@@ -219,6 +219,8 @@ class Affine:
             be updated (this is not possible if a displacement field is provided).
         fill : scalar
             Fill value for out-of-bounds voxels.
+        points : N-D point values
+            Deprecated. Use the `data` argument instead.
 
         Returns
         -------
