@@ -6,7 +6,7 @@ import surfa as sf
 from surfa.image.interp import interpolate
 
 
-class DeformField:
+class Warp:
 
     class Format:
         """
@@ -41,7 +41,7 @@ class DeformField:
                               RAS ABS coordinate Y, or RAS DISP coordinate Y
                frame 2 - image voxel ABS coordinate S, image voxel DISP coordinate S,
                               RAS ABS coordinate Z, or RAS DISP coordinate Z
-          _format:         DeformField.Format
+          _format:         Warp.Format
           _source:         ImageGeometry, source image
           _target:         ImageGeometry, target image
           _spacing:        int    (this is from m3z, not sure if it is really needed)
@@ -71,9 +71,18 @@ class DeformField:
             self._spacing    = spacing
             self._exp_k      = exp_k
         else:
-            raise ValueError('DeformField constructor: input parameters error')
+            raise ValueError('Warp constructor: input parameters error')
 
 
+    #
+    def __call__(self, *args, **kwargs):
+        """
+        Apply non-linear transform to an image.
+        Calls `self.transform()` under the hood.
+        """
+        return self.transform(*args, **kwargs)
+
+    
     #
     # Read input mgz warp file
     def load(self, filename):
@@ -90,11 +99,11 @@ class DeformField:
 
         # check if mgzwarp is a volume
         if (not isinstance(mgzwarp, sf.image.framed.Volume)):
-            raise ValueError('DeformField::load() - input is not a Volume')
+            raise ValueError('Warp::load() - input is not a Volume')
         
         # check if input is a mgzwarp (intent FramedArrayIntents.warpmap)
         if (mgzwarp.metadata['intent'] != sf.core.framed.FramedArrayIntents.warpmap):
-            raise ValueError('DeformField::load() - input is not a mgzwarp Volume')
+            raise ValueError('Warp::load() - input is not a mgzwarp Volume')
 
         self._data = mgzwarp.data
         self._format = mgzwarp.metadata['warpfield_dtfmt']
@@ -141,7 +150,7 @@ class DeformField:
     #
     # change deformation field data format
     # return new deformation field, self._data is not changed
-    def change_space(self, newformat=Format.abs_crs):
+    def convert(self, newformat=Format.abs_crs):
         """
         Change deformation field data format
 
@@ -247,7 +256,7 @@ class DeformField:
     #
     # apply _data on given image using Cython interpolation in image/interp.pyx
     # return transformed image
-    def apply(self, image, method='linear', fill=0):
+    def transform(self, image, method='linear', fill=0):
         """
         Apply dense deformation field to input image volume
 
@@ -255,6 +264,10 @@ class DeformField:
         ----------
         image : Volume
             input image Volume
+        method : {'linear', 'nearest'}
+            Image interpolation method
+        fill : scalar
+            Fill value for out-of-bounds voxels.
 
         Returns
         -------
@@ -264,14 +277,23 @@ class DeformField:
 
         # check if image is a Volume
         if (not isinstance(image, sf.image.framed.Volume)):
-            raise ValueError('DeformField::apply() - input is not a Volume')
+            raise ValueError('Warp.transform() - input is not a Volume')
 
+        if image.basedim == 2:
+            raise NotImplementedError('Warp.transform() is not yet implemented for 2D data')
+        
+        if self._data.shape[-1] != image.basedim:
+            raise ValueError(f'deformation ({self._data.shape[-1]}D) does not match '
+                             f'dimensionality of image ({image.basedim}D)')
+
+        """
         # get the image in the space of the deformation
         #source_data = image.resample_like(self._target).framed_data
+        """
         source_data = image.framed_data
 
         # convert deformation field to disp_crs
-        deformationfield = self.change_space(self.Format.disp_crs)
+        deformationfield = self.convert(self.Format.disp_crs)
 
         # do the interpolation, the function assumes disp_crs deformation field
         interpolated = interpolate(source=source_data,
@@ -291,8 +313,8 @@ class DeformField:
     def data(self):
         return self._data
     @data.setter
-    def data(self, deformfield):
-        self._data = deformfield
+    def data(self, warp):
+        self._data = warp
 
 
     #

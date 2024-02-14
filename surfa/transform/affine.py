@@ -194,48 +194,70 @@ class Affine:
         matrix = np.matmul(self.matrix, other.matrix)
         return Affine(matrix)
 
-    def __call__(self, points):
+    def __call__(self, *args, **kwargs):
         """
-        Apply the affine transform matrix to a set of points. Calls `self.transform(points)`
-        under the hood.
+        Apply the affine transform matrix to a set of points, or an image Volume.
+        Calls `self.transform()` under the hood.
         """
-        return self.transform(points)
+        return self.transform(*args, **kwargs)
 
-    def transform(self, points):
+    def transform(self, data, method='linear', rotation='corner', resample=True, fill=0, points=None):
         """
-        Apply the affine transform matrix to an N-D point or set of points.
+        Apply the affine transform matrix to the input data.
 
         Parameters
         ----------
-        points : (..., N) float
-            N-D point values to transform.
+        data : input data to transform
+            N-D point values, or image Volume
+        method : {'linear', 'nearest'}
+            Image interpolation method if resample is enabled.
+        rotation : {'corner', 'center'}
+            Apply affine with rotation axis at the image corner or center.
+        resample : bool
+            If enabled, voxel data will be interpolated and resampled, and geometry will be set
+            the target. If disabled, voxel data will not be modified, and only the geometry will
+            be updated (this is not possible if a displacement field is provided).
+        fill : scalar
+            Fill value for out-of-bounds voxels.
+        points : N-D point values
+            Deprecated. Use the `data` argument instead.
 
         Returns
         -------
         (..., N) float
-            Transformed N-D point array.
+            Transformed N-D point array if (input data is N-D point)
+
+        transformed : Volume
+            Transformed image if (input data is an image Volume)
         """
-        # a common mistake is to use this function for transforming an image
-        # or mesh, so run this check to help the user out a bit
-        if ismesh(points):
+        if points is not None:
+            data = points
+            warnings.warn('The \'points\' argument to transform() is deprecated. Just use '
+                          'the first positional argument to specify set of points or an image to transform.',
+                          DeprecationWarning, stacklevel=2)
+        
+        # a common mistake is to use this function for transforming a mesh,
+        # so run this check to help the user out a bit
+        if ismesh(data):
             raise ValueError('use mesh.transform(affine) to apply an affine to a mesh')
-        if isimage(points):
-            raise ValueError('use image.transform(affine) to apply an affine to an image')
+        
+        if isimage(data):
+            return self.__transform_image(data, method, rotation, resample, fill)
 
         # convert to array
-        points = np.ascontiguousarray(points)
+        data = np.ascontiguousarray(data)
 
         # check correct dimensionality
-        if points.shape[-1] != self.ndim:
+        if data.shape[-1] != self.ndim:
             raise ValueError(f'transform() method expected {self.ndim}D points, but got '
-                             f'{points.shape[-1]}D input with shape {points.shape}')
+                             f'{data.shape[-1]}D input with shape {data.shape}')
 
         # account for multiple possible input axes and be sure to
         # always return the same shape
-        shape = points.shape
-        points = points.reshape(-1, self.ndim)
-        points = np.c_[points, np.ones(points.shape[0])].T
-        moved = np.dot(self.matrix, points).T[:, :-1]
+        shape = data.shape
+        data = data.reshape(-1, self.ndim)
+        data = np.c_[data, np.ones(data.shape[0])].T
+        moved = np.dot(self.matrix, data).T[:, :-1]
         return np.ascontiguousarray(moved).reshape(shape)
 
     def inv(self):
@@ -365,6 +387,88 @@ class Affine:
         return Affine(affine.matrix, source=source, target=target, space=space)
 
 
+    # the implementation is based on FramedImage.transform
+    def __transform_image(self, image, method='linear', rotation='corner', resample=True, fill=0):
+        """
+        Apply the affine transform matrix to an image.
+
+        Parameters
+        ----------
+        image : Volume
+            input image Volume
+
+        Returns
+        -------
+        transformed : Volume
+            transformed image
+        """
+
+        if image.basedim == 2:
+            raise NotImplementedError('Affine.transform() is not yet implemented for 2D data')
+        
+        affine = self.copy()
+        
+        # if not resampling, just change the image vox2world matrix and return
+        if not resample:
+                
+            # TODO: if affine is missing geometry info, do we assume that the affine
+            # is in world space or voxel space? let's do world for now
+            if affine.source is not None and affine.target is not None:
+                affine = affine.convert(space='world', source=image)
+                # TODO: must try this again once I changed everything around!!
+            elif affine.space is None:
+                warnings.warn('Affine transform is missing metadata defining its coordinate '
+                              'space or source and target geometry. Assuming matrix is a '
+                              'world-space transform since resample=False, but this might '
+                              'not always be the case. Best practice is to provide the '
+                              'correct metadata in the affine')
+            elif affine.space != 'world':
+                raise ValueError('affine must contain source and target info '
+                                 'if not in world space')
+
+            # apply forward transform to the header
+            transformed = image.copy()
+            transformed.geom.update(vox2world=affine @ affine.source.vox2world)
+            return transformed
+
+        # sanity check and preprocess the affine if resampling
+        target_geom = image.geom
+
+        if affine.source is not None and affine.target is not None:
+            # it should be assumed that the default affine space is voxel
+            # when both source and target are set
+            if affine.space is None:
+                affine = affine.copy()
+                affine.space = 'voxel'
+            # 
+            affine = affine.convert(space='voxel', source=image)
+            target_geom = affine.target
+        elif affine.space is not None and affine.space != 'voxel':
+            raise ValueError('affine must contain source and target info if '
+                             'coordinate space is not \'voxel\'')
+
+        # ensure the rotation is around the image corner before interpolating
+        if rotation not in ('center', 'corner'):
+            raise ValueError("rotation must be 'center' or 'corner'")
+        elif rotation == 'center':
+            affine = center_to_corner_rotation(affine, image.baseshape)
+            
+        # make sure the matrix is actually inverted since we want a target to
+        # source voxel mapping for resampling
+        matrix_data = affine.inv().matrix
+        source_data = image.framed_data
+
+        # do the interpolation
+        from surfa.image.interp import interpolate
+        interpolated = interpolate(source=source_data,
+                                   target_shape=target_geom.shape,
+                                   method=method,
+                                   affine=matrix_data,
+                                   fill=fill)
+        return image.new(interpolated, target_geom)
+
+
+        
 def affine_equal(a, b, matrix_only=False, tol=0.0):
     """
     Test whether two affine transforms are equivalent.
