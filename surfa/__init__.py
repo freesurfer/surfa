@@ -13,6 +13,7 @@ from .core import LabelLookup
 from .core import LabelRecoder
 
 from .transform import Affine
+from .transform import Warp
 from .transform import Space
 from .transform import ImageGeometry
 
