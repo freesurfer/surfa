@@ -31,8 +31,7 @@ def load_volume(filename, fmt=None):
     filename : str
         File path to read.
     fmt : str, optional
-        Explicit file format. If None (default), the format is extrapolated
-        from the file extension.
+        Explicit file format. If None, we extrapolate from the file extension.
 
     Returns
     -------
@@ -51,8 +50,7 @@ def load_slice(filename, fmt=None):
     filename : str
         File path to read.
     fmt : str, optional
-        Explicit file format. If None (default), the format is extrapolated
-        from the file extension.
+        Explicit file format. If None, we extrapolate from the file extension.
 
     Returns
     -------
@@ -71,8 +69,7 @@ def load_overlay(filename, fmt=None):
     filename : str
         File path to read.
     fmt : str, optional
-        Explicit file format. If None (default), the format is extrapolated
-        from the file extension.
+        Explicit file format. If None, we extrapolate from the file extension.
 
     Returns
     -------
@@ -112,13 +109,12 @@ def load_framed_array(filename, atype, fmt=None):
     atype : class
         Particular FramedArray subclass to read into.
     fmt : str, optional
-        Forced file format. If None (default), file format is extrapolated
-        from extension.
+        Explicit file format. If None, we extrapolate from the file extension.
 
     Returns
     -------
     FramedArray
-        Loaded framed array. 
+        Loaded framed array.
     """
     check_file_readability(filename)
 
@@ -309,7 +305,7 @@ class MGHArrayIO(protocol.IOProtocol):
                 # it's also not required in the freesurfer definition, so we'll
                 # use the read() function directly in case end-of-file is reached
                 file.read(np.dtype('>f4').itemsize)
- 
+
             # update image-specific information
             if isinstance(arr, FramedImage):
                 arr.geom.update(**geom_params)
@@ -710,7 +706,6 @@ class FreeSurferAnnotationIO(protocol.IOProtocol):
         if arr.labels is None:
             raise ValueError('overlay must have label lookup if saving as annotation')
 
-        # 
         unknown_mask = arr.data < 0
 
         # make sure all indices exist in the label lookup
