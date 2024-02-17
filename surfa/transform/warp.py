@@ -253,7 +253,7 @@ class Warp(FramedImage):
                                    disp=deformationfield,
                                    fill=fill)
 
-        return self.new(interpolated)
+        return image.new(interpolated, geometry=self.target)
 
 
     #
