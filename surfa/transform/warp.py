@@ -86,48 +86,20 @@ class Warp(FramedImage):
 
         return self.__class__(data, source, target, metadata=self.metadata)
 
-    #
-    # Read input mgz warp file
-    @staticmethod
-    def load(filename):
-        """
-        Read input mgz warp file, set up deformation field, source/target geometry
-
-        Parameters
-        ----------
-        filename : string
-            input mgz warp file
-        """
-        warp = sf.load_volume(filename)
-
-        if not isinstance(warp, sf.image.framed.Volume):
-            raise ValueError('input is not a Volume')
-
-        if warp.metadata['intent'] != sf.core.framed.FramedArrayIntents.warpmap:
-            raise ValueError('input is not a warp Volume')
-
-        format = warp.metadata['warpfield_dtfmt']
-        source = transform.volgeom_dict2image_geometry(warp.metadata['gcamorph_volgeom_src'])
-        target = transform.volgeom_dict2image_geometry(warp.metadata['gcamorph_volgeom_trg'])
-        return super().__class__(warp.data, source, target, format, metadata=warp.metadata)
-
 
     #
     # output _data as mgz warp
     def save(self, filename, fmt=None):
         """
-        Output _data as mgz warp volume
+        Write warp to file.
 
         Parameters
         ----------
         filename : string
-            output mgz warp file
+            Filename to write to.
         fmt : str
             Optional file format to force.
         """
-        self.metadata['warpfield_dtfmt'] = self.format
-        self.metadata['gcamorph_volgeom_src'] = transform.image_geometry2volgeom_dict(self.source)
-        self.metadata['gcamorph_volgeom_trg'] = transform.image_geometry2volgeom_dict(self.target)
         super().save(filename, fmt=fmt, intent=sf.core.framed.FramedArrayIntents.warpmap)
 
 

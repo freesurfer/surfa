@@ -6,7 +6,7 @@ import numpy as np
 from surfa import Volume
 from surfa import Slice
 from surfa import Overlay
-from surfa import ImageGeometry
+from surfa import Warp
 from surfa.core.array import pad_vector_length
 from surfa.core.framed import FramedArray
 from surfa.core.framed import FramedArrayIntents
@@ -17,8 +17,8 @@ from surfa.io.utils import read_int
 from surfa.io.utils import write_int
 from surfa.io.utils import read_bytes
 from surfa.io.utils import write_bytes
-from surfa.io.utils import read_volgeom
-from surfa.io.utils import write_volgeom
+from surfa.io.utils import read_geom
+from surfa.io.utils import write_geom
 from surfa.io.utils import check_file_readability
 
 
@@ -80,6 +80,25 @@ def load_overlay(filename, fmt=None):
         Loaded overlay.
     """
     return load_framed_array(filename=filename, atype=Overlay, fmt=fmt)
+
+
+def load_warp(filename, fmt=None):
+    """
+    Load an image `Warp` from a 3D or 4D array file.
+
+    Parameters
+    ----------
+    filename : str
+        File path to read.
+    fmt : str, optional
+        Explicit file format. If None, we extrapolate from the file extension.
+
+    Returns
+    -------
+    Warp
+        Loaded warp.
+    """
+    return load_framed_array(filename=filename, atype=Warp, fmt=fmt)
 
 
 def load_framed_array(filename, atype, fmt=None):
@@ -170,6 +189,10 @@ def framed_array_from_4d(atype, data):
     """
     # this code is a bit ugly - it does the job but should probably be cleaned up
     if atype == Volume:
+        return atype(data)
+    if atype == Warp:
+        if data.ndim == 4 and data.shape[-1] == 2:
+            data = data.squeeze(-2)
         return atype(data)
     # slice
     if data.ndim == 3:
@@ -323,17 +346,19 @@ class MGHArrayIO(protocol.IOProtocol):
 
                 # gcamorph src & trg geoms (mgz warp)
                 elif tag == fsio.tags.gcamorph_geom:
-                    # read src vol geom
-                    arr.metadata['gcamorph_volgeom_src'] = read_volgeom(file)
+                    arr.source, valid, fname = read_geom(file)
+                    arr.metadata['source-valid'] = valid
+                    arr.metadata['source-fname'] = fname
 
-                    # read trg vol geom
-                    arr.metadata['gcamorph_volgeom_trg'] = read_volgeom(file)
-                    
+                    arr.target, valid, fname = read_geom(file)
+                    arr.metadata['target-valid'] = valid
+                    arr.metadata['target-fname'] = fname
+
                 # gcamorph meta (mgz warp: int int float)
                 elif tag == fsio.tags.gcamorph_meta:
-                    arr.metadata['warpfield_dtfmt']  = read_bytes(file, dtype='>i4')
-                    arr.metadata['gcamorph_spacing'] = read_bytes(file, dtype='>i4')
-                    arr.metadata['gcamorph_exp_k']   = read_bytes(file, dtype='>f4')
+                    arr.format = read_bytes(file, dtype='>i4')
+                    arr.metadata['spacing'] = read_bytes(file, dtype='>i4')
+                    arr.metadata['exp_k'] = read_bytes(file, dtype='>f4')
 
                 # skip everything else
                 else:
@@ -438,18 +463,24 @@ class MGHArrayIO(protocol.IOProtocol):
             write_bytes(file, arr.metadata.get('field-strength', 0.0), '>f4')
 
             # gcamorph geom and gcamorph meta for mgz warp
-            if (intent == FramedArrayIntents.warpmap):
+            if intent == FramedArrayIntents.warpmap:
                 # gcamorph src & trg geoms (mgz warp)
                 fsio.write_tag(file, fsio.tags.gcamorph_geom)
-                write_volgeom(file, arr.metadata['gcamorph_volgeom_src'])
-                write_volgeom(file, arr.metadata['gcamorph_volgeom_trg'])
-                    
+                write_geom(file,
+                           geom=arr.source,
+                           valid=arr.metadata.get('source-valid', True),
+                           fname=arr.metadata.get('source-fname', ''))
+                write_geom(file,
+                           geom=arr.target,
+                           valid=arr.metadata.get('target-valid', True),
+                           fname=arr.metadata.get('target-fname', ''))
+
                 # gcamorph meta (mgz warp: int int float)
                 fsio.write_tag(file, fsio.tags.gcamorph_meta, 12)
-                write_bytes(file, arr.metadata.get('warpfield_dtfmt', 0),    dtype='>i4')
-                write_bytes(file, arr.metadata.get('gcamorph_spacing', 0.0), dtype='>i4')
-                write_bytes(file, arr.metadata.get('gcamorph_exp_k', 0.0),   dtype='>f4')
-           
+                write_bytes(file, arr.format, dtype='>i4')
+                write_bytes(file, arr.metadata.get('spacing', 0), dtype='>i4')
+                write_bytes(file, arr.metadata.get('exp_k', 0.0), dtype='>f4')
+
             # write history tags
             for hist in arr.metadata.get('history', []):
                 fsio.write_tag(file, fsio.tags.history, len(hist))

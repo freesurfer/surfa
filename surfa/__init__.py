@@ -30,6 +30,7 @@ from .io import load_overlay
 from .io import load_affine
 from .io import load_label_lookup
 from .io import load_mesh
+from .io import load_warp
 
 from . import vis
 from . import freesurfer
