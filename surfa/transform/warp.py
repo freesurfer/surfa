@@ -23,7 +23,7 @@ class Warp(FramedImage):
         disp_ras = 3
 
 
-    def __init__(self, data, source=None, target=None, format=Format.abs_crs, **kwargs):
+    def __init__(self, data, source=None, target=None, format=Format.disp_crs, **kwargs):
         """
         Class variables:
           _data:  deformation field, 4D numpy array (c, r, s, 3)
@@ -80,7 +80,7 @@ class Warp(FramedImage):
         if format is None:
             format = self.format
 
-        return self.__class__(data, source, target, metadata=self.metadata)
+        return self.__class__(data, source, target, format=format, metadata=self.metadata)
 
     def save(self, filename, fmt=None):
         """

@@ -181,7 +181,7 @@ def framed_array_from_4d(atype, data):
     Returns
     -------
     FramedArray
-        Squeezed framed array. 
+        Squeezed framed array.
     """
     # this code is a bit ugly - it does the job but should probably be cleaned up
     if atype == Volume:
