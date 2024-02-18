@@ -95,23 +95,25 @@ class Warp(FramedImage):
         """
         super().save(filename, fmt=fmt, intent=sf.core.framed.FramedArrayIntents.warpmap)
 
-    def convert(self, newformat=Format.abs_crs):
+    def convert(self, format=Format.disp_crs, copy=True):
         """
         Change deformation field format.
 
         Parameters
         ----------
-        newformat : Format
+        format : Format
             Output deformation field format.
+        copy : bool
+            Return copy of object if format already satisfied.
 
         Returns
         -------
-        data : 4D numpy array (c, r, s, 3)
+        Warp
             Converted deformation field.
         """
         compute_type = np.float32
-        if self.format == newformat:
-            return self._data
+        if self.format == format:
+            return self.copy() if copy else self
 
         # cast vox2world.matrix and world2vox.matrix to float32
         src_vox2ras = self.source.vox2world.matrix.astype(compute_type)
@@ -134,15 +136,15 @@ class Warp(FramedImage):
 
         if self._format == Warp.Format.abs_crs:
 
-            if newformat == Warp.Format.disp_crs:
+            if format == Warp.Format.disp_crs:
                 # abs_crs => disp_crs
                 deformationfield = transform - trg_crs
             else:
                 # abs_crs => abs_ras
                 src_ras = src_vox2ras[:3, :3] @ transform + src_vox2ras[:3, 3:]
-                if newformat == Warp.Format.abs_ras:
+                if format == Warp.Format.abs_ras:
                     deformationfield = src_ras
-                elif newformat == Warp.Format.disp_ras:
+                elif format == Warp.Format.disp_ras:
                     # abs_ras => disp_ras
                     deformationfield = src_ras - trg_ras
 
@@ -150,28 +152,28 @@ class Warp(FramedImage):
 
             # disp_crs => abs_crs
             src_crs = transform + trg_crs
-            if newformat == Warp.Format.abs_crs:
+            if format == Warp.Format.abs_crs:
                 deformationfield = src_crs
             else:
                 # abs_crs => abs_ras
                 src_ras = src_vox2ras[:3, :3] @ src_crs + src_vox2ras[:3, 3:]
-                if newformat == Warp.Format.abs_ras:
+                if format == Warp.Format.abs_ras:
                     deformationfield = src_ras
-                elif newformat == Warp.Format.disp_ras:
+                elif format == Warp.Format.disp_ras:
                     # abs_ras => disp_ras
                     deformationfield = src_ras - trg_ras
 
         elif self._format == Warp.Format.abs_ras:
 
-            if newformat == Warp.Format.disp_ras:
+            if format == Warp.Format.disp_ras:
                 # abs_ras => disp_ras
                 deformationfield = transform - trg_ras
             else:
                 # abs_ras => abs_crs
                 src_crs = src_ras2vox[:3, :3] @ transform + src_ras2vox[:3, 3:]
-                if newformat == Warp.Format.abs_crs:
+                if format == Warp.Format.abs_crs:
                     deformationfield = src_crs
-                elif newformat == Warp.Format.disp_crs:
+                elif format == Warp.Format.disp_crs:
                     # abs_crs => disp_crs
                     deformationfield = src_crs - trg_crs
 
@@ -179,14 +181,14 @@ class Warp(FramedImage):
 
             # disp_ras => abs_ras
             src_ras = transform + trg_ras
-            if newformat == Warp.Format.abs_ras:
+            if format == Warp.Format.abs_ras:
                 deformationfield = src_ras
             else:
                 # abs_ras => abs_crs
                 src_crs = src_ras2vox[:3, :3] @ src_ras + src_ras2vox[:3, 3:]
-                if newformat == Warp.Format.abs_crs:
+                if format == Warp.Format.abs_crs:
                     deformationfield = src_crs
-                elif newformat == Warp.Format.disp_crs:
+                elif format == Warp.Format.disp_crs:
                     # abs_crs => disp_crs
                     deformationfield = src_crs - trg_crs
 
@@ -194,7 +196,7 @@ class Warp(FramedImage):
         deformationfield = deformationfield.transpose()
         deformationfield = deformationfield.reshape(self.shape)
 
-        return deformationfield
+        return self.new(deformationfield, format=format)
 
     def transform(self, image, method='linear', fill=0):
         """
@@ -224,14 +226,12 @@ class Warp(FramedImage):
             raise ValueError(f'deformation ({self.nframes}D) does not match '
                              f'dimensionality of image ({image.basedim}D)')
 
-        # convert deformation field to disp_crs
-        deformationfield = self.convert(Warp.Format.disp_crs)
-
-        # do the interpolation, the function assumes disp_crs deformation field
+        # interpolation assumes disp_crs format
+        disp = self.convert(Warp.Format.disp_crs, copy=False)
         interpolated = interpolate(source=image.framed_data,
-                                   target_shape=self.geom.shape,
+                                   target_shape=self.baseshape,
                                    method=method,
-                                   disp=deformationfield,
+                                   disp=disp.framed_data,
                                    fill=fill)
 
         return image.new(interpolated, geometry=self.target)
