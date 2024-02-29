@@ -1,6 +1,8 @@
 import os
 import numpy as np
 
+from surfa import ImageGeometry
+
 
 def check_file_readability(filename):
     """
@@ -100,66 +102,57 @@ def write_bytes(file, value, dtype):
     file.write(np.asarray(value).astype(dtype, copy=False).tobytes())
 
 
-# read VOL_GEOM
-# also see VOL_GEOM.read() in mri.h 
-def read_volgeom(file):
-    volgeom = dict(
-        valid  = read_bytes(file, '>i4', 1),
-                        
-        width  = read_bytes(file, '>i4', 1),
-        height = read_bytes(file, '>i4', 1),
-        depth  = read_bytes(file, '>i4', 1),
-                       
-        xsize  = read_bytes(file, '>f4', 1),
-        ysize  = read_bytes(file, '>f4', 1),
-        zsize  = read_bytes(file, '>f4', 1),
-                        
-        x_r    = read_bytes(file, '>f4', 1),
-        x_a    = read_bytes(file, '>f4', 1),
-        x_s    = read_bytes(file, '>f4', 1),
-        y_r    = read_bytes(file, '>f4', 1),
-        y_a    = read_bytes(file, '>f4', 1),
-        y_s    = read_bytes(file, '>f4', 1),
-        z_r    = read_bytes(file, '>f4', 1),
-        z_a    = read_bytes(file, '>f4', 1),
-        z_s    = read_bytes(file, '>f4', 1),
-                        
-        c_r    = read_bytes(file, '>f4', 1),
-        c_a    = read_bytes(file, '>f4', 1),
-        c_s    = read_bytes(file, '>f4', 1),
+def read_geom(file):
+    """
+    Read an image geometry from a binary file buffer. See VOL_GEOM.read() in mri.h.
 
-        fname  = file.read(512).decode('utf-8').rstrip('\x00')
-        )
-    return volgeom
+    Parameters
+    ----------
+    file : BufferedReader
+        Opened file buffer.
+
+    Returns
+    -------
+    ImageGeometry
+        Image geometry.
+    bool
+        True if the geometry is valid.
+    str
+        File name associated with the geometry.
+    """
+    valid = bool(read_bytes(file, '>i4', 1))
+    geom = ImageGeometry(
+        shape=read_bytes(file, '>i4', 3).astype(int),
+        voxsize=read_bytes(file, '>f4', 3),
+        rotation=read_bytes(file, '>f4', 9).reshape((3, 3), order='F'),
+        center=read_bytes(file, '>f4', 3),
+    )
+    fname  = file.read(512).decode('utf-8').rstrip('\x00')
+    return geom, valid, fname
 
 
-# output VOL_GEOM
-# also see VOL_GEOM.write() in mri.h
-def write_volgeom(file, volgeom):
-    write_bytes(file, volgeom['valid'], '>i4')
-                        
-    write_bytes(file, volgeom['width'], '>i4')
-    write_bytes(file, volgeom['height'], '>i4')
-    write_bytes(file, volgeom['depth'], '>i4')
-                       
-    write_bytes(file, volgeom['xsize'], '>f4')
-    write_bytes(file, volgeom['ysize'], '>f4')
-    write_bytes(file, volgeom['zsize'], '>f4')
-                        
-    write_bytes(file, volgeom['x_r'], '>f4')
-    write_bytes(file, volgeom['x_a'], '>f4')
-    write_bytes(file, volgeom['x_s'], '>f4')
-    write_bytes(file, volgeom['y_r'], '>f4')
-    write_bytes(file, volgeom['y_a'], '>f4')
-    write_bytes(file, volgeom['y_s'], '>f4')
-    write_bytes(file, volgeom['z_r'], '>f4')
-    write_bytes(file, volgeom['z_a'], '>f4')
-    write_bytes(file, volgeom['z_s'], '>f4')
+def write_geom(file, geom, valid=True, fname=''):
+    """
+    Write an image geometry to a binary file buffer. See VOL_GEOM.write() in mri.h.
 
-    write_bytes(file, volgeom['c_r'], '>f4')
-    write_bytes(file, volgeom['c_a'], '>f4')
-    write_bytes(file, volgeom['c_s'], '>f4')
+    Parameters
+    ----------
+    file : BufferedReader
+        Opened file buffer.
+    geom : ImageGeometry
+        Image geometry.
+    valid : bool
+        True if the geometry is valid.
+    fname : str
+        File name associated with the geometry.
+    """
+    write_bytes(file, valid, '>i4')
 
-    # output 512 bytes padded with '/x00'
-    file.write(volgeom['fname'].ljust(512, '\x00').encode('utf-8'))
+    voxsize, rotation, center = geom.shearless_components()
+    write_bytes(file, geom.shape, '>i4')
+    write_bytes(file, voxsize, '>f4')
+    write_bytes(file, np.ravel(rotation, order='F'), '>f4')
+    write_bytes(file, center, '>f4')
 
+    # right-pad with '/x00' to 512 bytes
+    file.write(fname[:512].ljust(512, '\x00').encode('utf-8'))

@@ -392,7 +392,7 @@ class FramedImage(FramedArray):
 
         **Note on trf argument:** It accepts Affine/Warp object, or deformation fields (4D numpy array).
         Pass trf argument as a numpy array is deprecated and will be removed in the future.
-        It is assumed that the deformation fields represent a *displacement* vector field in voxel space. 
+        It is assumed that the deformation fields represent a *displacement* vector field in voxel space.
         So under the hood, images will be moved into the space of the deformation field if the image geometries differ.
 
         Parameters
@@ -420,28 +420,26 @@ class FramedImage(FramedArray):
                                       'contact andrew if you need this')
 
         image = self.copy()
-        transformer = trf
-        if isinstance(transformer, Affine):
-            return transformer.transform(image, method, rotation, resample, fill)
-        
+        if isinstance(trf, Affine):
+            return trf.transform(image, method, rotation, resample, fill)
+
         from surfa.transform.warp import Warp
-        if isinstance(transformer, np.ndarray):    
+        if isinstance(trf, np.ndarray):
             warnings.warn('The option to pass \'trf\' argument as a numpy array is deprecated. '
                           'Pass \'trf\' as either an Affine or Warp object',
                           DeprecationWarning, stacklevel=2)
-            
+
             deformation = cast_image(trf, fallback_geom=self.geom)
             image = image.resample_like(deformation)
-            transformer = Warp(data=trf,
-                                      source=image.geom,
-                                      target=deformation.geom,
-                                      format=Warp.Format.disp_crs)
-            
-        if not isinstance(transformer, Warp):
-            raise ValueError("Pass \'trf\' as either an Affine or Warp object")
-        
-        return transformer.transform(image, method, fill)
-        
+            trf = Warp(data=trf,
+                       source=image.geom,
+                       target=deformation.geom,
+                       format=Warp.Format.disp_crs)
+
+        if isinstance(trf, Warp):
+            return trf.transform(image, method, fill)
+
+        raise ValueError("Pass \'trf\' as either an Affine or Warp object")
 
     def reorient(self, orientation, copy=True):
         """
@@ -707,20 +705,19 @@ class FramedImage(FramedArray):
             one, the barycenter array will be of shape $(F, L, D)$.
         """
         if labels is not None:
-            # 
+
             if not np.issubdtype(self.dtype, np.integer):
                 raise ValueError('expected int dtype for computing barycenters on 1D, '
                                  f'but got dtype {self.dtype}')
             weights = np.ones(self.baseshape, dtype=np.float32)
             centers = [center_of_mass(weights, self.framed_data[..., i], labels) for i in range(self.nframes)]
         else:
-            # 
+
             centers = [center_of_mass(self.framed_data[..., i]) for i in range(self.nframes)]
 
-        # 
+
         centers = np.squeeze(centers)
 
-        # 
         space = cast_space(space)
         if space != 'image':
             centers = self.geom.affine('image', space)(centers)
