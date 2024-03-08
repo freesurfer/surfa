@@ -384,7 +384,6 @@ class Affine:
         # a new affine object with the correct information
         return Affine(affine.matrix, source=source, target=target, space=space)
 
-
     # the implementation is based on FramedImage.transform
     def __transform_image(self, image, method='linear', rotation='corner', resample=True, fill=0):
         """
@@ -462,6 +461,47 @@ class Affine:
                                    affine=matrix_data,
                                    fill=fill)
         return image.new(interpolated, target_geom)
+
+    def to_warp(self, format=None):
+        """
+        Convert affine transform to a dense warp field.
+
+        Parameters
+        ----------
+        format : Warp.Format, optional
+            Output warp field format.
+
+        Returns
+        -------
+        Warp
+            Dense transformation field.
+        """
+        # import here for now to avoid circularity
+        from surfa.transform.warp import Warp
+        ftype = np.float32
+
+        if self.source is None or self.target is None:
+            raise ValueError("affine must contain source and target info")
+
+        # voxel-to-voxel transform
+        aff = np.asarray(self.inv().convert(space='voxel').matrix, ftype)
+
+        # target voxel grid
+        grid = (np.arange(x, dtype=ftype) for x in self.target.shape)
+        grid = [np.ravel(x) for x in np.meshgrid(*grid, indexing='ij')]
+        grid = np.stack(grid)
+
+        # target voxel displacement
+        out = aff[:-1, :-1] @ grid + aff[:-1, -1:]
+        out -= grid
+        out = np.transpose(out)
+        out = np.reshape(out, newshape=(*self.target.shape, -1))
+
+        out = Warp(out, source=self.source, target=self.target)
+        if format is not None:
+            out = out.convert(format, copy=False)
+
+        return out
 
 
 def affine_equal(a, b, matrix_only=False, tol=0.0):
