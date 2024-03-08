@@ -55,7 +55,7 @@ class Warp(FramedImage):
         self.source = source
         basedim = data.shape[-1]
         if len(data.shape) != basedim + 1:
-            raise ValueError('invalid shape {data.shape} for {basedim}D warp')
+            raise ValueError(f'invalid shape {data.shape} for {basedim}D warp')
 
         super().__init__(basedim, data, geometry=target, **kwargs)
 
