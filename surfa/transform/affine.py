@@ -492,8 +492,8 @@ class Affine:
         grid = np.stack(grid)
 
         # target voxel displacement
-        out = aff[:-1, :-1] @ grid + aff[:-1, -1:]
-        out -= grid
+        eye = np.eye(self.ndim, dtype=ftype)
+        out = (aff[:-1, :-1] - eye) @ grid + aff[:-1, -1:]
         out = np.transpose(out)
         out = np.reshape(out, newshape=(*self.target.shape, -1))
 
