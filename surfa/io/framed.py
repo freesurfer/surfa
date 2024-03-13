@@ -474,7 +474,7 @@ class MGHArrayIO(protocol.IOProtocol):
                 # gcamorph meta (mgz warp: int int float)
                 fsio.write_tag(file, fsio.tags.gcamorph_meta, 12)
                 write_bytes(file, arr.format, dtype='>i4')
-                write_bytes(file, arr.metadata.get('spacing', 0), dtype='>i4')
+                write_bytes(file, arr.metadata.get('spacing', 1), dtype='>i4')
                 write_bytes(file, arr.metadata.get('exp_k', 0.0), dtype='>f4')
 
             # write history tags
