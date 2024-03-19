@@ -1,4 +1,5 @@
 import os
+import pathlib
 import numpy as np
 
 
@@ -11,10 +12,15 @@ def check_file_readability(filename):
     filename : str
         Path to file.
     """
-    if os.path.isdir(filename):
+    if not isinstance(filename, pathlib.Path):
+        filename = pathlib.Path(filename)
+
+    if filename.is_dir():
         raise ValueError(f'{filename} is a directory, not a file')
-    if not os.path.isfile(filename):
+
+    if not filename.is_file():
         raise FileNotFoundError(f'{filename} is not a file')
+
     if not os.access(filename, os.R_OK):
         raise PermissionError(f'{filename} is not a readable file')
 

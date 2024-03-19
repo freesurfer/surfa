@@ -25,7 +25,7 @@ def load_volume(filename, fmt=None):
 
     Parameters
     ----------
-    filename : str
+    filename : str or Path
         File path to read.
     fmt : str, optional
         Explicit file format. If None (default), the format is extrapolated
@@ -45,7 +45,7 @@ def load_slice(filename, fmt=None):
 
     Parameters
     ----------
-    filename : str
+    filename : str or Path
         File path to read.
     fmt : str, optional
         Explicit file format. If None (default), the format is extrapolated
@@ -65,7 +65,7 @@ def load_overlay(filename, fmt=None):
 
     Parameters
     ----------
-    filename : str
+    filename : str or Path
         File path to read.
     fmt : str, optional
         Explicit file format. If None (default), the format is extrapolated
@@ -85,7 +85,7 @@ def load_framed_array(filename, atype, fmt=None):
 
     Parameters
     ----------
-    filename : str
+    filename : str or Path
         File path to read.
     atype : class
         Particular FramedArray subclass to read into.
@@ -125,7 +125,7 @@ def save_framed_array(arr, filename, fmt=None):
     ----------
     arr : FramedArray
         Object to write.
-    filename: str
+    filename: str or Path
         Destination file path.
     fmt : str
         Forced file format. If None (default), file format is extrapolated
@@ -216,7 +216,7 @@ class MGHArrayIO(protocol.IOProtocol):
 
         Parameters
         ----------
-        filename : str
+        filename : str or Path
             File path to read.
         atype : class
             FramedArray subclass to load.
@@ -228,7 +228,7 @@ class MGHArrayIO(protocol.IOProtocol):
         """
 
         # check if the file is gzipped
-        fopen = gzip.open if filename.lower().endswith('gz') else open
+        fopen = gzip.open if str(filename).lower().endswith('gz') else open
         with fopen(filename, 'rb') as file:
 
             # skip version tag
@@ -326,12 +326,12 @@ class MGHArrayIO(protocol.IOProtocol):
         ----------
         arr : FramedArray
             Array to save.
-        filename : str
+        filename : str or Path
             Target file path.
         """
 
         # determine whether to write compressed data
-        if filename.lower().endswith('gz'):
+        if str(filename).lower().endswith('gz'):
             fopen = lambda f: gzip.open(f, 'wb', compresslevel=6)
         else:
             fopen = lambda f: open(f, 'wb')
@@ -453,7 +453,7 @@ class NiftiArrayIO(protocol.IOProtocol):
 
         Parameters
         ----------
-        filename : str
+        filename : str or Path
             File path read.
         atype : class
             FramedArray subclass to load.
@@ -491,7 +491,7 @@ class NiftiArrayIO(protocol.IOProtocol):
         ----------
         arr : FramedArray
             Array to save.
-        filename : str
+        filename : str or Path
             Target file path.
         """
         is_image = isinstance(arr, FramedImage)
@@ -573,7 +573,7 @@ class FreeSurferAnnotationIO(protocol.IOProtocol):
 
         Parameters
         ----------
-        filename : str
+        filename : str or Path
             File path read.
         atype : class
             FramedArray subclass to load. When reading annot files, this
@@ -626,7 +626,7 @@ class FreeSurferAnnotationIO(protocol.IOProtocol):
         ----------
         arr : Overlay
             Array to save.
-        filename : str
+        filename : str or Path
             Target file path.
         """
         if not isinstance(arr, Overlay):
@@ -688,7 +688,7 @@ class FreeSurferCurveIO(protocol.IOProtocol):
 
         Parameters
         ----------
-        filename : str
+        filename : str or Path
             File path read.
         atype : class
             FramedArray subclass to load. When reading curv files, this
@@ -717,7 +717,7 @@ class FreeSurferCurveIO(protocol.IOProtocol):
         ----------
         arr : Overlay
             Array to save.
-        filename : str
+        filename : str or Path
             Target file path.
         """
         if arr.nframes > 1:
@@ -746,7 +746,7 @@ class ImageSliceIO(protocol.IOProtocol):
     def save(self, arr, filename):
         self.Image.fromarray(arr.data).save(filename)
 
-    def load(self, filename):
+    def load(self, filename, atype):
         image = np.asarray(self.Image.open(filename))
         return Slice(image)
 

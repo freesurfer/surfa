@@ -1,3 +1,6 @@
+import pathlib
+
+
 class IOProtocol:
     """
     Abstract (and private) protocol class to implement filetype-specific reading and writing.
@@ -25,12 +28,11 @@ class IOProtocol:
         """
         Enforce a valid protocol extension on a filename. Returns the corrected filename.
         """
-        if filename.lower().endswith(cls.extensions):
+        if str(filename).lower().endswith(cls.extensions):
             return filename
-        ext = cls.primary_extension()
-        if not ext.startswith("."):
-            ext = "." + ext
-        return filename + cls.primary_extension()
+        if not isinstance(filename, pathlib.Path):
+            filename = pathlib.Path(filename)
+        return filename.with_suffix(cls.primary_extension())
 
     def load(self, filename):
         """
@@ -81,7 +83,8 @@ def find_protocol_by_extension(protocols, filename):
     protocol : IOProtocol
         Matched IO protocol class.
     """
-    return next((p for p in protocols if filename.lower().endswith(p.extensions)), None)
+    lowercase = str(filename).lower()
+    return next((p for p in protocols if lowercase.endswith(p.extensions)), None)
 
 
 def get_all_extensions(protocols):
