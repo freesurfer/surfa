@@ -307,10 +307,6 @@ class Affine:
         ----------
         source, target : ImageGeometry, Image, or Surface
             Transform source and target image geometries.
-        source : castable ImageGeometry
-            Transform source (or moving) image geometry.
-        target : castable ImageGeometry
-            Transform target (or fixed) image geometry.
         space : Space
             Coordinate space of the transform.
         copy : bool

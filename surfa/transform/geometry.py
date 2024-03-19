@@ -416,7 +416,6 @@ class ImageGeometry:
             return (self.voxsize, self.rotation, self.center)
 
 
-
 def decompose_centered_affine(shape, affine):
     """
     Decompose an image-to-world affine into geometry parameters.
