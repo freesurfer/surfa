@@ -42,7 +42,7 @@ def load_mesh(filename, fmt=None):
     return iop().load(filename)
 
 
-def save_mesh(mesh, filename, fmt=None):
+def save_mesh(mesh, filename, fmt=None, **kwargs):
     """
     Save a Mesh object to file.
 
@@ -55,6 +55,8 @@ def save_mesh(mesh, filename, fmt=None):
     fmt : str
         Forced file format. If None (default), file format is extrapolated
         from extension or assumed to be in the extensionless 'fs' surface format.
+    **kwargs
+        Additional keyword arguments passed to the IO protocol's save method.
     """
     if fmt is None:
         iop = find_mesh_protocol_by_extension(filename)
@@ -62,7 +64,7 @@ def save_mesh(mesh, filename, fmt=None):
         iop = protocol.find_protocol_by_name(mesh_io_protocols, fmt)
         filename = iop.enforce_extension(filename)
 
-    iop().save(mesh, filename)
+    iop().save(mesh, filename, **kwargs)
 
 
 def find_mesh_protocol_by_extension(filename):
@@ -418,9 +420,71 @@ class WavefrontIO(protocol.IOProtocol):
         self.trimesh.Trimesh(mesh.vertices, mesh.faces, process=False).export(filename, **parameters)
 
 
+class StanfordPolygonIO(protocol.IOProtocol):
+    """
+    Mesh IO protocol for the Polygon File Format, a.k.a. Stanford PLY.
+    """
+
+    name = 'ply'
+    extensions = ('.ply',)
+
+    def __init__(self):
+        try:
+            import trimesh
+        except ImportError:
+            raise ImportError('the trimesh python package must be installed for polygon surface IO')
+        self.trimesh = trimesh
+
+    def load(self, filename):
+        """
+        Load a polygon mesh file into a Mesh object.
+
+        Parameters
+        ----------
+        filename : str
+            File path to read.
+
+        Returns
+        -------
+        mesh : Mesh
+            A Mesh object loaded from file.
+        """
+        tmesh = self.trimesh.exchange.load(filename, process=False)
+        return Mesh(tmesh.vertices, tmesh.faces, space='world')
+
+    def save(self, mesh, filename, vertex_overlays=None, face_overlays=None):
+        """
+        Save a Mesh object to a polygon mesh file.
+
+        Parameters
+        ----------
+        mesh : Mesh
+            Mesh to save.
+        filename : str
+            Destination file path.
+        vertex_overlays : dict, optional
+            Dictionary of vertex attribute arrays to save with the mesh.
+        face_overlays : dict, optional
+            Dictionary of face attribute arrays to save with the mesh.
+        """
+        def prep_attributes(overlays):
+            if not isinstance(overlays, dict):
+                overlays = {'overlay': overlays}
+            return {k: np.asarray(v) for k, v in overlays.items()}
+
+        mesh = mesh.convert(space='world')
+        trimesh = self.trimesh.Trimesh(mesh.vertices, mesh.faces, process=False)
+        if vertex_overlays is not None:
+            trimesh.vertex_attributes = prep_attributes(vertex_overlays)
+        if face_overlays is not None:
+            trimesh.face_attributes = prep_attributes(face_overlays)
+        trimesh.export(filename, include_attributes=True)
+
+
 # enabled mesh IO protocol classes
 mesh_io_protocols = [
     FreesurferSurfaceIO,
     GiftiIO,
     WavefrontIO,
+    StanfordPolygonIO,
 ]
