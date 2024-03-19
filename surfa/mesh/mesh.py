@@ -65,7 +65,7 @@ class Mesh:
         """
         return deepcopy(self)
 
-    def save(self, filename, fmt=None):
+    def save(self, filename, fmt=None, **kwargs):
         """
         Write mesh to file.
 
@@ -75,9 +75,11 @@ class Mesh:
             Target filename to write array to.
         fmt : str
             Optional file format to force.
+        **kwargs
+            Additional keyword arguments passed to the file format writer.
         """
         from surfa.io.mesh import save_mesh
-        save_mesh(self, filename, fmt=fmt)
+        save_mesh(self, filename, fmt=fmt, **kwargs)
 
     @property
     def vertices(self):
