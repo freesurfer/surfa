@@ -37,13 +37,13 @@ def interpolate(source, target_shape, method, affine=None, disp=None, fill=0):
         raise ValueError('interpolation requires an affine transform and/or displacement field')
 
     if method not in ('linear', 'nearest'):
-        raise ValueError(f'interp method must be linear or nearest, but got {method}')
+        raise ValueError(f'interp method must be linear or nearest, got {method}')
 
     if not isinstance(source, np.ndarray):
-        raise ValueError(f'source data must a numpy array, but got input of type {source.__class__.__name__}')
+        raise ValueError(f'source data must be a numpy array, got {source.__class__.__name__}')
 
     if source.ndim != 4:
-        raise ValueError(f'source data must be 4D, but got input of shape {target_shape}')
+        raise ValueError(f'source data must be 4D, but got input of shape {source.shape}')
 
     target_shape = tuple(target_shape)
     if len(target_shape) != 3:
@@ -53,7 +53,7 @@ def interpolate(source, target_shape, method, affine=None, disp=None, fill=0):
     use_affine = affine is not None
     if use_affine:
         if not isinstance(affine, np.ndarray):
-            raise ValueError(f'affine must a numpy array, but got input of type {source.__class__.__name__}')
+            raise ValueError(f'affine must be a numpy array, got {affine.__class__.__name__}')
         if not np.array_equal(affine.shape, (4, 4)):
             raise ValueError(f'affine must be 4x4, but got input of shape {affine.shape}')
         # only supports float32 affines for now
@@ -63,9 +63,9 @@ def interpolate(source, target_shape, method, affine=None, disp=None, fill=0):
     use_disp = disp is not None
     if use_disp:
         if not isinstance(disp, np.ndarray):
-            raise ValueError(f'source data must a numpy array, but got input of type {source.__class__.__name__}')
+            raise ValueError(f'source data must be a numpy array, got {disp.__class__.__name__}')
         if not np.array_equal(disp.shape[:-1], target_shape):
-            raise ValueError(f'displacement field shape {disp.shape[:-1]} must match target shape {target_shape}')
+            raise ValueError(f'warp shape {disp.shape[:-1]} must match target shape {target_shape}')
 
         # TODO: figure out what would cause this
         if not disp.flags.c_contiguous and not disp.flags.f_contiguous:
@@ -130,10 +130,10 @@ ctypedef fused datatype:
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def interp_3d_fortran_nearest(datatype[::1, :, :, :] source,
+def interp_3d_fortran_nearest(const datatype[::1, :, :, :] source,
                               np.ndarray[np.int_t, ndim=1] target_shape,
-                              float[:, ::1] mat,
-                              float[::1, :, :, :] disp,
+                              const float[:, ::1] mat,
+                              const float[::1, :, :, :] disp,
                               datatype fill_value,
                               bint use_affine,
                               bint use_disp):
@@ -242,10 +242,10 @@ def interp_3d_fortran_nearest(datatype[::1, :, :, :] source,
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def interp_3d_fortran_linear(datatype[::1, :, :, :] source,
+def interp_3d_fortran_linear(const datatype[::1, :, :, :] source,
                              np.ndarray[np.int_t, ndim=1] target_shape,
-                             float[:, ::1] mat,
-                             float[::1, :, :, :] disp,
+                             const float[:, ::1] mat,
+                             const float[::1, :, :, :] disp,
                              datatype fill_value,
                              bint use_affine,
                              bint use_disp):
@@ -380,10 +380,10 @@ def interp_3d_fortran_linear(datatype[::1, :, :, :] source,
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def interp_3d_contiguous_nearest(datatype[:, :, :, ::1] source,
+def interp_3d_contiguous_nearest(const datatype[:, :, :, ::1] source,
                                  np.ndarray[np.int_t, ndim=1] target_shape,
-                                 float[:, ::1] mat,
-                                 float[:, :, :, ::1] disp,
+                                 const float[:, ::1] mat,
+                                 const float[:, :, :, ::1] disp,
                                  datatype fill_value,
                                  bint use_affine,
                                  bint use_disp):
@@ -492,10 +492,10 @@ def interp_3d_contiguous_nearest(datatype[:, :, :, ::1] source,
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def interp_3d_contiguous_linear(datatype[:, :, :, ::1] source,
+def interp_3d_contiguous_linear(const datatype[:, :, :, ::1] source,
                                 np.ndarray[np.int_t, ndim=1] target_shape,
-                                float[:, ::1] mat,
-                                float[:, :, :, ::1] disp,
+                                const float[:, ::1] mat,
+                                const float[:, :, :, ::1] disp,
                                 datatype fill_value,
                                 bint use_affine,
                                 bint use_disp):

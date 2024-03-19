@@ -5,6 +5,18 @@ from surfa.core.array import conform_ndim
 from surfa.core.labels import LabelLookup
 
 
+# mgz now has its intent encoded in the version number
+# version = (intent & 0xff ) << 8) | MGH_VERSION
+# MGH_VERSION = 1
+class FramedArrayIntents:
+    unknown     = -1
+    mri         = 0
+    label       = 1
+    shape       = 2
+    warpmap     = 3
+    warpmap_inv = 4
+
+
 class FramedArray:
 
     def __init__(self, basedim, data, labels=None, metadata=None):
@@ -264,7 +276,8 @@ class FramedArray:
         """
         pass
 
-    def save(self, filename, fmt=None):
+    # optional parameter to specify FramedArray intent, default is MRI data
+    def save(self, filename, fmt=None, intent=FramedArrayIntents.mri):
         """
         Write array to file.
 
@@ -276,7 +289,7 @@ class FramedArray:
             Optional file format to force.
         """
         from surfa.io.framed import save_framed_array
-        save_framed_array(self, filename, fmt=fmt)
+        save_framed_array(self, filename, fmt=fmt, intent=intent)
 
     def min(self, nonzero=False, frames=False):
         """
@@ -366,7 +379,7 @@ class FramedArray:
         data = self.data
         if nonzero:
             data = data[data.nonzero()]
-        return np.percentile(data, percentiles, interpolation=method)
+        return np.percentile(data, percentiles, method=method)
 
     def clip(self, a_min, a_max):
         """

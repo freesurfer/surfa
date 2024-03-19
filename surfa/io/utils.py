@@ -2,6 +2,8 @@ import os
 import pathlib
 import numpy as np
 
+from surfa import ImageGeometry
+
 
 def check_file_readability(filename):
     """
@@ -104,3 +106,59 @@ def write_bytes(file, value, dtype):
         Datatype to save as.
     """
     file.write(np.asarray(value).astype(dtype, copy=False).tobytes())
+
+
+def read_geom(file):
+    """
+    Read an image geometry from a binary file buffer. See VOL_GEOM.read() in mri.h.
+
+    Parameters
+    ----------
+    file : BufferedReader
+        Opened file buffer.
+
+    Returns
+    -------
+    ImageGeometry
+        Image geometry.
+    bool
+        True if the geometry is valid.
+    str
+        File name associated with the geometry.
+    """
+    valid = bool(read_bytes(file, '>i4', 1))
+    geom = ImageGeometry(
+        shape=read_bytes(file, '>i4', 3).astype(int),
+        voxsize=read_bytes(file, '>f4', 3),
+        rotation=read_bytes(file, '>f4', 9).reshape((3, 3), order='F'),
+        center=read_bytes(file, '>f4', 3),
+    )
+    fname  = file.read(512).decode('utf-8').rstrip('\x00')
+    return geom, valid, fname
+
+
+def write_geom(file, geom, valid=True, fname=''):
+    """
+    Write an image geometry to a binary file buffer. See VOL_GEOM.write() in mri.h.
+
+    Parameters
+    ----------
+    file : BufferedReader
+        Opened file buffer.
+    geom : ImageGeometry
+        Image geometry.
+    valid : bool
+        True if the geometry is valid.
+    fname : str
+        File name associated with the geometry.
+    """
+    write_bytes(file, valid, '>i4')
+
+    voxsize, rotation, center = geom.shearless_components()
+    write_bytes(file, geom.shape, '>i4')
+    write_bytes(file, voxsize, '>f4')
+    write_bytes(file, np.ravel(rotation, order='F'), '>f4')
+    write_bytes(file, center, '>f4')
+
+    # right-pad with '/x00' to 512 bytes
+    file.write(fname[:512].ljust(512, '\x00').encode('utf-8'))

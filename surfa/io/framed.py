@@ -6,9 +6,10 @@ import numpy as np
 from surfa import Volume
 from surfa import Slice
 from surfa import Overlay
-from surfa import ImageGeometry
+from surfa import Warp
 from surfa.core.array import pad_vector_length
 from surfa.core.framed import FramedArray
+from surfa.core.framed import FramedArrayIntents
 from surfa.image.framed import FramedImage
 from surfa.io import fsio
 from surfa.io import protocol
@@ -16,6 +17,8 @@ from surfa.io.utils import read_int
 from surfa.io.utils import write_int
 from surfa.io.utils import read_bytes
 from surfa.io.utils import write_bytes
+from surfa.io.utils import read_geom
+from surfa.io.utils import write_geom
 from surfa.io.utils import check_file_readability
 
 
@@ -28,8 +31,7 @@ def load_volume(filename, fmt=None):
     filename : str or Path
         File path to read.
     fmt : str, optional
-        Explicit file format. If None (default), the format is extrapolated
-        from the file extension.
+        Explicit file format. If None, we extrapolate from the file extension.
 
     Returns
     -------
@@ -48,8 +50,7 @@ def load_slice(filename, fmt=None):
     filename : str or Path
         File path to read.
     fmt : str, optional
-        Explicit file format. If None (default), the format is extrapolated
-        from the file extension.
+        Explicit file format. If None, we extrapolate from the file extension.
 
     Returns
     -------
@@ -68,8 +69,7 @@ def load_overlay(filename, fmt=None):
     filename : str or Path
         File path to read.
     fmt : str, optional
-        Explicit file format. If None (default), the format is extrapolated
-        from the file extension.
+        Explicit file format. If None, we extrapolate from the file extension.
 
     Returns
     -------
@@ -77,6 +77,25 @@ def load_overlay(filename, fmt=None):
         Loaded overlay.
     """
     return load_framed_array(filename=filename, atype=Overlay, fmt=fmt)
+
+
+def load_warp(filename, fmt=None):
+    """
+    Load an image `Warp` from a 3D or 4D array file.
+
+    Parameters
+    ----------
+    filename : str
+        File path to read.
+    fmt : str, optional
+        Explicit file format. If None, we extrapolate from the file extension.
+
+    Returns
+    -------
+    Warp
+        Loaded warp.
+    """
+    return load_framed_array(filename=filename, atype=Warp, fmt=fmt)
 
 
 def load_framed_array(filename, atype, fmt=None):
@@ -90,13 +109,12 @@ def load_framed_array(filename, atype, fmt=None):
     atype : class
         Particular FramedArray subclass to read into.
     fmt : str, optional
-        Forced file format. If None (default), file format is extrapolated
-        from extension.
+        Explicit file format. If None, we extrapolate from the file extension.
 
     Returns
     -------
     FramedArray
-        Loaded framed array. 
+        Loaded framed array.
     """
     check_file_readability(filename)
 
@@ -117,7 +135,8 @@ def load_framed_array(filename, atype, fmt=None):
     return iop().load(filename, atype)
 
 
-def save_framed_array(arr, filename, fmt=None):
+# optional parameter to specify FramedArray intent, default is MRI data
+def save_framed_array(arr, filename, fmt=None, intent=FramedArrayIntents.mri):
     """
     Save a `FramedArray` object to file.
 
@@ -141,7 +160,11 @@ def save_framed_array(arr, filename, fmt=None):
             raise ValueError(f'unknown file format {fmt}')
         filename = iop.enforce_extension(filename)
 
-    iop().save(arr, filename)
+    # pass intent if iop() is an instance of MGHArrayIO
+    if (isinstance(iop(), MGHArrayIO)):
+       iop().save(arr, filename, intent=intent)
+    else:
+        iop().save(arr, filename)
 
 
 def framed_array_from_4d(atype, data):
@@ -158,10 +181,14 @@ def framed_array_from_4d(atype, data):
     Returns
     -------
     FramedArray
-        Squeezed framed array. 
+        Squeezed framed array.
     """
     # this code is a bit ugly - it does the job but should probably be cleaned up
     if atype == Volume:
+        return atype(data)
+    if atype == Warp:
+        if data.ndim == 4 and data.shape[-1] == 2:
+            data = data.squeeze(-2)
         return atype(data)
     # slice
     if data.ndim == 3:
@@ -231,8 +258,8 @@ class MGHArrayIO(protocol.IOProtocol):
         fopen = gzip.open if str(filename).lower().endswith('gz') else open
         with fopen(filename, 'rb') as file:
 
-            # skip version tag
-            file.read(4)
+            # read version number, retrieve intent
+            intent = read_bytes(file, '>i4', 1) >> 8 & 0xff
 
             # read shape and type info
             shape = read_bytes(file, '>u4', 4)
@@ -278,11 +305,12 @@ class MGHArrayIO(protocol.IOProtocol):
                 # it's also not required in the freesurfer definition, so we'll
                 # use the read() function directly in case end-of-file is reached
                 file.read(np.dtype('>f4').itemsize)
- 
+
             # update image-specific information
             if isinstance(arr, FramedImage):
                 arr.geom.update(**geom_params)
                 arr.metadata.update(scan_params)
+                arr.metadata['intent'] = intent
 
             # read metadata tags
             while True:
@@ -312,13 +340,30 @@ class MGHArrayIO(protocol.IOProtocol):
                 elif tag == fsio.tags.fieldstrength:
                     arr.metadata['field-strength'] = read_bytes(file, dtype='>f4')
 
+                # gcamorph src & trg geoms (mgz warp)
+                elif tag == fsio.tags.gcamorph_geom:
+                    arr.source, valid, fname = read_geom(file)
+                    arr.metadata['source-valid'] = valid
+                    arr.metadata['source-fname'] = fname
+
+                    arr.target, valid, fname = read_geom(file)
+                    arr.metadata['target-valid'] = valid
+                    arr.metadata['target-fname'] = fname
+
+                # gcamorph meta (mgz warp: int int float)
+                elif tag == fsio.tags.gcamorph_meta:
+                    arr.format = read_bytes(file, dtype='>i4')
+                    arr.metadata['spacing'] = read_bytes(file, dtype='>i4')
+                    arr.metadata['exp_k'] = read_bytes(file, dtype='>f4')
+
                 # skip everything else
                 else:
                     file.read(length)
 
         return arr
 
-    def save(self, arr, filename):
+    # optional parameter to specify FramedArray intent, default is MRI data
+    def save(self, arr, filename, intent=FramedArrayIntents.mri):
         """
         Write array to a MGH/MGZ file.
 
@@ -364,7 +409,8 @@ class MGHArrayIO(protocol.IOProtocol):
             shape[-1] = arr.nframes
 
             # begin writing header
-            write_bytes(file, 1, '>u4')  # version
+            version = ((intent & 0xff) << 8) | 1  # encode intent in version
+            write_bytes(file, version, '>u4')  # version
             write_bytes(file, shape, '>u4')  # shape
             write_bytes(file, dtype_id, '>u4')  # MGH data type
             write_bytes(file, 1, '>u4')  # DOF
@@ -411,6 +457,25 @@ class MGHArrayIO(protocol.IOProtocol):
             # field strength
             fsio.write_tag(file, fsio.tags.fieldstrength, 4)
             write_bytes(file, arr.metadata.get('field-strength', 0.0), '>f4')
+
+            # gcamorph geom and gcamorph meta for mgz warp
+            if intent == FramedArrayIntents.warpmap:
+                # gcamorph src & trg geoms (mgz warp)
+                fsio.write_tag(file, fsio.tags.gcamorph_geom)
+                write_geom(file,
+                           geom=arr.source,
+                           valid=arr.metadata.get('source-valid', True),
+                           fname=arr.metadata.get('source-fname', ''))
+                write_geom(file,
+                           geom=arr.target,
+                           valid=arr.metadata.get('target-valid', True),
+                           fname=arr.metadata.get('target-fname', ''))
+
+                # gcamorph meta (mgz warp: int int float)
+                fsio.write_tag(file, fsio.tags.gcamorph_meta, 12)
+                write_bytes(file, arr.format, dtype='>i4')
+                write_bytes(file, arr.metadata.get('spacing', 1), dtype='>i4')
+                write_bytes(file, arr.metadata.get('exp_k', 0.0), dtype='>f4')
 
             # write history tags
             for hist in arr.metadata.get('history', []):
@@ -641,7 +706,6 @@ class FreeSurferAnnotationIO(protocol.IOProtocol):
         if arr.labels is None:
             raise ValueError('overlay must have label lookup if saving as annotation')
 
-        # 
         unknown_mask = arr.data < 0
 
         # make sure all indices exist in the label lookup

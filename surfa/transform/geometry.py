@@ -543,5 +543,3 @@ def image_geometry_equal(a, b, tol=0.0):
         return False
 
     return True
-
-    
