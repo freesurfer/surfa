@@ -143,7 +143,7 @@ def write_geom(file, geom, valid=True, fname=''):
 
     Parameters
     ----------
-    file : BufferedReader
+    file : BufferedWriter
         Opened file buffer.
     geom : ImageGeometry
         Image geometry.

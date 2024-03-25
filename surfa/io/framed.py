@@ -409,6 +409,7 @@ class MGHArrayIO(protocol.IOProtocol):
             shape[-1] = arr.nframes
 
             # begin writing header
+            intent = arr.metadata.get('intent', intent)
             version = ((intent & 0xff) << 8) | 1  # encode intent in version
             write_bytes(file, version, '>u4')  # version
             write_bytes(file, shape, '>u4')  # shape
@@ -546,6 +547,54 @@ class NiftiArrayIO(protocol.IOProtocol):
                 arr.geom.voxsize = arr.geom.voxsize * 1000
             elif spatial_units_code == self.units_to_code['um']:
                 arr.geom.voxsize = arr.geom.voxsize * 0.001
+
+            # freesurfer saves tr as msec internally
+            time_units_factor = 0.0
+            if (arr.metadata['frame_units'] == 'sec'):
+                time_units_factor = 1000.0
+            elif (arr.metadata['frame_units'] == 'msec'):
+                time_units_factor = 1.0
+            elif (arr.metadata['frame_units'] == 'usec'):
+                time_units_factor = 0.001
+
+            arr.metadata['tr'] = arr.metadata['frame_dim'] * time_units_factor
+
+            # handle nifti1 header extension
+            niiextsions = nii.header.extensions
+            if (not niiextsions):
+                print("[DEBUG] NiftiArrayIO.load(): no header extensions found!")
+                return arr
+            
+            # try to find freesurfer nifti1 header extension
+            index = -1
+            ecodes = niiextsions.get_codes()            
+            for ind, ecode in enumerate(ecodes):
+                if (ecode == 14):
+                    index = ind
+                    break
+
+            if (index < 0):
+                return arr
+
+            # found freesurfer nifti1 header extension
+            import io
+            from surfa.io.fsnifti1extension import FSNifti1Extension
+
+            # retrieve freesurfer header extension data in bytes
+            fsext = nii.header.extensions[index]
+            esize = fsext.get_sizeondisk()
+            fsext_bytedata = fsext.get_content()
+
+            # create file-like object from bytes data
+            bytes_reader = io.BytesIO(fsext_bytedata)
+
+            # read freesurfer header extension data into FSNifti1Extension.Content object
+            fsextreader = FSNifti1Extension()
+            fsextcontent = fsextreader.read(bytes_reader, esize)
+
+            # update arr metadata
+            fsextcontent.update_framedimage(arr)
+                
         return arr
 
     def save(self, arr, filename):
@@ -581,6 +630,10 @@ class NiftiArrayIO(protocol.IOProtocol):
         # initialize spatial and temporal spacing
         nii.header['pixdim'][:] = 1
         nii.header['pixdim'][4] = arr.metadata.get('frame_dim', 1)
+        
+        tr = arr.metadata.get('tr')
+        if (tr is not None):
+            nii.header['pixdim'][4] = tr / 1000.0
 
         # for now we pretty much have to enforce spatial units of mm
         # and if frame units isn't specified, fallback to seconds
@@ -603,6 +656,25 @@ class NiftiArrayIO(protocol.IOProtocol):
             nii.set_sform(arr.geom.vox2world.matrix, arr.metadata.get('sform_code', 1))
             nii.set_qform(arr.geom.vox2world.matrix, arr.metadata.get('qform_code', 1))
             nii.header['pixdim'][1:4] = arr.geom.voxsize.astype(np.float32)
+
+            # add freesurfer nifti1 header extension
+            import io
+            from surfa.io.fsnifti1extension import FSNifti1Extension
+
+            # create FSNifti1Extension.Content object from arr
+            fsextcontent = FSNifti1Extension.Content(arr)
+            
+            # create file-like object
+            bytes_writer = io.BytesIO()
+
+            # write freesurfer header extension data to buffer
+            fsext = FSNifti1Extension()
+            esize = fsext.write(bytes_writer, fsextcontent)
+            
+            # convert FSNifti1Extension.Content to bytes
+            fsext_bytesdata = bytes_writer.getvalue()
+            niiext = self.nib.nifti1.Nifti1Extension(14, fsext_bytesdata)
+            nii.header.extensions.append(niiext)
 
         # write
         self.nib.save(nii, filename)
