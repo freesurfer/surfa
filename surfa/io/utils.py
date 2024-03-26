@@ -108,7 +108,7 @@ def write_bytes(file, value, dtype):
     file.write(np.asarray(value).astype(dtype, copy=False).tobytes())
 
 
-def read_geom(file):
+def read_geom(file, niftiheaderext=False):
     """
     Read an image geometry from a binary file buffer. See VOL_GEOM.read() in mri.h.
 
@@ -125,6 +125,8 @@ def read_geom(file):
         True if the geometry is valid.
     str
         File name associated with the geometry.
+    niftiheaderext : bool
+        If True, write for nifti header extension.
     """
     valid = bool(read_bytes(file, '>i4', 1))
     geom = ImageGeometry(
@@ -133,11 +135,26 @@ def read_geom(file):
         rotation=read_bytes(file, '>f4', 9).reshape((3, 3), order='F'),
         center=read_bytes(file, '>f4', 3),
     )
-    fname  = file.read(512).decode('utf-8').rstrip('\x00')
+
+    len_fname_max = 512
+    if (not niftiheaderext):
+        fname = file.read(len_fname_max).decode('utf-8').rstrip('\x00')
+    else:
+        # variable length fname, if length = 0, no fname output follows
+        # read the first len_max bytes, skip the rest
+        len_fname = read_bytes(file, '>i4', 1)
+        to_read = len_fname
+        if (len_fname > len_fname_max):
+            to_read = len_fname_max
+
+        fname = file.read(to_read).decode('utf-8').rstrip('\x00')
+        remaining = len_fname - to_read
+        if (remaining > 0):
+            file.read(remaining)
     return geom, valid, fname
 
 
-def write_geom(file, geom, valid=True, fname=''):
+def write_geom(file, geom, valid=True, fname='', niftiheaderext=False):
     """
     Write an image geometry to a binary file buffer. See VOL_GEOM.write() in mri.h.
 
@@ -151,6 +168,8 @@ def write_geom(file, geom, valid=True, fname=''):
         True if the geometry is valid.
     fname : str
         File name associated with the geometry.
+    niftiheaderext : bool
+        If True, write for nifti header extension.
     """
     write_bytes(file, valid, '>i4')
 
@@ -160,5 +179,15 @@ def write_geom(file, geom, valid=True, fname=''):
     write_bytes(file, np.ravel(rotation, order='F'), '>f4')
     write_bytes(file, center, '>f4')
 
-    # right-pad with '/x00' to 512 bytes
-    file.write(fname[:512].ljust(512, '\x00').encode('utf-8'))
+    len_fname_max = 512
+    if (not niftiheaderext):
+        # right-pad with '/x00' to 512 bytes
+        file.write(fname[:len_fname_max].ljust(len_fname_max, '\x00').encode('utf-8'))
+    else:
+        # variable length fname, if length = 0, no fname output follows
+        len_fname = len(fname)
+        if (len_fname > len_fname_max):
+            len_fname = len_fname_max
+        write_bytes(file, len_fname, '>i4')
+        if (len_fname > 0):
+            file.write(fname.encode('utf-8'))

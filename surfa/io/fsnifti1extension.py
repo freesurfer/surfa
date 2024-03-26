@@ -100,9 +100,8 @@ class FSNifti1Extension:
                 if (not self.content.warpmeta):
                     self.content.warpmeta = {}
 
-                (self.content.warpmeta['source-geom'], self.content.warpmeta['source-valid'], self.content.warpmeta['source-fname']) = iou.read_geom(fileobj)
-                (self.content.warpmeta['target-geom'], self.content.warpmeta['target-valid'], self.content.warpmeta['target-fname']) = iou.read_geom(fileobj)                    
-
+                (self.content.warpmeta['source-geom'], self.content.warpmeta['source-valid'], self.content.warpmeta['source-fname']) = iou.read_geom(fileobj, niftiheaderext=True)
+                (self.content.warpmeta['target-geom'], self.content.warpmeta['target-valid'], self.content.warpmeta['target-fname']) = iou.read_geom(fileobj, niftiheaderext=True)
             # gcamorph meta (warp: int int float) (TAG_GCAMORPH_META = 13)
             elif (tag == FSNifti1Extension.Tags.gcamorph_meta):
                 if (not self.content.warpmeta):
@@ -170,8 +169,11 @@ class FSNifti1Extension:
         addtaglength = 12
         if (content.intent == FramedArrayIntents.warpmap):
             # gcamorph src & trg geoms (warp) (TAG_GCAMORPH_GEOM = 10)
+            source_fname = content.warpmeta.get('source-fname', '')
+            target_fname = content.warpmeta.get('target-fname', '')
+            
             tag = FSNifti1Extension.Tags.gcamorph_geom
-            length = 1176  # 2 * (4 * sizeof(int) + 15 * sizeof(float) + 512), see freesurfer/utils/fstagsio.cpp
+            length = FSNifti1Extension.getlen_gcamorph_geom(source_fname, target_fname)
             num_bytes += length + addtaglength
             print(f'[DEBUG] FSNifti1Extension.write(): +{length:5d}, +{addtaglength:d}, dlen = {num_bytes:6d}, TAG = {tag:2d}')
             if (not countbytesonly):
@@ -179,11 +181,13 @@ class FSNifti1Extension:
                 iou.write_geom(fileobj,
                            geom=content.warpmeta['source-geom'],
                            valid=content.warpmeta.get('source-valid', True),
-                           fname=content.warpmeta.get('source-fname', ''))
+                           fname=source_fname,
+                           niftiheaderext=True)
                 iou.write_geom(fileobj,
                            geom=content.warpmeta['target-geom'],
                            valid=content.warpmeta.get('target-valid', True),
-                           fname=content.warpmeta.get('target-fname', ''))     
+                           fname=target_fname,
+                           niftiheaderext=True)     
             
             # gcamorph meta (warp: int int float) (TAG_GCAMORPH_META = 13)
             tag = FSNifti1Extension.Tags.gcamorph_meta
@@ -323,6 +327,32 @@ class FSNifti1Extension:
             num_bytes += 8  # structure id, len(structure-name)+1
             num_bytes += len(element.name) + 1  # structure name
             num_bytes += 16  # ri, gi, bi, t-ai
+            
+        return num_bytes
+
+
+    @staticmethod
+    def getlen_gcamorph_geom(fname_source, fname_target):
+        """
+        Calculate total bytes that will be written for the labels.
+
+        Parameters
+        ----------
+        fname_source : string
+            File name associated with the source geometry
+        fname_target : string
+            File name associated with the target geometry
+
+        Returns
+        -------
+        num_bytes : int
+            total bytes that will be written for the source and target geometry
+        """
+
+        # See freesurfer/utils/fstagsio.cpp::getlen_gcamorph_geom().
+        num_bytes = 2 * 80
+        num_bytes += len(fname_source)
+        num_bytes += len(fname_target)
             
         return num_bytes
 

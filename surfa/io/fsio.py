@@ -123,6 +123,8 @@ def read_binary_lookup_table(file):
     version = iou.read_bytes(file, '>i4')
     max_id = iou.read_bytes(file, '>i4')
     file_name_size = iou.read_bytes(file, '>i4')
+    # if the file comes from surfa.io.fsio.write_binary_lookup_table(), file_name_size = 0.
+    # if the file comes from freesurfer/utils/colortab.cpp::znzCTABwriteIntoBinaryV2(), file_name_size > 0.
     file.read(file_name_size).decode('utf-8')
     
     total = iou.read_bytes(file, '>i4')
@@ -154,6 +156,8 @@ def write_binary_lookup_table(file, labels):
     iou.write_bytes(file, -2, '>i4')
     iou.write_bytes(file, max(labels) + 1, '>i4')
     iou.write_bytes(file, 0, '>i4')
+    # filename length is set to 0, here filename associated with Labels is not output.
+    # this is different from freesurfer/utils/colortab.cpp::znzCTABwriteIntoBinaryV2().
     iou.write_bytes(file, len(labels), '>i4')
     for index, element in labels.items():
         iou.write_bytes(file, index, '>i4')
