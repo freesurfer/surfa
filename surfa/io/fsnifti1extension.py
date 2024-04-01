@@ -199,6 +199,18 @@ class FSNifti1Extension:
                 iou.write_bytes(fileobj, content.warpmeta['format'], dtype='>i4')
                 iou.write_bytes(fileobj, content.warpmeta.get('spacing', 1), dtype='>i4')
                 iou.write_bytes(fileobj, content.warpmeta.get('exp_k', 0.0), dtype='>f4')
+
+            # write TAG_END_NIIHDREXTENSION at the end of extension data to avoid the data to be truncated:
+            #   TAG_END_NIIHDREXTENSION (-1)  data-length (1) '*'
+            # this needs to be the last tag.
+            tag = FSNifti1Extension.Tags.end_data
+            length = 1  # extra char '*'
+            num_bytes += length + addtaglength
+            print(f'[DEBUG] FSNifti1Extension.write(): +{length:5d}, +{addtaglength:d}, dlen = {num_bytes:6d}, TAG = {tag:2d}')
+            if (not countbytesonly):
+                FSNifti1Extension.write_tag(fileobj, tag, length)
+                extrachar = '*'
+                fileobj.write(extrachar.encode('utf-8'))
             
             return num_bytes
         
@@ -258,6 +270,26 @@ class FSNifti1Extension:
                 iou.write_bytes(fileobj, content.scan_parameters['field_strength'], '>f4')
                 fileobj.write(content.scan_parameters['pedir'].encode('utf-8'))
 
+        # end_data (TAG_END_NIIHDREXTENSION = -1)
+        """
+        write TAG_END_NIIHDREXTENSION at the end of extension data to avoid the data to be truncated:
+          TAG_END_NIIHDREXTENSION (-1)  data-length (1) '*'
+        this needs to be the last tag.
+
+        If the extension data has trailing null characters or zeros at the end,
+        nibabel.nifti1.Nifti1Extension.get_content() will truncate the data.
+        See https://github.com/nipy/nibabel/blob/master/nibabel/nifti1.py#L629C1-L630C1,
+        line 629:  'evalue = evalue.rstrip(b'\x00')'
+        """
+        tag = FSNifti1Extension.Tags.end_data
+        length = 1  # extra char '*'
+        num_bytes += length + addtaglength
+        print(f'[DEBUG] FSNifti1Extension.write(): +{length:5d}, +{addtaglength:d}, dlen = {num_bytes:6d}, TAG = {tag:2d}')
+        if (not countbytesonly):
+            FSNifti1Extension.write_tag(fileobj, tag, length)
+            extrachar = '*'
+            fileobj.write(extrachar.encode('utf-8'))
+            
         return num_bytes
 
 
@@ -384,6 +416,7 @@ class FSNifti1Extension:
         gcamorph_geom   = 10   # TAG_GCAMORPH_GEOM 
         gcamorph_meta   = 13   # TAG_GCAMORPH_META
         scan_parameters = 45   # TAG_SCAN_PARAMETERS
+        end_data        = -1   # TAG_END_NIIHDREXTENSION
 
 
     class Content:
