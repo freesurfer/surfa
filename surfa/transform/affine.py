@@ -627,6 +627,8 @@ def compose_affine(
     if ndim not in (2, 3):
         raise ValueError(f'affine transform must be 2D or 3D, got ndim {ndim}')
 
+    shear_shape = 6 if ndim == 3 else 2
+    
     if translation is None:
         translation = np.zeros(ndim)
     translation = np.asarray(translation)
@@ -647,11 +649,11 @@ def compose_affine(
     check_array(scale, shape=ndim, name='scale')
 
     if shear is None:
-        shear = np.zeros(3) if ndim == 3 else np.zeros(1)
+        shear = np.zeros(shear_shape)
     if np.isscalar(shear) and ndim == 2:
         shear = [shear]
     shear = np.asarray(shear)
-    check_array(shear, shape=(3 if ndim == 3 else 1), name='shear')
+    check_array(shear, shape=shear_shape, name='shear')
 
     T = np.eye(ndim + 1)
     T[:ndim, -1] = translation
@@ -662,10 +664,16 @@ def compose_affine(
     Z = np.diag(np.append(scale, 1))
 
     S = np.eye(ndim + 1)
-    S[0][1] = shear[0]
     if ndim == 3:
+        S[0][1] = shear[0]
         S[0][2] = shear[1]
-        S[1][2] = shear[2]
+        S[1][0] = shear[2]
+        S[1][2] = shear[3]
+        S[2][0] = shear[4]
+        S[2][1] = shear[5]
+    else:
+        S[0][1] = shear[0]
+        S[1][0] = shear[1]
 
     matrix = T @ R @ Z @ S
 
@@ -746,11 +754,11 @@ def angles_to_rotation_matrix(rotation, degrees=True):
         matrix = np.array([[c, -s], [s, c]], dtype='float')
     elif num_angles == 3:
         c, s = np.cos(rotation[0]), np.sin(rotation[0])
-        rx = np.array([[1, 0, 0], [0, c, s], [0, -s, c]], dtype='float')
+        rx = np.array([[1, 0, 0], [0, c, -s], [0, s, c]], dtype='float')
         c, s = np.cos(rotation[1]), np.sin(rotation[1])
         ry = np.array([[c, 0, s], [0, 1, 0], [-s, 0, c]], dtype='float')
         c, s = np.cos(rotation[2]), np.sin(rotation[2])
-        rz = np.array([[c, s, 0], [-s, c, 0], [0, 0, 1]], dtype='float')
+        rz = np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]], dtype='float')
         matrix = rx @ ry @ rz
     else:
         raise ValueError(f'expected 1 (2D) or 3 (3D) rotation angles, got {num_angles}')
@@ -761,7 +769,7 @@ def angles_to_rotation_matrix(rotation, degrees=True):
 def random_affine(
     translation_range=0,
     rotation_range=0,
-    scale_range=1,
+    scale_range=0,
     shear_range=0,
     ndim=3,
     degrees=True,
@@ -804,7 +812,7 @@ def random_affine(
     if np.isscalar(rotation_range):
         rotation_range = sorted([-rotation_range, rotation_range])
     if np.isscalar(scale_range):
-        scale_range = sorted([1.0 / scale_range, scale_range])
+        scale_range = sorted([1.0 - scale_range, 1.0 + scale_range])
     if np.isscalar(shear_range):
         shear_range = sorted([-shear_range, shear_range])
 
@@ -821,11 +829,12 @@ def random_affine(
     check_array(shear_range, shape=2, name='shear range')
 
     # compose from random paramters
+    shear_shape = 2 if ndim == 2 else 6
     aff = compose_affine(
         translation=np.random.uniform(*translation_range, size=ndim),
         rotation=np.random.uniform(*rotation_range, size=(1 if ndim == 2 else 3)),
         scale=np.random.uniform(*scale_range, size=ndim),
-        shear=np.random.uniform(*shear_range, size=(1 if ndim == 2 else 3)),
+        shear=np.random.uniform(*shear_range, size=shear_shape),
         ndim=ndim,
         degrees=degrees,
         **kwargs,
