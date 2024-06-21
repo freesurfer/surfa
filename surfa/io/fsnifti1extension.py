@@ -529,64 +529,63 @@ class FSNifti1Extension:
                 framedimage.labels = self.labels
 
 
-        def _from_framedimage(self, framedimage):
+        def _from_framedimage(self, image):
             """
-            Create FSNifti1Extension.Content object from input FramedImage metadata
+            Create FSNifti1Extension.Content object from FramedImage instance.
 
             Parameters
             ----------
-            framedimage : FramedImage
-                input FramedImage
-            """
+            image : FramedImage
+                Input Image.
 
+            """
             self.endian = '>'
             self.version = 1
-            self.intent = framedimage.metadata.get('intent', FramedArrayIntents.mri)
-            if (isinstance(self.intent, np.int_)):
+            self.intent = image.metadata.get('intent', FramedArrayIntents.mri)
+            self.dof = 1
+            if isinstance(self.intent, np.int_):
                 self.intent = self.intent.item()  # convert numpy int to python int
 
-            self.dof = 1
-
-            if (self.intent == FramedArrayIntents.warpmap):
-                if (not self.warpmeta):
+            if self.intent == FramedArrayIntents.warpmap:
+                if not self.warpmeta:
                     self.warpmeta = {}
 
                 # gcamorph src & trg geoms (mgz warp)
-                self.warpmeta['source-geom'] = framedimage.source
-                self.warpmeta['source-valid'] = framedimage.metadata.get('source-valid', True)
-                self.warpmeta['source-fname'] = framedimage.metadata.get('source-fname', '')
+                self.warpmeta['source-geom'] = image.source
+                self.warpmeta['source-valid'] = image.metadata.get('source-valid', True)
+                self.warpmeta['source-fname'] = image.metadata.get('source-fname', '')
 
-                self.warpmeta['target-geom'] = framedimage.target
-                self.warpmeta['target-valid'] = framedimage.metadata.get('target-valid', True)
-                self.warpmeta['target-fname'] = framedimage.metadata.get('target-fname', '')
+                self.warpmeta['target-geom'] = image.target
+                self.warpmeta['target-valid'] = image.metadata.get('target-valid', True)
+                self.warpmeta['target-fname'] = image.metadata.get('target-fname', '')
 
                 # gcamorph meta (mgz warp: int int float)
-                self.warpmeta['format'] = framedimage.format
-                self.warpmeta['spacing'] = framedimage.metadata.get('spacing', 1)
-                self.warpmeta['exp_k'] = framedimage.metadata.get('exp_k', 0.0)
+                self.warpmeta['format'] = image.format
+                self.warpmeta['spacing'] = image.metadata.get('spacing', 1)
+                self.warpmeta['exp_k'] = image.metadata.get('exp_k', 0.0)
 
                 return
 
             # update ras_xform
             self.ras_xform = dict(
-                rotation = framedimage.geom.rotation,
-                center   = framedimage.geom.center,
+                rotation = image.geom.rotation,
+                center = image.geom.center,
             )
 
             # update scan_parameters
             self.scan_parameters = dict(
-                pedir = framedimage.metadata.get('phase-encode-direction', 'UNKNOWN'),
-                field_strength = framedimage.metadata.get('field-strength'),
-                flip_angle = framedimage.metadata.get('fa', 0),
-                te = framedimage.metadata.get('te', 0),
-                ti = framedimage.metadata.get('ti', 0)
-                )
+                pedir = image.metadata.get('phase-encode-direction', 'UNKNOWN'),
+                field_strength = image.metadata.get('field-strength'),
+                flip_angle = image.metadata.get('fa', 0),
+                te = image.metadata.get('te', 0),
+                ti = image.metadata.get('ti', 0),
+            )
 
-            if (framedimage.metadata.get('history')):
-                self.history = framedimage.metadata['history']
+            if image.metadata.get('history'):
+                self.history = image.metadata['history']
 
-            if (framedimage.labels):
-                 self.labels = framedimage.labels
+            if image.labels:
+                 self.labels = image.labels
 
 
         @property

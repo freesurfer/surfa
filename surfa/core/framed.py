@@ -276,7 +276,6 @@ class FramedArray:
         """
         pass
 
-    # optional parameter to specify FramedArray intent, default is MRI data
     def save(self, filename, fmt=None, intent=FramedArrayIntents.mri):
         """
         Write array to file.
