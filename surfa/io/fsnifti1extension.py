@@ -9,7 +9,7 @@ from surfa.transform.geometry import ImageGeometry
 from surfa.core.labels import LabelLookup
 from surfa.core.framed import FramedArrayIntents
 
-            
+
 class FSNifti1Extension:
     """
     This class handles Freesurfer Nifti1 header extension IO.
@@ -17,7 +17,7 @@ class FSNifti1Extension:
     Class variables:
       _content:      FSNifti1Extension.Content
     """
-                
+
     def __init__(self):
         """
         FSNifti1Extension Constructor
@@ -36,7 +36,7 @@ class FSNifti1Extension:
         fileobj : file-like object
             opened file-like object
         esize   : int
-            nifti1 header extension size including sizes of esize and ecode   
+            nifti1 header extension size including sizes of esize and ecode
         offset  : int
             offset to Freesurfer Nifti1 Header Extension
 
@@ -58,7 +58,7 @@ class FSNifti1Extension:
 
         print(f'[DEBUG] FSNifti1Extension.read(): esize = {esize:6d}')
         print(f'[DEBUG] FSNifti1Extension.read(): endian = \'{self.content.endian:c}\', intent = {self.content.intent:d}, version = {self.content.version:d}')
-            
+
         # process Freesurfer Nifti1 extension tag data
         tagdatalen = esize - 12  # exclude esize, ecode, fsexthdr
         len_tagheader = 12       # tagid (4 bytes), data-length (8 bytes)
@@ -67,7 +67,7 @@ class FSNifti1Extension:
             (tag, length) = FSNifti1Extension.read_tag(fileobj)
 
             print(f'[DEBUG] FSNifti1Extension.read(): remaining taglen = {tagdatalen:6d} (tag = {tag:2d}, length = {length:5d})')
-                
+
             if (tag == 0):
                 break
 
@@ -82,7 +82,7 @@ class FSNifti1Extension:
                     self.content.history.append(history)
                 else:
                     self.content.history = [history]
-    
+
             # dof (TAG_DOF = 7)
             elif (tag == FSNifti1Extension.Tags.dof):
                 dof = iou.read_int(fileobj, length)
@@ -94,7 +94,7 @@ class FSNifti1Extension:
                     rotation = iou.read_bytes(fileobj, '>f4', 9).reshape((3, 3), order='F'),
                     center   = iou.read_bytes(fileobj, '>f4', 3)
                 )
-                        
+
             # gcamorph src & trg geoms (warp) (TAG_GCAMORPH_GEOM = 10)
             elif (tag == FSNifti1Extension.Tags.gcamorph_geom):
                 if (not self.content.warpmeta):
@@ -121,7 +121,7 @@ class FSNifti1Extension:
 
                 len_pedir = length - 20
                 self.content.scan_parameters['pedir'] = fileobj.read(len_pedir).decode('utf-8').rstrip('\x00')
-                
+
             # skip everything else
             else:
                 fileobj.read(length)
@@ -131,10 +131,10 @@ class FSNifti1Extension:
             if (tagdatalen < len_tagheader):
                 print(f'[DEBUG] FSNifti1Extension.read(): remaining taglen = {tagdatalen:6d}')
                 break;
-        
+
         return self.content
-        
-                
+
+
     def write(self, fileobj, content, countbytesonly=False):
         """
         Write Freesurfer Nifti1 header extension data saved to the file-like object.
@@ -171,7 +171,7 @@ class FSNifti1Extension:
             # gcamorph src & trg geoms (warp) (TAG_GCAMORPH_GEOM = 10)
             source_fname = content.warpmeta.get('source-fname', '')
             target_fname = content.warpmeta.get('target-fname', '')
-            
+
             tag = FSNifti1Extension.Tags.gcamorph_geom
             length = FSNifti1Extension.getlen_gcamorph_geom(source_fname, target_fname)
             num_bytes += length + addtaglength
@@ -187,15 +187,15 @@ class FSNifti1Extension:
                            geom=content.warpmeta['target-geom'],
                            valid=content.warpmeta.get('target-valid', True),
                            fname=target_fname,
-                           niftiheaderext=True)     
-            
+                           niftiheaderext=True)
+
             # gcamorph meta (warp: int int float) (TAG_GCAMORPH_META = 13)
             tag = FSNifti1Extension.Tags.gcamorph_meta
             length = 12
             num_bytes += length + addtaglength
             print(f'[DEBUG] FSNifti1Extension.write(): +{length:5d}, +{addtaglength:d}, dlen = {num_bytes:6d}, TAG = {tag:2d}')
             if (not countbytesonly):
-                FSNifti1Extension.write_tag(fileobj, tag, length)            
+                FSNifti1Extension.write_tag(fileobj, tag, length)
                 iou.write_bytes(fileobj, content.warpmeta['format'], dtype='>i4')
                 iou.write_bytes(fileobj, content.warpmeta.get('spacing', 1), dtype='>i4')
                 iou.write_bytes(fileobj, content.warpmeta.get('exp_k', 0.0), dtype='>f4')
@@ -211,10 +211,10 @@ class FSNifti1Extension:
                 FSNifti1Extension.write_tag(fileobj, tag, length)
                 extrachar = '*'
                 fileobj.write(extrachar.encode('utf-8'))
-            
+
             return num_bytes
-        
-        
+
+
         # lookup table (TAG_OLD_COLORTABLE = 1)
         if (content.labels):
             tag = FSNifti1Extension.Tags.old_colortable
@@ -222,7 +222,7 @@ class FSNifti1Extension:
             num_bytes += length + addtaglength
             print(f'[DEBUG] FSNifti1Extension.write(): +{length:5d}, +{addtaglength:d}, dlen = {num_bytes:6d}, TAG = {tag:2d}')
             if (not countbytesonly):
-                FSNifti1Extension.write_tag(fileobj, tag, length)            
+                FSNifti1Extension.write_tag(fileobj, tag, length)
                 fsio.write_binary_lookup_table(fileobj, content.labels)
 
         # history (TAG_CMDLINE = 3)
@@ -235,7 +235,7 @@ class FSNifti1Extension:
                 if (not countbytesonly):
                     FSNifti1Extension.write_tag(fileobj, tag, length)
                     fileobj.write(hist.encode('utf-8'))
-            
+
         # dof (TAG_DOF = 7)
         tag = FSNifti1Extension.Tags.dof
         length = 4
@@ -289,7 +289,7 @@ class FSNifti1Extension:
             FSNifti1Extension.write_tag(fileobj, tag, length)
             extrachar = '*'
             fileobj.write(extrachar.encode('utf-8'))
-            
+
         return num_bytes
 
 
@@ -310,13 +310,13 @@ class FSNifti1Extension:
         length : long
             data length of tagged data
         """
-        
+
         tag = iou.read_int(fileobj)
         length = iou.read_int(fileobj, size=8)
 
         return (tag, length)
-        
-            
+
+
     @staticmethod
     def write_tag(fileobj, tag, length):
         """
@@ -335,7 +335,7 @@ class FSNifti1Extension:
         iou.write_int(fileobj, tag)
         iou.write_int(fileobj, length, size=8)
 
-        
+
     @staticmethod
     def getlen_labels(labels):
         """
@@ -359,7 +359,7 @@ class FSNifti1Extension:
             num_bytes += 8  # structure id, len(structure-name)+1
             num_bytes += len(element.name) + 1  # structure name
             num_bytes += 16  # ri, gi, bi, t-ai
-            
+
         return num_bytes
 
 
@@ -385,7 +385,7 @@ class FSNifti1Extension:
         num_bytes = 2 * 80
         num_bytes += len(fname_source)
         num_bytes += len(fname_target)
-            
+
         return num_bytes
 
 
@@ -405,15 +405,15 @@ class FSNifti1Extension:
           tagid-2 data-length-2 tag-data-2
           ...
 
-        This class defines the tags recognized in surfa. 
+        This class defines the tags recognized in surfa.
         It is a subset of tag IDs defined in freesurfer/include/tags.h
         """
 
         old_colortable  = 1    # TAG_OLD_COLORTABLE
         history         = 3    # TAG_CMDLINE
         dof             = 7    # TAG_DOF
-        ras_xform       = 8    # TAG_RAS_XFORM    
-        gcamorph_geom   = 10   # TAG_GCAMORPH_GEOM 
+        ras_xform       = 8    # TAG_RAS_XFORM
+        gcamorph_geom   = 10   # TAG_GCAMORPH_GEOM
         gcamorph_meta   = 13   # TAG_GCAMORPH_META
         scan_parameters = 45   # TAG_SCAN_PARAMETERS
         end_data        = -1   # TAG_END_NIIHDREXTENSION
@@ -463,7 +463,7 @@ class FSNifti1Extension:
             self._endian = '>'
             self._intent = FramedArrayIntents.mri
             self._version = 1
-            
+
             self._dof = 1
             self._scan_parameters = None
             self._ras_xform = None
@@ -487,7 +487,7 @@ class FSNifti1Extension:
 
             # update input framedimage metadata
             framedimage.metadata['intent'] = self.intent
-            
+
             if (self.intent == FramedArrayIntents.warpmap):
                 # gcamorph src & trg geoms (mgz warp)
                 framedimage.source = self.warpmeta['source-geom']
@@ -521,13 +521,13 @@ class FSNifti1Extension:
                 scan_params['te'] = self.scan_parameters['te']
                 scan_params['ti'] = self.scan_parameters['ti']
                 framedimage.metadata.update(scan_params)
-                
+
             if (self.history):
                 framedimage.metadata['history'] = self.history
-                
+
             if (self.labels):
                 framedimage.labels = self.labels
-            
+
 
         def _from_framedimage(self, framedimage):
             """
@@ -544,13 +544,13 @@ class FSNifti1Extension:
             self.intent = framedimage.metadata.get('intent', FramedArrayIntents.mri)
             if (isinstance(self.intent, np.int_)):
                 self.intent = self.intent.item()  # convert numpy int to python int
-            
+
             self.dof = 1
-            
+
             if (self.intent == FramedArrayIntents.warpmap):
                 if (not self.warpmeta):
                     self.warpmeta = {}
-                    
+
                 # gcamorph src & trg geoms (mgz warp)
                 self.warpmeta['source-geom'] = framedimage.source
                 self.warpmeta['source-valid'] = framedimage.metadata.get('source-valid', True)
@@ -566,12 +566,12 @@ class FSNifti1Extension:
                 self.warpmeta['exp_k'] = framedimage.metadata.get('exp_k', 0.0)
 
                 return
-            
+
             # update ras_xform
             self.ras_xform = dict(
                 rotation = framedimage.geom.rotation,
-                center   = framedimage.geom.center
-                )
+                center   = framedimage.geom.center,
+            )
 
             # update scan_parameters
             self.scan_parameters = dict(
@@ -579,19 +579,20 @@ class FSNifti1Extension:
                 field_strength = framedimage.metadata.get('field-strength'),
                 flip_angle = framedimage.metadata.get('fa', 0),
                 te = framedimage.metadata.get('te', 0),
-                ti = framedimage.metadata.get('ti', 0)           
+                ti = framedimage.metadata.get('ti', 0)
                 )
-                
+
             if (framedimage.metadata.get('history')):
                 self.history = framedimage.metadata['history']
-                
+
             if (framedimage.labels):
                  self.labels = framedimage.labels
-            
+
 
         @property
         def endian(self):
             return self._endian
+
         @endian.setter
         def endian(self, endian):
             self._endian = endian
@@ -599,6 +600,7 @@ class FSNifti1Extension:
         @property
         def intent(self):
             return self._intent
+
         @intent.setter
         def intent(self, intent):
             self._intent = intent
@@ -606,6 +608,7 @@ class FSNifti1Extension:
         @property
         def version(self):
             return self._version
+
         @version.setter
         def version(self, version):
             self._version = version
@@ -613,6 +616,7 @@ class FSNifti1Extension:
         @property
         def dof(self):
             return self._dof
+
         @dof.setter
         def dof(self, dof):
             self._dof = dof
@@ -620,6 +624,7 @@ class FSNifti1Extension:
         @property
         def scan_parameters(self):
             return self._scan_parameters
+
         @scan_parameters.setter
         def scan_parameters(self, scan_parameters):
             self._scan_parameters = scan_parameters
@@ -627,6 +632,7 @@ class FSNifti1Extension:
         @property
         def ras_xform(self):
             return self._ras_xform
+
         @ras_xform.setter
         def ras_xform(self, ras_xform):
             self._ras_xform = ras_xform
@@ -634,6 +640,7 @@ class FSNifti1Extension:
         @property
         def warpmeta(self):
             return self._warpmeta
+
         @warpmeta.setter
         def warpmeta(self, warpmeta):
             self._warpmeta = warpmeta
@@ -641,6 +648,7 @@ class FSNifti1Extension:
         @property
         def history(self):
             return self._history
+
         @history.setter
         def history(self, history):
             self._history = history
@@ -648,9 +656,7 @@ class FSNifti1Extension:
         @property
         def labels(self):
             return self._labels
+
         @labels.setter
         def labels(self, labels):
             self._labels = labels
-
-
-
