@@ -215,7 +215,7 @@ class Warp(FramedImage):
         Returns
         -------
         Volume
-            Transfomred image.
+            Transformed image.
         """
         if not isinstance(image, sf.Volume):
             raise ValueError('Warp.transform() - input is not a Volume')
