@@ -553,17 +553,17 @@ class FSNifti1Extension:
                     
                 # gcamorph src & trg geoms (mgz warp)
                 self.warpmeta['source-geom'] = framedimage.source
-                self.warpmeta['source-valid'] = framedimage.metadata['source-valid']
-                self.warpmeta['source-fname'] = framedimage.metadata['source-fname']
+                self.warpmeta['source-valid'] = framedimage.metadata.get('source-valid', True)
+                self.warpmeta['source-fname'] = framedimage.metadata.get('source-fname', '')
 
                 self.warpmeta['target-geom'] = framedimage.target
-                self.warpmeta['target-valid'] = framedimage.metadata['target-valid']
-                self.warpmeta['target-fname'] = framedimage.metadata['target-fname']
+                self.warpmeta['target-valid'] = framedimage.metadata.get('target-valid', True)
+                self.warpmeta['target-fname'] = framedimage.metadata.get('target-fname', '')
 
                 # gcamorph meta (mgz warp: int int float)
                 self.warpmeta['format'] = framedimage.format
-                self.warpmeta['spacing'] = framedimage.metadata['spacing']
-                self.warpmeta['exp_k'] = framedimage.metadata['exp_k']
+                self.warpmeta['spacing'] = framedimage.metadata.get('spacing', 1)
+                self.warpmeta['exp_k'] = framedimage.metadata.get('exp_k', 0.0)
 
                 return
             

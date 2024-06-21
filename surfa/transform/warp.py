@@ -58,6 +58,7 @@ class Warp(FramedImage):
             raise ValueError(f'invalid shape {data.shape} for {basedim}D warp')
 
         super().__init__(basedim, data, geometry=target, **kwargs)
+        self.metadata['intent'] = sf.core.framed.FramedArrayIntents.warpmap
 
     def __call__(self, *args, **kwargs):
         """
