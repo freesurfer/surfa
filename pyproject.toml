@@ -1,2 +1,3 @@
 [build-system]
-requires = ['setuptools', 'wheel', 'Cython', 'numpy']
+# Pinning numpy version to <2.0 due to Numpy 2.0's backwards incompatibility
+requires = ['setuptools', 'wheel', 'Cython', 'numpy<2.0']
