@@ -259,7 +259,7 @@ class FSNifti1Extension:
         # scan_parameters (TAG_SCAN_PARAMETERS = 45)
         if (content.scan_parameters):
             tag = FSNifti1Extension.Tags.scan_parameters
-            length = 20 + len(content.scan_parameters['pedir']) + 1
+            length = 20 + len(content.scan_parameters['pedir'])
             num_bytes += length + addtaglength
             print(f'[DEBUG] FSNifti1Extension.write(): +{length:5d}, +{addtaglength:d}, dlen = {num_bytes:6d}, TAG = {tag:2d}')
             if (not countbytesonly):
