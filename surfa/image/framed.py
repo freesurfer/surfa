@@ -13,6 +13,7 @@ from surfa.core.array import pad_vector_length
 from surfa.core.array import check_array
 from surfa.core.slicing import sane_slicing
 from surfa.core.slicing import slicing_parameters
+from surfa.core.slicing import fit_slicing_to_shape
 from surfa.transform import cast_space
 from surfa.transform.geometry import ImageGeometry
 from surfa.transform.geometry import cast_image_geometry
@@ -560,6 +561,38 @@ class FramedImage(FramedArray):
             vox2world=matrix,
             voxsize=self.geom.voxsize)
         return self.new(conformed_data, target_geom)
+
+    def reshape_on_bbox(self, shape, copy=True):
+        """
+        Returns a volume fit to a given shape. Image will be centered on the bounding box.
+
+        Parameters
+        ----------
+        shape : tuple of int
+            Target shape.
+        copy : bool
+            Return copy of image even if target shape is already satisfied.
+
+        Returns
+        -------
+        arr : !class
+            Reshaped image. 
+        """
+        if self.basedim == 2:
+            raise NotImplementedError('reshape is not yet implemented for 2D data, '
+                                      'contact andrew if you need this')
+
+        shape = shape[:self.basedim]
+
+        if np.array_equal(self.baseshape, shape):
+            return self.copy() if copy else self
+        
+        # get the bounding box
+        c_bbox = self.bbox()
+        # adjust the bbox cropping to fit the target shape
+        bbox_centered_cropping = fit_slicing_to_shape(c_bbox, self.baseshape, shape)
+        # return the bbox centered cropping
+        return self[bbox_centered_cropping]
 
     def fit_to_shape(self, shape, center=None, copy=True):
         """
