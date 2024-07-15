@@ -504,14 +504,16 @@ class FramedImage(FramedArray):
             voxsize=voxsize)
         return self.new(data, target_geom)
 
-    def reshape(self, shape, copy=True):
+    def reshape(self, shape, center='image', copy=True):
         """
-        Returns a volume fit to a given shape. Image will be centered in the conformed volume.
+        Returns a volume fit to a given shape. Image will be centered in the conformed volume, or bbox of the original image.
 
         Parameters
         ----------
         shape : tuple of int
             Target shape.
+        center : str
+            Center the reshaped image on image center or bbox: ['image', 'bbox']
         copy : bool
             Return copy of image even if target shape is already satisfied.
 
@@ -528,6 +530,19 @@ class FramedImage(FramedArray):
 
         if np.array_equal(self.baseshape, shape):
             return self.copy() if copy else self
+
+        # validate 'center'
+        valid_centers = ['image', 'bbox']
+        if center not in valid_centers:
+            raise ValueError(f'Unsupported argument for "center", must be in {valid_centers}')
+
+        if center == 'bbox':
+            # get the bbox
+            c_bbox = self.bbox()
+            # reshape the bbox to the target size
+            bbox_centered_cropping = fit_slicing_to_shape(c_bbox, self.baseshape, shape)
+            # return the bbox centered cropping
+            return self[bbox_centered_cropping]
 
         delta = (np.array(shape) - np.array(self.baseshape)) / 2
         low = np.floor(delta).astype(int)
@@ -562,38 +577,6 @@ class FramedImage(FramedArray):
             voxsize=self.geom.voxsize)
         return self.new(conformed_data, target_geom)
 
-    def reshape_on_bbox(self, shape, copy=True):
-        """
-        Returns a volume fit to a given shape. Image will be centered on the bounding box.
-
-        Parameters
-        ----------
-        shape : tuple of int
-            Target shape.
-        copy : bool
-            Return copy of image even if target shape is already satisfied.
-
-        Returns
-        -------
-        arr : !class
-            Reshaped image. 
-        """
-        if self.basedim == 2:
-            raise NotImplementedError('reshape is not yet implemented for 2D data, '
-                                      'contact andrew if you need this')
-
-        shape = shape[:self.basedim]
-
-        if np.array_equal(self.baseshape, shape):
-            return self.copy() if copy else self
-        
-        # get the bounding box
-        c_bbox = self.bbox()
-        # adjust the bbox cropping to fit the target shape
-        bbox_centered_cropping = fit_slicing_to_shape(c_bbox, self.baseshape, shape)
-        # return the bbox centered cropping
-        return self[bbox_centered_cropping]
-
     def fit_to_shape(self, shape, center=None, copy=True):
         """
         This is an alias to `reshape()` for backwards compatability.
@@ -612,9 +595,7 @@ class FramedImage(FramedArray):
         arr : !class
             Reshaped image.
         """
-        if center is not None:
-            warnings.warn('fit_to_shape center argument no longer has any effect')
-        return self.reshape(shape, copy)
+        return self.reshape(shape, center, copy)
 
     def conform(self, shape=None, voxsize=None, orientation=None, dtype=None, method='linear', copy=True):
         """
