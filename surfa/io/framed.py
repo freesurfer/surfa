@@ -230,6 +230,7 @@ class MGHArrayIO(protocol.IOProtocol):
             3:  '>f4',  # float
             4:  '>i2',  # short
             6:  '>f4',  # tensor
+            7:  '>c8',  # complex64
             10: '>u2',  # ushort
         }
         dtype = mgh_types.get(id)
@@ -398,6 +399,7 @@ class MGHArrayIO(protocol.IOProtocol):
                 np.floating: 3,
                 np.int16: 4,
                 np.uint16: 10,
+                np.complex64: 7,
             }
             dtype_id = next((i for dt, i in type_map.items() if np.issubdtype(arr.dtype, dt)), None)
             if dtype_id is None:
