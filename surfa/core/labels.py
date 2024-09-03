@@ -301,14 +301,15 @@ class LabelRecoder:
     def target(self, value):
         self._value = value
 
-    def invert(self, target=None, strict=True):
+    def invert(self, target_labels=None, strict=True):
         """
         Invert the label mapping dictionary
 
         Parameters
         ----------
-        target : LabelLookup, optional
+        target_labels : LabelLookup, optional
             LabelLookup that will be assigned as the target of the returned LabelRecoder
+            If not assigned, the output volume using this recoder will not have a LabelMapping
         strict : bool, optional
             Enforce the inverted label recoding is 1-to-1
             
@@ -345,4 +346,4 @@ class LabelRecoder:
         [x.sort() for x in inv_mapping.values()]
         inv_mapping = {k:v[0] for k,v in inv_mapping.items()}
 
-        return LabelRecoder(inv_mapping, target)
+        return LabelRecoder(inv_mapping, target_labels)
