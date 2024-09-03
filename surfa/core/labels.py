@@ -290,17 +290,6 @@ class LabelRecoder:
         self.mapping = dict(mapping)
         self.target = target
 
-    @property
-    def target(self):
-        """
-        Target label mapping
-        """
-        return self._value
-    
-    @target.setter
-    def target(self, value):
-        self._value = value
-
     def invert(self, target_labels=None, strict=True):
         """
         Invert the label mapping dictionary
