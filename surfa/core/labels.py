@@ -289,3 +289,60 @@ class LabelRecoder:
         """
         self.mapping = dict(mapping)
         self.target = target
+
+    @property
+    def target(self):
+        """
+        Target label mapping
+        """
+        return self._value
+    
+    @target.setter
+    def target(self, value):
+        self._value = value
+
+    def invert(self, target=None, strict=True):
+        """
+        Invert the label mapping dictionary
+
+        Parameters
+        ----------
+        target : LabelLookup, optional
+            LabelLookup that will be assigned as the target of the returned LabelRecoder
+        strict : bool, optional
+            Enforce the inverted label recoding is 1-to-1
+            
+        Returns
+        -------
+        LabelRecoder
+            A LabelRecoder object with the k,v pairs of the original mapping swapped
+            
+            If the input mapping is many-to-1, the function will raise a `KeyError` unless
+            the `strict` param is set to `False`. In the case where the input mapping is
+            many-to-1 and `strict` is set to `False`, the returned LabelRecoder will map
+            to the minimum value of the 'many' labels. e.g {1:0, 2:0} the inverse will
+            be {0:1}.
+            
+        Raises
+        ------
+        KeyError
+            If `strict` is set to `True` and inverted label mapping is not 1-to-1
+        """
+        # invert the mapping dictionary, handling many-to-1 mapping case
+        inv_mapping = {}
+        for k,v in self.mapping.items():
+            if v not in inv_mapping.keys():
+                inv_mapping[v] = [k]
+            else:
+                inv_mapping[v].append(k)
+        
+        test = [len(x) == 1 for x in inv_mapping.values()]
+
+        # raise key error if many-to-1 and strict
+        if False in test and strict:
+            raise KeyError('Cannot strictly invert a many-to-1 LabelRecoder')
+        
+        [x.sort() for x in inv_mapping.values()]
+        inv_mapping = {k:v[0] for k,v in inv_mapping.items()}
+
+        return LabelRecoder(inv_mapping, target)
