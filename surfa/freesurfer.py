@@ -284,6 +284,7 @@ def tissue_type_recoder(extra=False, lesions=False):
         60:   3,  # Right-VentralDC
         62:   4,  # Right-Vessel
         63:   4,  # Right-Choroid-Plexus
+        72:   4,  # 5th-Ventricle
         77:   6 if lesions else 3,  # WM-Hypointensities
         78:   3,  # Left-WM-Hypointensities
         79:   3,  # Right-WM-Hypointensities
