@@ -243,7 +243,7 @@ class LabelLookup(collections.OrderedDict):
             elt = self.get(label)
             if elt is None:
                 raise ValueError(f'index {label} does not exist in the LabelLookup')
-            lookup.add(label, elt.name, elt.color)
+            lookup[label]= (elt.name, elt.color)
         return lookup
 
     def copy_colors(self, lookup):
