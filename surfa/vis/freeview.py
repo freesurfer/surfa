@@ -80,7 +80,7 @@ class Freeview:
         # configure the corresponding freeview argument
         self.arguments.append('-v ' + filename + _convert_kwargs_to_tags(kwargs))
 
-    def add_mesh(self, mesh, overlay=None, annot=None, **kwargs):
+    def add_mesh(self, mesh, curvature=None, overlay=None, annot=None, name=None, **kwargs):
         """
         Adds an image to the freeview window. Any key/value tags allowed as a `-v` option
         in the freeview command line can be provided as an additional argument.
@@ -113,6 +113,17 @@ class Freeview:
         # extra tags for the mesh
         tags = ''
 
+        # configure any curvatures
+        if curvature is not None:
+            curvature = [curvature] if not isinstance(curvature, (list, tuple)) else curvature
+            for c in curvature:
+                c = FreeviewCurvature(c) if not isinstance(c, FreeviewCurvature) else c
+                filename = _unique_filename(c.name, '.mgz', self.tempdir)
+                c.arr.save(filename)
+                if self.debug:
+                    print(f'wrote curvature to {filename}')
+                tags += f':curvature={filename}' + c.tags()
+
         # configure any overlays
         if overlay is not None:
             overlay = [overlay] if not isinstance(overlay, (list, tuple)) else overlay
@@ -134,6 +145,9 @@ class Freeview:
                 if self.debug:
                     print(f'wrote annotation to {filename}')
                 tags += f':annot={filename}'
+
+        if name is not None:
+            tags += f':name={name}'
 
         # configure the corresponding freeview argument
         self.arguments.append('-f ' + mesh_filename + tags + _convert_kwargs_to_tags(kwargs))
@@ -193,9 +207,25 @@ class Freeview:
         run(command, background=background)
 
 
+class FreeviewCurvature:
+
+    def __init__(self, arr, name='curvature', method='binary'):
+        """
+        Configuration for freeview curvature.
+        """
+        self.arr = cast_overlay(arr, allow_none=False)
+        self.name = name
+        self.method = method
+
+    def tags(self):
+        tags = ''
+        tags += '' if self.method is None else f':curvature_method={self.method}'
+        return tags
+
+
 class FreeviewOverlay:
 
-    def __init__(self, arr, name='overlay', threshold=None, opacity=None):
+    def __init__(self, arr, name='overlay', threshold=None, opacity=None, color=None, custom=None):
         """
         Configuration for freeview overlays.
         """
@@ -203,11 +233,15 @@ class FreeviewOverlay:
         self.name = name
         self.threshold = threshold
         self.opacity = opacity
+        self.color = color
+        self.custom = custom
 
     def tags(self):
         tags = ''
-        tags += '' if self.threshold is None else f':overlay_threshold=' + ','.join(str(x) for x in config.threshold)
+        tags += '' if self.threshold is None else f':overlay_threshold=' + ','.join(str(x) for x in self.threshold)
         tags += '' if self.opacity is None else f':overlay_opacity={self.opacity}'
+        tags += '' if self.color is None else f':overlay_color={self.color}'
+        tags += '' if self.custom is None else f':overlay_custom={self.custom}'
         return tags
 
 
