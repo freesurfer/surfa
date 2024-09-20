@@ -158,7 +158,8 @@ def save_framed_array(arr, filename, fmt=None, intent=FramedArrayIntents.mri):
         iop = protocol.find_protocol_by_name(array_io_protocols, fmt)
         if iop is None:
             raise ValueError(f'unknown file format {fmt}')
-        filename = iop.enforce_extension(filename)
+        if iop.name != 'curv':
+            filename = iop.enforce_extension(filename)
 
     # pass intent if iop() is an instance of MGHArrayIO
     if (isinstance(iop(), MGHArrayIO)):
