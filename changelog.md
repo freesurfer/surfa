@@ -2,6 +2,9 @@
 
 All notable changes to the surfa package are documented in this file.
 
+## [0.6.0] - 2024-09-20
+- Added temporary fix to prevent numpy 2 build errors
+
 ## [0.6.0] - 2023-06-30
 - Added surface distance metrics
 - Added signed distance transform utilities for image data
