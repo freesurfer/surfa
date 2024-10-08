@@ -565,7 +565,6 @@ class NiftiArrayIO(protocol.IOProtocol):
             # handle nifti1 header extension
             niiextsions = nii.header.extensions
             if (not niiextsions):
-                print("[DEBUG] NiftiArrayIO.load(): no header extensions found!")
                 return arr
             
             # try to find freesurfer nifti1 header extension
