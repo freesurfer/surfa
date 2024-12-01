@@ -228,6 +228,78 @@ def tissue_types():
     return labels
 
 
+def nonlateral_aseg_recoder(include_lesions=False):
+    """
+    Returns a recoding table that converts default brain labels to the
+    corresponding tissue-type.
+
+    Returns:
+        RecodingLookupTable: .
+    """
+    include_list = [
+        "Unknown",
+        "Left-Cerebral-White-Matter",
+        "Left-Cerebral-Cortex",
+        "Left-Cerebellum-White-Matter",           
+        "Left-Cerebellum-Cortex",
+        "Left-Thalamus",
+        "Left-Caudate",
+        "Left-Putamen",
+        "Left-Pallidum",
+        "3rd-Ventricle",                           
+        "4th-Ventricle",
+        "Brain-Stem",                            
+        "Left-Hippocampus",
+        "Left-Amygdala",                        
+        "CSF",
+        "Left-Lesion",
+        "Left-Accumbens-area",
+        "Left-VentralDC",
+        "Left-Choroid-Plexus"
+    ]        
+    aseg = labels()
+    source_lut = labels()
+    target_lut = LabelLookup()
+    mapping = {}
+    for key in source_lut.keys():
+        if (key >= 1000 and key < 3000) or \
+           (key > 11000 and key < 13000):   # destrieux labels
+            name = 'Left-Cerebral-Cortex'
+        elif (key >= 3000 and key < 5000) or (key >= 13000 and key < 15000) or (key >= 250 and key <= 255):
+            name = 'Left-Cerebral-White-Matter'
+        elif (key >= 7000 and key <= 7020):
+            name = 'Left-Amygdala'
+        elif (key >= 8000 and key < 9000):
+            name = 'Left-Thalamus'
+        elif key < 100:
+            name = source_lut[key].name
+            if name.startswith('Right-'):
+                name = name.replace('Right-', 'Left-')
+            if (name.find('Vent') >= 0 and name.find('entral') < 0):
+                name = 'CSF'
+            if name.find('ypoint') >= 0 or name.find('esion') >= 0 or \
+               name.find('wmsa') >= 0:
+                name = 'Left-Lesion'
+        else:
+            continue ;
+
+        if name not in include_list:
+            continue
+
+        source_key = key
+        target_list = target_lut.search(name)
+
+        if len(target_list) == 0:  # not already
+            target_key = len(target_lut)
+            target_lut[target_key] = (name, source_lut[key].color)
+        else:
+            target_key = target_list[0]
+
+        mapping[source_key] = target_key
+
+    return LabelRecoder(mapping, target=target_lut)
+
+
 def tissue_type_recoder(extra=False, lesions=False):
     """
     Return a recoding lookup that converts default brain labels to the
