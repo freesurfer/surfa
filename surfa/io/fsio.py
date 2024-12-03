@@ -125,7 +125,7 @@ def read_binary_lookup_table(file):
     file_name_size = iou.read_bytes(file, '>i4')
     # if the file comes from surfa.io.fsio.write_binary_lookup_table(), file_name_size = 0.
     # if the file comes from freesurfer/utils/colortab.cpp::znzCTABwriteIntoBinaryV2(), file_name_size > 0.
-    file.read(file_name_size).decode('utf-8')
+    file.read(file_name_size)#.decode('utf-8')
     
     total = iou.read_bytes(file, '>i4')
     if total < 1:
