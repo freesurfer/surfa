@@ -474,6 +474,19 @@ class FramedImage(FramedArray):
         world_axes_trg = get_world_axes(trg_matrix[:self.basedim, :self.basedim])
         world_axes_src = get_world_axes(src_matrix[:self.basedim, :self.basedim])
 
+        voxsize = np.asarray(self.geom.voxsize)
+        voxsize_swapped = np.ones(self.basedim)
+        for i in range(self.basedim):
+            c1 = trg_orientation[i]
+            for j in range(self.basedim):
+                c2 = src_orientation[j]
+                if ((c1 in 'RL' and c2 in 'RL') or
+                    (c1 in 'AP' and c2 in 'AP') or
+                    (c1 in 'SI' and c2 in 'SI')):
+                    voxsize_swapped[i] = voxsize[j]
+                    break
+        voxsize = voxsize_swapped
+
         # initialize new
         data = self.data.copy()
         affine = self.geom.vox2world.matrix.copy()
@@ -493,9 +506,6 @@ class FramedImage(FramedArray):
                 data = np.flip(data, axis=i)
                 affine[:, i] = - affine[:, i]
                 affine[:3, 3] = affine[:3, 3] - affine[:3, i] * (data.shape[i] - 1)
-
-        # derive new voxel size
-        voxsize = np.sqrt(np.sum(affine[:self.basedim, :self.basedim] ** 2, axis=0))
 
         # update geometry
         target_geom = ImageGeometry(
