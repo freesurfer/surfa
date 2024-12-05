@@ -816,6 +816,42 @@ class FramedImage(FramedArray):
         dt = lambda x: scipy.ndimage.distance_transform_edt(x, sampling=sampling)
         sdt = lambda x: dt(1 - x) - dt(x)
         return stack([self.new(sdt(self.framed_data[..., i])) for i in range(self.nframes)])
+    
+    def extract_sub_images(self, sub_shape):
+        """
+        Extract a list of sub images from the FramedImage with shape 'sub_shape'
+
+        Parameters
+        ----------
+        sub_shape : array like
+            Shape to be given to the sub images that are extracted
+
+        Returns
+        -------
+        list of FramedImages
+            sub images
+        """
+        
+        # ensure valid shape for the sub images
+        if len(sub_shape) != self.basedim:
+            raise ValueError('Image and sub_shape must have same dimensions')
+
+        img_shape = np.array(self.shape)
+        sub_shape = np.array(sub_shape)
+
+        # find number of slices to take in each dim
+        to_slice = img_shape // sub_shape
+        
+        # get the the 'ordered pairs' of all croppings
+        indices = [len(range(int(to_slice[d]))) for d in range(len(img_shape))]
+        
+        sub_volumes = []
+        # extract all the sub images
+        for idx in np.ndindex(*indices):
+            slices = tuple(slice(sub_shape[d] * idx[d], sub_shape[d] * (idx[d] + 1)) for d in range(len(sub_shape)))
+            sub_volumes.append(self[slices])
+    
+        return sub_volumes
 
 
 class Slice(FramedImage):
