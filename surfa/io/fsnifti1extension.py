@@ -106,6 +106,13 @@ class FSNifti1Extension:
 
                 (self.content.warpmeta['source-geom'], self.content.warpmeta['source-valid'], self.content.warpmeta['source-fname']) = iou.read_geom(fileobj, niftiheaderext=True)
                 (self.content.warpmeta['target-geom'], self.content.warpmeta['target-valid'], self.content.warpmeta['target-fname']) = iou.read_geom(fileobj, niftiheaderext=True)
+            # gcamorph src & trg geoms (warp) (TAG_GCAMORPH_GEOM_PLUSSHEAR = 15)
+            elif (tag == FSNifti1Extension.Tags.gcamorph_geom_plusshear):
+                if (not self.content.warpmeta):
+                    self.content.warpmeta = {}
+
+                (self.content.warpmeta['source-geom'], self.content.warpmeta['source-valid'], self.content.warpmeta['source-fname']) = iou.read_geom(fileobj, niftiheaderext=True, shearless=False)
+                (self.content.warpmeta['target-geom'], self.content.warpmeta['target-valid'], self.content.warpmeta['target-fname']) = iou.read_geom(fileobj, niftiheaderext=True, shearless=False)
             # gcamorph meta (warp: int int float) (TAG_GCAMORPH_META = 13)
             elif (tag == FSNifti1Extension.Tags.gcamorph_meta):
                 if (not self.content.warpmeta):
@@ -195,6 +202,26 @@ class FSNifti1Extension:
                            valid=content.warpmeta.get('target-valid', True),
                            fname=target_fname,
                            niftiheaderext=True)
+
+            tag = FSNifti1Extension.Tags.gcamorph_geom_plusshear
+            length = FSNifti1Extension.getlen_gcamorph_geom(source_fname, target_fname, shearless=False)
+            num_bytes += length + addtaglength
+            if (self._verbose):
+                print(f'[DEBUG] FSNifti1Extension.write(): +{length:5d}, +{addtaglength:d}, dlen = {num_bytes:6d}, TAG = {tag:2d}')
+            if (not countbytesonly):
+                FSNifti1Extension.write_tag(fileobj, tag, length)
+                iou.write_geom(fileobj,
+                           geom=content.warpmeta['source-geom'],
+                           valid=content.warpmeta.get('source-valid', True),
+                           fname=source_fname,
+                           niftiheaderext=True,
+                           shearless=False)
+                iou.write_geom(fileobj,
+                           geom=content.warpmeta['target-geom'],
+                           valid=content.warpmeta.get('target-valid', True),
+                           fname=target_fname,
+                           niftiheaderext=True,
+                           shearless=False)
 
             # gcamorph meta (warp: int int float) (TAG_GCAMORPH_META = 13)
             tag = FSNifti1Extension.Tags.gcamorph_meta
@@ -426,14 +453,15 @@ class FSNifti1Extension:
         It is a subset of tag IDs defined in freesurfer/include/tags.h
         """
 
-        old_colortable  = 1    # TAG_OLD_COLORTABLE
-        history         = 3    # TAG_CMDLINE
-        dof             = 7    # TAG_DOF
-        ras_xform       = 8    # TAG_RAS_XFORM
-        gcamorph_geom   = 10   # TAG_GCAMORPH_GEOM
-        gcamorph_meta   = 13   # TAG_GCAMORPH_META
-        scan_parameters = 45   # TAG_SCAN_PARAMETERS
-        end_data        = -1   # TAG_END_NIIHDREXTENSION
+        old_colortable  = 1           # TAG_OLD_COLORTABLE
+        history         = 3           # TAG_CMDLINE
+        dof             = 7           # TAG_DOF
+        ras_xform       = 8           # TAG_RAS_XFORM
+        gcamorph_geom   = 10          # TAG_GCAMORPH_GEOM
+        gcamorph_meta   = 13          # TAG_GCAMORPH_META
+        gcamorph_geom_plusshear = 15  # information output under gcamorph_geom + shear components
+        scan_parameters = 45          # TAG_SCAN_PARAMETERS
+        end_data        = -1          # TAG_END_NIIHDREXTENSION
 
 
     class Content:
