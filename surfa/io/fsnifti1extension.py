@@ -15,15 +15,17 @@ class FSNifti1Extension:
     This class handles Freesurfer Nifti1 header extension IO.
 
     Class variables:
+      _verbose:      if it is True, output debug information
       _content:      FSNifti1Extension.Content
     """
 
-    def __init__(self):
+    def __init__(self, verbose=False):
         """
         FSNifti1Extension Constructor
         """
 
         # initialization
+        self._verbose = verbose
         self._content = FSNifti1Extension.Content()
 
 
@@ -56,8 +58,9 @@ class FSNifti1Extension:
         self.content.intent = int.from_bytes(fsexthdr[1:3], byteorder='big')
         self.content.version = fsexthdr[3]
 
-        print(f'[DEBUG] FSNifti1Extension.read(): esize = {esize:6d}')
-        print(f'[DEBUG] FSNifti1Extension.read(): endian = \'{self.content.endian:c}\', intent = {self.content.intent:d}, version = {self.content.version:d}')
+        if (self._verbose):
+            print(f'[DEBUG] FSNifti1Extension.read(): esize = {esize:6d}')
+            print(f'[DEBUG] FSNifti1Extension.read(): endian = \'{self.content.endian:c}\', intent = {self.content.intent:d}, version = {self.content.version:d}')
 
         # process Freesurfer Nifti1 extension tag data
         tagdatalen = esize - 12  # exclude esize, ecode, fsexthdr
@@ -66,7 +69,8 @@ class FSNifti1Extension:
             # read tagid (4 bytes), data-length (8 bytes)
             (tag, length) = FSNifti1Extension.read_tag(fileobj)
 
-            print(f'[DEBUG] FSNifti1Extension.read(): remaining taglen = {tagdatalen:6d} (tag = {tag:2d}, length = {length:5d})')
+            if (self._verbose): 
+                print(f'[DEBUG] FSNifti1Extension.read(): remaining taglen = {tagdatalen:6d} (tag = {tag:2d}, length = {length:5d})')
 
             if (tag == 0):
                 break
@@ -102,6 +106,13 @@ class FSNifti1Extension:
 
                 (self.content.warpmeta['source-geom'], self.content.warpmeta['source-valid'], self.content.warpmeta['source-fname']) = iou.read_geom(fileobj, niftiheaderext=True)
                 (self.content.warpmeta['target-geom'], self.content.warpmeta['target-valid'], self.content.warpmeta['target-fname']) = iou.read_geom(fileobj, niftiheaderext=True)
+            # gcamorph src & trg geoms (warp) (TAG_GCAMORPH_GEOM_PLUSSHEAR = 15)
+            elif (tag == FSNifti1Extension.Tags.gcamorph_geom_plusshear):
+                if (not self.content.warpmeta):
+                    self.content.warpmeta = {}
+
+                (self.content.warpmeta['source-geom'], self.content.warpmeta['source-valid'], self.content.warpmeta['source-fname']) = iou.read_geom(fileobj, niftiheaderext=True, shearless=False)
+                (self.content.warpmeta['target-geom'], self.content.warpmeta['target-valid'], self.content.warpmeta['target-fname']) = iou.read_geom(fileobj, niftiheaderext=True, shearless=False)
             # gcamorph meta (warp: int int float) (TAG_GCAMORPH_META = 13)
             elif (tag == FSNifti1Extension.Tags.gcamorph_meta):
                 if (not self.content.warpmeta):
@@ -129,7 +140,8 @@ class FSNifti1Extension:
             # check if we reach the end
             tagdatalen -= (len_tagheader + length)
             if (tagdatalen < len_tagheader):
-                print(f'[DEBUG] FSNifti1Extension.read(): remaining taglen = {tagdatalen:6d}')
+                if (self._verbose):
+                    print(f'[DEBUG] FSNifti1Extension.read(): remaining taglen = {tagdatalen:6d}')
                 break;
 
         return self.content
@@ -163,7 +175,8 @@ class FSNifti1Extension:
             iou.write_int(fileobj, content.version, size=1, byteorder='big')
 
         num_bytes = 4
-        print(f'[DEBUG] FSNifti1Extension.write():              dlen = {num_bytes:6d}')
+        if (self._verbose):
+            print(f'[DEBUG] FSNifti1Extension.write():              dlen = {num_bytes:6d}')
 
         # tag data
         addtaglength = 12
@@ -175,7 +188,8 @@ class FSNifti1Extension:
             tag = FSNifti1Extension.Tags.gcamorph_geom
             length = FSNifti1Extension.getlen_gcamorph_geom(source_fname, target_fname)
             num_bytes += length + addtaglength
-            print(f'[DEBUG] FSNifti1Extension.write(): +{length:5d}, +{addtaglength:d}, dlen = {num_bytes:6d}, TAG = {tag:2d}')
+            if (self._verbose):
+                print(f'[DEBUG] FSNifti1Extension.write(): +{length:5d}, +{addtaglength:d}, dlen = {num_bytes:6d}, TAG = {tag:2d}')
             if (not countbytesonly):
                 FSNifti1Extension.write_tag(fileobj, tag, length)
                 iou.write_geom(fileobj,
@@ -189,11 +203,32 @@ class FSNifti1Extension:
                            fname=target_fname,
                            niftiheaderext=True)
 
+            tag = FSNifti1Extension.Tags.gcamorph_geom_plusshear
+            length = FSNifti1Extension.getlen_gcamorph_geom(source_fname, target_fname, shearless=False)
+            num_bytes += length + addtaglength
+            if (self._verbose):
+                print(f'[DEBUG] FSNifti1Extension.write(): +{length:5d}, +{addtaglength:d}, dlen = {num_bytes:6d}, TAG = {tag:2d}')
+            if (not countbytesonly):
+                FSNifti1Extension.write_tag(fileobj, tag, length)
+                iou.write_geom(fileobj,
+                           geom=content.warpmeta['source-geom'],
+                           valid=content.warpmeta.get('source-valid', True),
+                           fname=source_fname,
+                           niftiheaderext=True,
+                           shearless=False)
+                iou.write_geom(fileobj,
+                           geom=content.warpmeta['target-geom'],
+                           valid=content.warpmeta.get('target-valid', True),
+                           fname=target_fname,
+                           niftiheaderext=True,
+                           shearless=False)
+
             # gcamorph meta (warp: int int float) (TAG_GCAMORPH_META = 13)
             tag = FSNifti1Extension.Tags.gcamorph_meta
             length = 12
             num_bytes += length + addtaglength
-            print(f'[DEBUG] FSNifti1Extension.write(): +{length:5d}, +{addtaglength:d}, dlen = {num_bytes:6d}, TAG = {tag:2d}')
+            if (self._verbose):
+                print(f'[DEBUG] FSNifti1Extension.write(): +{length:5d}, +{addtaglength:d}, dlen = {num_bytes:6d}, TAG = {tag:2d}')
             if (not countbytesonly):
                 FSNifti1Extension.write_tag(fileobj, tag, length)
                 iou.write_bytes(fileobj, content.warpmeta['format'], dtype='>i4')
@@ -206,7 +241,8 @@ class FSNifti1Extension:
             tag = FSNifti1Extension.Tags.end_data
             length = 1  # extra char '*'
             num_bytes += length + addtaglength
-            print(f'[DEBUG] FSNifti1Extension.write(): +{length:5d}, +{addtaglength:d}, dlen = {num_bytes:6d}, TAG = {tag:2d}')
+            if (self._verbose):
+                print(f'[DEBUG] FSNifti1Extension.write(): +{length:5d}, +{addtaglength:d}, dlen = {num_bytes:6d}, TAG = {tag:2d}')
             if (not countbytesonly):
                 FSNifti1Extension.write_tag(fileobj, tag, length)
                 extrachar = '*'
@@ -220,7 +256,8 @@ class FSNifti1Extension:
             tag = FSNifti1Extension.Tags.old_colortable
             length = FSNifti1Extension.getlen_labels(content.labels)
             num_bytes += length + addtaglength
-            print(f'[DEBUG] FSNifti1Extension.write(): +{length:5d}, +{addtaglength:d}, dlen = {num_bytes:6d}, TAG = {tag:2d}')
+            if (self._verbose):
+                print(f'[DEBUG] FSNifti1Extension.write(): +{length:5d}, +{addtaglength:d}, dlen = {num_bytes:6d}, TAG = {tag:2d}')
             if (not countbytesonly):
                 FSNifti1Extension.write_tag(fileobj, tag, length)
                 fsio.write_binary_lookup_table(fileobj, content.labels)
@@ -231,7 +268,8 @@ class FSNifti1Extension:
                 tag = FSNifti1Extension.Tags.history
                 length = len(hist)
                 num_bytes += length + addtaglength
-                print(f'[DEBUG] FSNifti1Extension.write(): +{length:5d}, +{addtaglength:d}, dlen = {num_bytes:6d}, TAG = {tag:2d}')
+                if (self._verbose):
+                    print(f'[DEBUG] FSNifti1Extension.write(): +{length:5d}, +{addtaglength:d}, dlen = {num_bytes:6d}, TAG = {tag:2d}')
                 if (not countbytesonly):
                     FSNifti1Extension.write_tag(fileobj, tag, length)
                     fileobj.write(hist.encode('utf-8'))
@@ -240,7 +278,8 @@ class FSNifti1Extension:
         tag = FSNifti1Extension.Tags.dof
         length = 4
         num_bytes += length + addtaglength
-        print(f'[DEBUG] FSNifti1Extension.write(): +{length:5d}, +{addtaglength:d}, dlen = {num_bytes:6d}, TAG = {tag:2d}')
+        if (self._verbose):
+            print(f'[DEBUG] FSNifti1Extension.write(): +{length:5d}, +{addtaglength:d}, dlen = {num_bytes:6d}, TAG = {tag:2d}')
         if (not countbytesonly):
             FSNifti1Extension.write_tag(fileobj, tag, length)
             iou.write_int(fileobj, content.dof, size=4)
@@ -250,7 +289,8 @@ class FSNifti1Extension:
             tag = FSNifti1Extension.Tags.ras_xform
             length = 48
             num_bytes += length + addtaglength
-            print(f'[DEBUG] FSNifti1Extension.write(): +{length:5d}, +{addtaglength:d}, dlen = {num_bytes:6d}, TAG = {tag:2d}')
+            if (self._verbose):
+                print(f'[DEBUG] FSNifti1Extension.write(): +{length:5d}, +{addtaglength:d}, dlen = {num_bytes:6d}, TAG = {tag:2d}')
             if (not countbytesonly):
                 FSNifti1Extension.write_tag(fileobj, tag, length)
                 iou.write_bytes(fileobj, np.ravel(content.ras_xform['rotation'], order='F'), '>f4')
@@ -261,7 +301,8 @@ class FSNifti1Extension:
             tag = FSNifti1Extension.Tags.scan_parameters
             length = 20 + len(content.scan_parameters['pedir'])
             num_bytes += length + addtaglength
-            print(f'[DEBUG] FSNifti1Extension.write(): +{length:5d}, +{addtaglength:d}, dlen = {num_bytes:6d}, TAG = {tag:2d}')
+            if (self._verbose):
+                print(f'[DEBUG] FSNifti1Extension.write(): +{length:5d}, +{addtaglength:d}, dlen = {num_bytes:6d}, TAG = {tag:2d}')
             if (not countbytesonly):
                 FSNifti1Extension.write_tag(fileobj, tag, length)
                 iou.write_bytes(fileobj, content.scan_parameters['te'], '>f4')
@@ -284,7 +325,8 @@ class FSNifti1Extension:
         tag = FSNifti1Extension.Tags.end_data
         length = 1  # extra char '*'
         num_bytes += length + addtaglength
-        print(f'[DEBUG] FSNifti1Extension.write(): +{length:5d}, +{addtaglength:d}, dlen = {num_bytes:6d}, TAG = {tag:2d}')
+        if (self._verbose):
+            print(f'[DEBUG] FSNifti1Extension.write(): +{length:5d}, +{addtaglength:d}, dlen = {num_bytes:6d}, TAG = {tag:2d}')
         if (not countbytesonly):
             FSNifti1Extension.write_tag(fileobj, tag, length)
             extrachar = '*'
@@ -364,7 +406,7 @@ class FSNifti1Extension:
 
 
     @staticmethod
-    def getlen_gcamorph_geom(fname_source, fname_target):
+    def getlen_gcamorph_geom(fname_source, fname_target, shearless=True):
         """
         Calculate total bytes that will be written for the labels.
 
@@ -383,6 +425,8 @@ class FSNifti1Extension:
 
         # See freesurfer/utils/fstagsio.cpp::getlen_gcamorph_geom().
         num_bytes = 2 * 80
+        if (not shearless):
+            num_bytes += 2 * 12  # 2 * 3 * 4 bytes (3 shear float numbers each)
         num_bytes += len(fname_source)
         num_bytes += len(fname_target)
 
@@ -409,14 +453,15 @@ class FSNifti1Extension:
         It is a subset of tag IDs defined in freesurfer/include/tags.h
         """
 
-        old_colortable  = 1    # TAG_OLD_COLORTABLE
-        history         = 3    # TAG_CMDLINE
-        dof             = 7    # TAG_DOF
-        ras_xform       = 8    # TAG_RAS_XFORM
-        gcamorph_geom   = 10   # TAG_GCAMORPH_GEOM
-        gcamorph_meta   = 13   # TAG_GCAMORPH_META
-        scan_parameters = 45   # TAG_SCAN_PARAMETERS
-        end_data        = -1   # TAG_END_NIIHDREXTENSION
+        old_colortable  = 1           # TAG_OLD_COLORTABLE
+        history         = 3           # TAG_CMDLINE
+        dof             = 7           # TAG_DOF
+        ras_xform       = 8           # TAG_RAS_XFORM
+        gcamorph_geom   = 10          # TAG_GCAMORPH_GEOM
+        gcamorph_meta   = 13          # TAG_GCAMORPH_META
+        gcamorph_geom_plusshear = 15  # information output under gcamorph_geom + shear components
+        scan_parameters = 45          # TAG_SCAN_PARAMETERS
+        end_data        = -1          # TAG_END_NIIHDREXTENSION
 
 
     class Content:

@@ -108,7 +108,7 @@ def write_bytes(file, value, dtype):
     file.write(np.asarray(value).astype(dtype, copy=False).tobytes())
 
 
-def read_geom(file, niftiheaderext=False):
+def read_geom(file, niftiheaderext=False, shearless=True):
     """
     Read an image geometry from a binary file buffer. See VOL_GEOM.read() in mri.h.
 
@@ -129,12 +129,21 @@ def read_geom(file, niftiheaderext=False):
         If True, write for nifti header extension.
     """
     valid = bool(read_bytes(file, '>i4', 1))
-    geom = ImageGeometry(
-        shape=read_bytes(file, '>i4', 3).astype(int),
-        voxsize=read_bytes(file, '>f4', 3),
-        rotation=read_bytes(file, '>f4', 9).reshape((3, 3), order='F'),
-        center=read_bytes(file, '>f4', 3),
-    )
+    if (shearless):
+        geom = ImageGeometry(
+            shape=read_bytes(file, '>i4', 3).astype(int),
+            voxsize=read_bytes(file, '>f4', 3),
+            rotation=read_bytes(file, '>f4', 9).reshape((3, 3), order='F'),
+            center=read_bytes(file, '>f4', 3),
+        )
+    else:
+        geom = ImageGeometry(
+            shape=read_bytes(file, '>i4', 3).astype(int),
+            voxsize=read_bytes(file, '>f4', 3),
+            rotation=read_bytes(file, '>f4', 9).reshape((3, 3), order='F'),
+            center=read_bytes(file, '>f4', 3),
+            shear=read_bytes(file, '>f4', 3)
+        )        
 
     len_fname_max = 512
     if (not niftiheaderext):
@@ -154,7 +163,7 @@ def read_geom(file, niftiheaderext=False):
     return geom, valid, fname
 
 
-def write_geom(file, geom, valid=True, fname='', niftiheaderext=False):
+def write_geom(file, geom, valid=True, fname='', niftiheaderext=False, shearless=True):
     """
     Write an image geometry to a binary file buffer. See VOL_GEOM.write() in mri.h.
 
@@ -173,11 +182,15 @@ def write_geom(file, geom, valid=True, fname='', niftiheaderext=False):
     """
     write_bytes(file, valid, '>i4')
 
-    voxsize, rotation, center = geom.shearless_components()
+    voxsize, rotation, center, shear = geom.voxsize, geom.rotation, geom.center, geom.shear
+    if (shearless):
+        voxsize, rotation, center = geom.shearless_components()
     write_bytes(file, geom.shape, '>i4')
     write_bytes(file, voxsize, '>f4')
     write_bytes(file, np.ravel(rotation, order='F'), '>f4')
     write_bytes(file, center, '>f4')
+    if (not shearless):
+        write_bytes(file, shear, '>f4')
 
     len_fname_max = 512
     if (not niftiheaderext):
