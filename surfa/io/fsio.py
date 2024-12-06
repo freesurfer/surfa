@@ -19,6 +19,7 @@ class tags:
     gcamorph_labels = 12
     gcamorph_meta = 13    # introduced for mgz warpfield
     gcamorph_affine = 14  # introduced for mgz warpfield (m3z outputs the same information under xform)
+    gcamorph_geom_plusshear = 15  # information output under gcamorph_geom + shear components
     old_surf_geom = 20
     surf_geom = 21
     surf_dataspace = 22   # surface tag - surface [x y z] space
