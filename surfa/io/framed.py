@@ -488,7 +488,9 @@ class MGHArrayIO(protocol.IOProtocol):
                            fname=arr.metadata.get('target-fname', ''))
 
                 # fsio.tags.gcamorph_geom_plusshear
-                fsio.write_tag(file, fsio.tags.gcamorph_geom_plusshear)
+                # gcamorph_geom_plusshear has a length, datalength needs to be consistent with write_geom()
+                datalength = 1200
+                fsio.write_tag(file, fsio.tags.gcamorph_geom_plusshear, datalength)
                 write_geom(file,
                            geom=arr.source,
                            valid=arr.metadata.get('source-valid', True),

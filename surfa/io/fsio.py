@@ -47,7 +47,6 @@ lengthless_tags = [
     tags.old_real_ras,
     tags.old_colortable,
     tags.gcamorph_geom,
-    tags.gcamorph_geom_plusshear,
     tags.gcamorph_type,
     tags.gcamorph_labels
 ]
