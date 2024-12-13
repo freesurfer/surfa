@@ -92,13 +92,6 @@ class FSNifti1Extension:
                 dof = iou.read_int(fileobj, length)
                 self.content.dof = dof
 
-            # ras_xform (TAG_RAS_XFORM = 8)
-            elif (tag == FSNifti1Extension.Tags.ras_xform):
-                self.content.ras_xform = dict(
-                    rotation = iou.read_bytes(fileobj, '>f4', 9).reshape((3, 3), order='F'),
-                    center   = iou.read_bytes(fileobj, '>f4', 3)
-                )
-
             # gcamorph src & trg geoms (warp) (TAG_GCAMORPH_GEOM = 10)
             elif (tag == FSNifti1Extension.Tags.gcamorph_geom):
                 if (not self.content.warpmeta):
@@ -284,18 +277,6 @@ class FSNifti1Extension:
             FSNifti1Extension.write_tag(fileobj, tag, length)
             iou.write_int(fileobj, content.dof, size=4)
 
-        # ras_xform (TAG_RAS_XFORM = 8)
-        if (content.ras_xform):
-            tag = FSNifti1Extension.Tags.ras_xform
-            length = 48
-            num_bytes += length + addtaglength
-            if (self._verbose):
-                print(f'[DEBUG] FSNifti1Extension.write(): +{length:5d}, +{addtaglength:d}, dlen = {num_bytes:6d}, TAG = {tag:2d}')
-            if (not countbytesonly):
-                FSNifti1Extension.write_tag(fileobj, tag, length)
-                iou.write_bytes(fileobj, np.ravel(content.ras_xform['rotation'], order='F'), '>f4')
-                iou.write_bytes(fileobj, content.ras_xform['center'], '>f4')
-
         # scan_parameters (TAG_SCAN_PARAMETERS = 45)
         if (content.scan_parameters):
             tag = FSNifti1Extension.Tags.scan_parameters
@@ -451,12 +432,15 @@ class FSNifti1Extension:
 
         This class defines the tags recognized in surfa.
         It is a subset of tag IDs defined in freesurfer/include/tags.h
+
+        TAG_RAS_XFORM is also output by Freesurfer for FS nifti1 header extension only to store shearless rotation and center parameters.
+        This is to prevent precision loss from sform/qform decompose and compose when nii is read and written in Freesurfer.
+        The tag is not necessary for Surfa.
         """
 
         old_colortable  = 1           # TAG_OLD_COLORTABLE
         history         = 3           # TAG_CMDLINE
         dof             = 7           # TAG_DOF
-        ras_xform       = 8           # TAG_RAS_XFORM
         gcamorph_geom   = 10          # TAG_GCAMORPH_GEOM
         gcamorph_meta   = 13          # TAG_GCAMORPH_META
         gcamorph_geom_plusshear = 15  # information output under gcamorph_geom + shear components
