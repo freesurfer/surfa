@@ -161,11 +161,11 @@ def save_framed_array(arr, filename, fmt=None, intent=FramedArrayIntents.mri):
         if iop.name != 'curv':
             filename = iop.enforce_extension(filename)
 
-    # pass intent if iop() is an instance of MGHArrayIO
-    if (isinstance(iop(), MGHArrayIO)):
+    # pass intent if iop() is an instance of MGHArrayIO or NiftiArrayIO
+    if (isinstance(iop(), MGHArrayIO) or isinstance(iop(), NiftiArrayIO)):
        iop().save(arr, filename, intent=intent)
     else:
-        iop().save(arr, filename)
+       iop().save(arr, filename)
 
 
 def framed_array_from_4d(atype, data):
@@ -189,6 +189,9 @@ def framed_array_from_4d(atype, data):
         return atype(data)
     if atype == Warp:
         if data.ndim == 4 and data.shape[-1] == 2:
+            data = data.squeeze(-2)
+        elif (data.ndim == 5):
+            # this must be NIFTI_INTENT_DISPVECT, which has shape [5, c, r, s, 1, 3]
             data = data.squeeze(-2)
         return atype(data)
     # slice
@@ -563,6 +566,16 @@ class NiftiArrayIO(protocol.IOProtocol):
         data = np.asanyarray(nii.dataobj)
         arr = framed_array_from_4d(atype, data)
         if isinstance(arr, FramedImage):
+            if (atype == Warp):
+                """
+                assert (nii.header['intent_code'] == self.nib.nifti1.intent_codes['NIFTI_INTENT_DISPVECT']), \
+                    f"To load {filename} as Warp, it must have intent code 'NIFTI_INTENT_DISPVECT' ({self.nib.nifti1.intent_codes['NIFTI_INTENT_DISPVECT']})"
+                """
+                if (nii.header['intent_code'] == self.nib.nifti1.intent_codes['NIFTI_INTENT_DISPVECT']):
+                    # the displacement field vector is in ras space
+                    # if the .nii.gz has FS nifti1 header extension, the format will also be updated in FSNifti1Extension.update_framedimage()
+                    arr.format = Warp.Format.disp_ras
+
             voxsize = nii.header['pixdim'][1:4]
             arr.geom.update(vox2world=nii.affine, voxsize=voxsize)
             arr.metadata['qform_code'] = int(nii.header['qform_code'])
@@ -626,7 +639,7 @@ class NiftiArrayIO(protocol.IOProtocol):
                 
         return arr
 
-    def save(self, arr, filename):
+    def save(self, arr, filename, intent=FramedArrayIntents.mri):
         """
         Write array to a nifti file.
 
@@ -639,6 +652,22 @@ class NiftiArrayIO(protocol.IOProtocol):
         """
         is_image = isinstance(arr, FramedImage)
 
+        intent = arr.metadata.get('intent', intent)
+        if (intent == FramedArrayIntents.warpmap):
+            assert (isinstance(arr, Warp)), "arr needs to be a Warp object"
+            arr = arr.convert(format=Warp.Format.disp_ras)
+            shape = np.ones(5, dtype=np.int64)
+            shape[:arr.basedim] = arr.baseshape
+            shape[-2] = 1
+            shape[-1] = arr.nframes
+        else:
+            # shape must be padded, so let's pad with 4 ones then chop down to 3 dimensions if needed
+            shape = np.ones(4, dtype=np.int64)
+            shape[:arr.basedim] = arr.baseshape
+            shape[-1] = arr.nframes
+            if arr.nframes == 1:
+                shape = shape[:-1]
+
         # convert to a valid output type (for now this is only bool but there are probably more)
         type_map = {
             np.bool8: np.uint8,
@@ -646,15 +675,10 @@ class NiftiArrayIO(protocol.IOProtocol):
         dtype_id = next((i for dt, i in type_map.items() if np.issubdtype(arr.dtype, dt)), None)
         data = arr.data if dtype_id is None else arr.data.astype(dtype_id)
 
-        # shape must be padded, so let's pad with 4 ones then chop down to 3 dimensions if needed
-        shape = np.ones(4, dtype=np.int64)
-        shape[:arr.basedim] = arr.baseshape
-        shape[-1] = arr.nframes
-        if arr.nframes == 1:
-            shape = shape[:-1]
-
         # make image object and complete header data
         nii = self.nib.Nifti1Image(data.reshape(shape), np.eye(4))
+        if (intent == FramedArrayIntents.warpmap):
+           nii.header.set_intent(self.nib.nifti1.intent_codes['NIFTI_INTENT_DISPVECT']) 
 
         # initialize spatial and temporal spacing
         nii.header['pixdim'][:] = 1
