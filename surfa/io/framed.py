@@ -352,6 +352,16 @@ class MGHArrayIO(protocol.IOProtocol):
                     arr.metadata['target-valid'] = valid
                     arr.metadata['target-fname'] = fname
 
+                # gcamorph src & trg geoms (mgz warp)
+                elif tag == fsio.tags.gcamorph_geom_plusshear:
+                    arr.source, valid, fname = read_geom(file, shearless=False)
+                    arr.metadata['source-valid'] = valid
+                    arr.metadata['source-fname'] = fname
+
+                    arr.target, valid, fname = read_geom(file, shearless=False)
+                    arr.metadata['target-valid'] = valid
+                    arr.metadata['target-fname'] = fname
+
                 # gcamorph meta (mgz warp: int int float)
                 elif tag == fsio.tags.gcamorph_meta:
                     arr.format = read_bytes(file, dtype='>i4')
@@ -463,8 +473,10 @@ class MGHArrayIO(protocol.IOProtocol):
             write_bytes(file, arr.metadata.get('field-strength', 0.0), '>f4')
 
             # gcamorph geom and gcamorph meta for mgz warp
+            # output both fsio.tags.gcamorph_geom and fsio.tags.gcamorph_geom_plusshear
             if intent == FramedArrayIntents.warpmap:
                 # gcamorph src & trg geoms (mgz warp)
+                # fsio.tags.gcamorph_geom
                 fsio.write_tag(file, fsio.tags.gcamorph_geom)
                 write_geom(file,
                            geom=arr.source,
@@ -474,6 +486,21 @@ class MGHArrayIO(protocol.IOProtocol):
                            geom=arr.target,
                            valid=arr.metadata.get('target-valid', True),
                            fname=arr.metadata.get('target-fname', ''))
+
+                # fsio.tags.gcamorph_geom_plusshear
+                # gcamorph_geom_plusshear has a length, datalength needs to be consistent with write_geom()
+                datalength = 1200
+                fsio.write_tag(file, fsio.tags.gcamorph_geom_plusshear, datalength)
+                write_geom(file,
+                           geom=arr.source,
+                           valid=arr.metadata.get('source-valid', True),
+                           fname=arr.metadata.get('source-fname', ''),
+                           shearless=False)
+                write_geom(file,
+                           geom=arr.target,
+                           valid=arr.metadata.get('target-valid', True),
+                           fname=arr.metadata.get('target-fname', ''),
+                           shearless=False)
 
                 # gcamorph meta (mgz warp: int int float)
                 fsio.write_tag(file, fsio.tags.gcamorph_meta, 12)
