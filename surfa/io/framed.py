@@ -264,7 +264,7 @@ class MGHArrayIO(protocol.IOProtocol):
         with fopen(filename, 'rb') as file:
 
             # read version number, retrieve intent
-            intent = read_bytes(file, '>i4', 1) >> 8 & 0xff
+            intent = read_bytes(file, '>i4', 1) >> 8 & 0xffff
 
             # read shape and type info
             shape = read_bytes(file, '>u4', 4)
@@ -426,7 +426,7 @@ class MGHArrayIO(protocol.IOProtocol):
 
             # begin writing header
             intent = arr.metadata.get('intent', intent)
-            version = ((intent & 0xff) << 8) | 1  # encode intent in version
+            version = ((intent & 0xffff) << 8) | 1  # encode intent in version
             write_bytes(file, version, '>u4')  # version
             write_bytes(file, shape, '>u4')  # shape
             write_bytes(file, dtype_id, '>u4')  # MGH data type
