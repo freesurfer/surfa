@@ -64,4 +64,4 @@ def triangle_intersections(np.ndarray vertices, np.ndarray faces, np.ndarray sel
                            &intersecting[0])
 
     # make sure to return a boolean version of the intersection mask
-    return intersecting.astype(np.bool)
+    return intersecting.astype(bool)
