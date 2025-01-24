@@ -442,7 +442,7 @@ class FramedImage(FramedArray):
 
         raise ValueError("Pass \'trf\' as either an Affine or Warp object")
 
-    def reorient(self, orientation, copy=True):
+    def reorient(self, orientation, copy=True, inplace=False):
         """
         Realigns image data and world matrix to conform to a specific slice orientation.
 
@@ -452,6 +452,8 @@ class FramedImage(FramedArray):
             Case-insensitive orientation string.
         copy : bool
             Return copy of image even if target orientation is already satisfied.
+        inplace : bool
+            Reorient the image data in place if it is True.
 
         Returns
         -------
@@ -488,8 +490,13 @@ class FramedImage(FramedArray):
         voxsize = voxsize_swapped
 
         # initialize new
-        data = self.data.copy()
-        affine = self.geom.vox2world.matrix.copy()
+        if (not inplace):
+            data = self.data.copy()
+            affine = self.geom.vox2world.matrix.copy()
+        else:
+            data = self.data
+            self.geom.vox2world.matrix.flags.writeable = True
+            affine = self.geom.vox2world.matrix            
 
         # align axes
         affine[:, world_axes_trg] = affine[:, world_axes_src]
@@ -507,12 +514,18 @@ class FramedImage(FramedArray):
                 affine[:, i] = - affine[:, i]
                 affine[:3, 3] = affine[:3, 3] - affine[:3, i] * (data.shape[i] - 1)
 
-        # update geometry
-        target_geom = ImageGeometry(
-            shape=data.shape[:3],
-            vox2world=affine,
-            voxsize=voxsize)
-        return self.new(data, target_geom)
+        if (not inplace):
+            # update geometry
+            target_geom = ImageGeometry(
+                shape=data.shape[:3],
+                vox2world=affine,
+                voxsize=voxsize)
+            return self.new(data, target_geom)
+        else:
+            self.geom.update(voxsize=voxsize, vox2world=affine)
+            self.data = data
+            return self
+
 
     def reshape(self, shape, center='image', copy=True):
         """
