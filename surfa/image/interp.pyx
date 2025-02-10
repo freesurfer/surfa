@@ -88,7 +88,7 @@ def interpolate(source, target_shape, method, affine=None, disp=None, fill=0):
     interp_func = globals().get(f'interp_3d_{order}_{method}')
 
     # speeds up if conditionals are computed outside of function (TODO is this even true?)
-    shape = np.asarray(target_shape).astype('int64')
+    shape = np.asarray(target_shape).astype(np.int_)
 
     # ensure correct byteorder
     # TODO maybe this should be done at read-time?
