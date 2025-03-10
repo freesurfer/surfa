@@ -2,6 +2,7 @@
 
 import re
 import pathlib
+import platform
 
 from setuptools import setup
 from setuptools import dist
@@ -32,11 +33,15 @@ base_dir = pathlib.Path(__file__).parent.resolve()
 # we don't want to require cython for package install from
 # source distributions, like pypi installs, and the best way I
 # can think of to detect this is by checking if PKG-INFO exists
-cython_build = not base_dir.joinpath('PKG-INFO').is_file()
+cython_build = not base_dir.joinpath('PKG-INFO').is_file() or (platform.system() == 'Windows')
 
 # configure c extensions
 ext = 'pyx' if cython_build else 'c'
-ext_opts = dict(extra_compile_args=['-O3', '-std=c99'])
+if platform.system() == 'Windows':
+    ext_opts = dict(extra_compile_args=['/O2', '/std:c++17'])
+else:
+    ext_opts = dict(extra_compile_args=['-O3', '-std=c99'])
+
 extensions = [
     Extension('surfa.image.interp', [f'surfa/image/interp.{ext}'], **ext_opts),
     Extension('surfa.mesh.intersection', [f'surfa/mesh/intersection.{ext}'], **ext_opts),
