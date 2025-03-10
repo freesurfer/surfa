@@ -7,6 +7,7 @@ from surfa import Volume
 from surfa import Slice
 from surfa import Overlay
 from surfa import Warp
+from surfa import TimeSeries
 from surfa.core.array import pad_vector_length
 from surfa.core.framed import FramedArray
 from surfa.core.framed import FramedArrayIntents
@@ -185,7 +186,7 @@ def framed_array_from_4d(atype, data):
         Squeezed framed array.
     """
     # this code is a bit ugly - it does the job but should probably be cleaned up
-    if atype == Volume:
+    if atype == Volume or atype == TimeSeries:
         return atype(data)
     if atype == Warp:
         if data.ndim == 4 and data.shape[-1] == 2:

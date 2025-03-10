@@ -15,6 +15,7 @@ class FramedArrayIntents:
     shape       = 2
     warpmap     = 3
     warpmap_inv = 4
+    timeseries  = 5
 
 
 class FramedArray:

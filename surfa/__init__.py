@@ -23,6 +23,7 @@ from .image import Slice
 from .mesh import Mesh
 from .mesh import Overlay
 from .mesh import sphere
+from .mesh import TimeSeries
 
 from .io import load_volume
 from .io import load_slice
@@ -31,6 +32,7 @@ from .io import load_affine
 from .io import load_label_lookup
 from .io import load_mesh
 from .io import load_warp
+from .io import load_timeseries
 
 from . import vis
 from . import freesurfer
