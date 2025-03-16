@@ -9,7 +9,7 @@ from setuptools.extension import Extension
 
 
 requirements = [
-    'numpy<2.0',
+    'numpy',
     'scipy',
     'nibabel>=2.1',
     'Pillow',
