@@ -299,6 +299,104 @@ def nonlateral_aseg_recoder(include_lesions=False):
 
     return LabelRecoder(mapping, target=target_lut)
 
+def lateral_aseg_recoder(include_lesions=False):
+    """
+    Returns a recoding table that converts default brain labels to the
+    corresponding tissue-type.
+
+    Returns:
+        RecodingLookupTable: .
+    """
+    include_list = [
+        "Unknown",
+        "Left-Cerebral-White-Matter",
+        "Right-Cerebral-White-Matter",
+        "Left-Cerebral-Cortex",
+        "Right-Cerebral-Cortex",
+        "Left-Cerebellum-White-Matter",
+        "Right-Cerebellum-White-Matter",           
+        "Left-Cerebellum-Cortex",
+        "Right-Cerebellum-Cortex",
+        "Left-Thalamus",
+        "Right-Thalamus",
+        "Left-Caudate",
+        "Right-Caudate",
+        "Left-Putamen",
+        "Right-Putamen",
+        "Left-Pallidum",
+        "Right-Pallidum",
+        "3rd-Ventricle",                           
+        "4th-Ventricle",
+        "Brain-Stem",                            
+        "Left-Hippocampus",
+        "Right-Hippocampus",
+        "Left-Amygdala",
+        "Right-Amygdala",                        
+        "CSF",
+        "Left-Lesion",
+        "Right-Lesion",
+        "Left-Accumbens-area",
+        "Right-Accumbens-area",
+        "Left-VentralDC",
+        "Right-VentralDC",
+        "Left-Choroid-Plexus"
+        "Right-Choroid-Plexus"
+    ] 
+    aseg = labels()
+    source_lut = labels()
+    target_lut = LabelLookup()
+    mapping = {}
+    for key in source_lut.keys():
+        l_name = source_lut[key].name
+        if (key >= 1000 and key < 3000) or \
+           (key > 11000 and key < 13000):   # destrieux labels
+            if is_r_label(l_name):
+                name = 'Right-Cerebral-Cortex'
+            else:
+                name = 'Left-Cerebral-Cortex'
+        elif (key >= 3000 and key < 5000) or (key >= 13000 and key < 15000) or (key >= 250 and key <= 255):
+            if is_r_label(l_name):
+                name = 'Right-Cerebral-White-Matter'
+            else:
+                name = 'Left-Cerebral-White-Matter'
+        elif (key >= 7000 and key <= 7020):
+            if is_r_label(l_name):
+                name = 'Right-Amygdala'
+            else:
+                name = 'Left-Amygdala'
+        elif (key >= 8000 and key < 9000):
+            if is_r_label(l_name):
+                name = 'Right-Thalamus'
+            else:
+                name = 'Left-Thalamus'
+        elif key < 100:
+            name = l_name
+            if (name.find('Vent') >= 0 and name.find('entral') < 0):
+                name = 'CSF'
+            if name.find('ypoint') >= 0 or name.find('esion') >= 0 or \
+               name.find('wmsa') >= 0:
+                if is_r_label(name):
+                    name = 'Right-Lesion'
+                else:
+                    name = 'Left-Lesion'
+        else:
+            continue
+
+        if name not in include_list:
+            continue
+
+        source_key = key
+        target_list = target_lut.search(name)
+
+        if len(target_list) == 0:  # not already
+            target_key = len(target_lut)
+            target_lut[target_key] = (name, source_lut[key].color)
+        else:
+            target_key = target_list[0]
+
+        mapping[source_key] = target_key
+
+    return LabelRecoder(mapping, target=target_lut)
 
 def tissue_type_recoder(extra=False, lesions=False):
     """
@@ -875,3 +973,19 @@ def tissue_type_reduced24_recoder():
     }
 
     return LabelRecoder(mapping, target=tissue_types())
+
+def is_r_label(label_name):
+    """
+    Returns an int corresponding to the 'sidedness' of a label name
+    
+    Returns
+    -------
+    int : 1 if name corresponds to right hemi; 0 if the name corresponds to
+          the left hemi; -1 if there is no left/right associated with the label
+    """
+    if '-rh-' in label_name or '_rh_' in label_name or 'Right-' in label_name:
+        return 1
+    elif '-lh-' in label_name or '_lh_' in label_name or 'Left-' in label_name:
+        return 0
+    else:
+        return -1
