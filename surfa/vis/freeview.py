@@ -12,7 +12,7 @@ from surfa.mesh import cast_overlay
 
 class Freeview:
 
-    def __init__(self, title=None, debug=False):
+    def __init__(self, title=None, debug=False, use_vglrun=True):
         """
         A visualization class that wraps the `freeview` command.
 
@@ -31,6 +31,7 @@ class Freeview:
         self.debug = debug
         self.title = title
         self.isshown = False
+        self.use_vglrun = use_vglrun
         self.arguments = []
 
         # first check if freeview is even accessible
@@ -188,9 +189,10 @@ class Freeview:
 
         # freeview can be buggy when run remotely, so let's test if VGL is
         # available to wrap the process
-        vgl = _find_vgl()
-        if vgl is not None:
-            command = f'{vgl} {command}'
+        if self.use_vglrun:
+            vgl = _find_vgl()
+            if vgl is not None:
+                command = f'{vgl} {command}'
 
         # set number of OMP threads if provided
         if threads is not None:
