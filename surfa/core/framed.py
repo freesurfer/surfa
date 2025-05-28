@@ -146,7 +146,43 @@ class FramedArray:
             raise ValueError(f'labels expected LabelLookup object, but got object of type {value.__class__.__name__}')
         else:
             self._metadata['labels'] = value.copy()
+    
+    def compact_labels(self, update_labels=False):
+        """
+        Returns a LabelLookup object containing only the values from the lookup 
+        table that are present in the label volume. This expects that self.data
+        only contains int-like values corresponding to indices in the default
+        FreeSurferColorLUT.txt
 
+        Parameters
+        ----------
+        update_labels : bool
+            If set to 'True', will update the value of self.labels to be the new
+            compacted label lookup
+
+        Returns
+        -------
+        LabelLookup : label lookup containing only the labels present in the segmentation
+        """
+        # ensure self.labels is not None
+        assert self.labels is not None, "self.labels is None, must be a LabelLookup"
+        # ensure we're working with a label volume, containing int-like data
+        assert np.issubdtype(self.data.dtype, np.integer), "self.data must be a label volume to compact labels"
+        
+        # create empty LabelLookup
+        compact_labels = LabelLookup()
+        uniq = np.unique(self.data)
+
+        # populate empty LabelLookup with labels present in the volume
+        for i, l_idx in enumerate(uniq):
+            compact_labels[i] = self.labels[l_idx]
+
+        if update_labels:
+            self.labels = compact_labels
+
+        return compact_labels
+
+    
     @property
     def basedim(self):
         """
