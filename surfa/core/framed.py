@@ -149,20 +149,21 @@ class FramedArray:
     
     def compact_labels(self, update_labels=False):
         """
-        Returns a LabelLookup object containing only the values from the lookup 
-        table that are present in the label volume. This expects that self.data
-        only contains int-like values corresponding to indices in the default
-        FreeSurferColorLUT.txt
+        Returns a LabelLookup object containing only the values from the lookup
+        table that are present in the label volume.
+
+        This expects that `self.data` contains only int-like values corresponding
+        to indices in the default `FreeSurferColorLUT.txt`.
 
         Parameters
         ----------
         update_labels : bool
-            If set to 'True', will update the value of self.labels to be the new
-            compacted label lookup
+            If True, updates `self.labels` to the new compacted label lookup.
 
         Returns
         -------
-        LabelLookup : label lookup containing only the labels present in the segmentation
+        LabelLookup
+            A label lookup containing only the labels present in the segmentation.
         """
         # ensure self.labels is not None
         assert self.labels is not None, "self.labels is None, must be a LabelLookup"
