@@ -867,6 +867,34 @@ class FramedImage(FramedArray):
         return sub_volumes
 
 
+    def erase_hemi(self, aseg, thresh=1, hemi="lh"):
+        cc_coords = np.where((aseg.data >= 251) * (aseg.data <= 255)) 
+        cmat = np.array([[x, y, z] for x, y, z in zip(cc_coords[0], cc_coords[1], cc_coords[2])])
+        cc_center = cmat.mean(axis=0)
+        
+        cov = np.cov(np.swapaxes(cmat, 0, 1))
+        eig = np.linalg.eig(cov)
+        eigvec_norm = np.real(eig[1]) / np.linalg.norm(eig[1])
+        eig_norm = np.real(eig[0])
+        plane_norm = eigvec_norm[-1] / np.linalg.norm(eigvec_norm[-1])
+        if plane_norm[np.argmax(abs(plane_norm))] < 0:
+            plane_norm *= -1   # dir of eigvec is otherwise arbitrary
+
+        all_coords = np.where(self.data >= 0)
+        x0, y0, z0 = cc_center
+        all_cmat = np.array([[x-x0, y-y0, z-z0] \
+            for x, y, z in zip(all_coords[0], all_coords[1], all_coords[2])])
+        nx, ny, nz = plane_norm
+        dots = np.array([dx*nx + dy*ny + dz*nz for dx, dy, dz in all_cmat])
+
+        if (hemi == "lh"):
+           mask = np.reshape(dots, self.shape) <= thresh 
+        else:
+           mask = np.reshape(dots, self.shape) >= thresh
+
+        return self.new((self.data * mask))
+
+
 class Slice(FramedImage):
 
     def __init__(self, data, geometry=None, labels=None, metadata=None):
