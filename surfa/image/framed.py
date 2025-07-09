@@ -961,6 +961,9 @@ def cast_image(obj, allow_none=True, copy=False, fallback_geom=None):
     if isinstance(obj, FramedImage):
         return obj.copy() if copy else obj
 
+    if hasattr(obj, 'detach') and hasattr(obj, 'numpy'):
+        obj = obj.detach().cpu().squeeze().numpy()
+
     if getattr(obj, '__array__', None) is not None:
         return Volume(np.array(obj), geometry=fallback_geom)
 
