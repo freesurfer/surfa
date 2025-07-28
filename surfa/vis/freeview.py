@@ -4,6 +4,8 @@ import tempfile
 import numpy as np
 
 from surfa import Mesh
+from surfa import load_volume
+from surfa import load_mesh
 from surfa.system import run
 from surfa.system import collect_output
 from surfa.image import cast_image
@@ -12,7 +14,7 @@ from surfa.mesh import cast_overlay
 
 class Freeview:
 
-    def __init__(self, title=None, debug=False, use_vglrun=True):
+    def __init__(self, title=None, debug=False, use_vglrun=True, return_edits=False):
         """
         A visualization class that wraps the `freeview` command.
 
@@ -25,6 +27,17 @@ class Freeview:
             fv.add_mesh(mesh, overlay=overlay)
             fv.show()
 
+        To reload the data visualized inf FreeView after the viewer closes, specify
+        'return_edits=True' and assign the return value of fv.show() to be a variable:
+
+            fv = Freeview(return_edits=True)
+            fv.add_image(img)
+            fv_contents = fv.show()
+
+        This will return a tuple of lists, with the first list containing volumes and
+        the second list containing any data added to the viewer via fv.add_mesh(mesh).
+        Items will be returned in the order that they are added to FreeView.
+
         For a quicker but more limited way to wrap freeview, see the `fv()` function.
         """
         self.tempdir = None
@@ -33,6 +46,10 @@ class Freeview:
         self.isshown = False
         self.use_vglrun = use_vglrun
         self.arguments = []
+        self._return_edits = return_edits
+        self._vols = []
+        self._meshes = []
+        
 
         # first check if freeview is even accessible
         self.fvpath = shutil.which('freeview')
@@ -77,6 +94,9 @@ class Freeview:
             img.save(filename)
             if self.debug:
                 print(f'wrote image to {filename}')
+        
+        # add the path to the temp vol to the internal list of volumes
+        self._vols.append(filename)
 
         # configure the corresponding freeview argument
         self.arguments.append('-v ' + filename + _convert_kwargs_to_tags(kwargs))
@@ -149,6 +169,9 @@ class Freeview:
 
         if name is not None:
             tags += f':name={name}'
+        
+        # add the path to the temp vol to the internal list of volumes
+        self._meshes.append(filename)
 
         # configure the corresponding freeview argument
         self.arguments.append('-f ' + mesh_filename + tags + _convert_kwargs_to_tags(kwargs))
@@ -175,7 +198,9 @@ class Freeview:
         threads : int
             Number of OMP threads available to FreeView.
         """
-
+        # set background based on _return_edits
+        background = background if not self._return_edits else False
+        
         # compile the command
         command = self.fvpath + ' ' + ' '.join(self.arguments)
 
@@ -185,7 +210,9 @@ class Freeview:
             command = f'{command} -subtitle "{title}"'
 
         # be sure to remove the temporary directory (if it exists) after freeview closes
-        command = f'{command} ; rm -rf {self.tempdir}'
+        # need the tempdir if saving edits
+        if not self._return_edits:
+            command = f'{command} ; rm -rf {self.tempdir}'
 
         # freeview can be buggy when run remotely, so let's test if VGL is
         # available to wrap the process
@@ -206,7 +233,18 @@ class Freeview:
         self.isshown = True
 
         # run it
-        run(command, background=background)
+        ret_code = run(command, background=background)
+
+        # reload the vol/mesh data before deleting the tempdir, if necessary
+        if self._return_edits:
+            print('Reloading temp volumes into surfa')
+            vols = [load_volume(x) for x in self._vols]
+            meshes = [load_mesh(x) for x in self._meshes]
+           
+            # clean up the tempdir
+            shutil.rmtree(self.tempdir)
+
+            return vols, meshes
 
 
 class FreeviewCurvature:
