@@ -208,7 +208,7 @@ class FramedImage(FramedArray):
 
         Parameters
         ----------
-        margin : int of sequence of int
+        margin : int or sequence of int
             Add a margin to the bounding box in units of voxels. The margin will not
             extend beyond the base image shape.
 
@@ -219,19 +219,26 @@ class FramedImage(FramedArray):
         """
         mask = self.max(frames=True).data > 0
         if not np.any(mask):
-            return tuple([slice(0, s) for s in mask.shape])
-        from scipy.ndimage import find_objects
-        cropping = find_objects(mask)[0]
-        if margin is not None:
-            margin = np.repeat(margin, self.basedim) if np.isscalar(margin) else np.asarray(margin)
-            check_array(margin, ndim=1, shape=self.basedim, name='bbox margin')
-            if not np.issubdtype(margin.dtype, np.integer):
-                raise ValueError('only integers can be used for valid bbox margins')
-            start = [max(0, c.start - margin[i]) for i, c in enumerate(cropping)]
-            stop  = [min(self.baseshape[i], c.stop + margin[i]) for i, c in enumerate(cropping)]
-            step  = [c.step for c in cropping]
-            cropping = tuple([slice(*s) for s in zip(start, stop, step)])
-        return cropping
+            return tuple(slice(0, s) for s in mask.shape)
+
+        if margin is None:
+            margin = 0
+
+        if np.isscalar(margin):
+            margin = [margin] * self.basedim
+
+        margin = np.asarray(margin)
+        check_array(margin, ndim=1, shape=self.basedim, name='bbox margin')
+        if not np.issubdtype(margin.dtype, np.integer):
+            raise TypeError('bbox margin has non-integer type')
+
+        ind = np.nonzero(mask)
+        low = np.min(ind, axis=-1)
+        upp = np.max(ind, axis=-1)
+
+        low = (max(i - m, 0) for i, m in zip(low, margin))
+        upp = (min(i + m, d - 1) for i, m, d in zip(upp, margin, self.baseshape))
+        return tuple(slice(a, b + 1) for a, b in zip(low, upp))
 
     def crop_to_bbox(self, margin=None, crop_like=None):
         """
