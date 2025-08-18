@@ -1,4 +1,3 @@
-import os
 import warnings
 import gzip
 import numpy as np

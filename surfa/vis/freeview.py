@@ -1,7 +1,6 @@
 import os
 import shutil
 import tempfile
-import numpy as np
 
 from surfa import Mesh
 from surfa import load_volume

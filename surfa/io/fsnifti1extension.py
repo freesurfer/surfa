@@ -1,6 +1,3 @@
-import os
-import gzip
-import warnings
 import numpy as np
 
 from surfa.io import fsio
@@ -135,7 +132,7 @@ class FSNifti1Extension:
             if (tagdatalen < len_tagheader):
                 if (self._verbose):
                     print(f'[DEBUG] FSNifti1Extension.read(): remaining taglen = {tagdatalen:6d}')
-                break;
+                break
 
         return self.content
 

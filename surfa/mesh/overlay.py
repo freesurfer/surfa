@@ -1,4 +1,3 @@
-import os
 import numpy as np
 
 from surfa.core.framed import FramedArray
