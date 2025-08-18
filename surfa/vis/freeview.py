@@ -298,7 +298,7 @@ class FreeviewAnnot:
 
 def fv(*args, **kwargs):
     """
-    Freeview wrapper to quickly load an arbitray number of elements. Inputs
+    Freeview wrapper to quickly load an arbitrary number of elements. Inputs
     can be existing filenames, images, meshes, or numpy arrays. Lists
     are also supported. Use the `Freeview` class directly to configure a
     more advanced session.

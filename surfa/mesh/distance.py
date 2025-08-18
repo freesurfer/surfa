@@ -55,7 +55,7 @@ def closest_point(points, triangles):
     Notes
     -----
     This implementation is adapted directly from the wonderful
-    trimesh libray for triangular mesh processing:
+    trimesh library for triangular mesh processing:
     https://github.com/mikedh/trimesh
 
     Parameters

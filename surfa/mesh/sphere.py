@@ -11,7 +11,7 @@ from surfa.image.framed import cast_slice
 
 def mesh_is_sphere(mesh):
     """
-    Test whether mesh repesents a sphere. The mesh must (1) have a center that does
+    Test whether mesh represents a sphere. The mesh must (1) have a center that does
     not deviate from zero by more than 0.1% of its average radius and (2) have a
     standard deviation in radii not greater than 1% of it's average.
 

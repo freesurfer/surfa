@@ -375,7 +375,7 @@ class Affine:
                 b = source.affine(space, 'world')
                 affine = a @ affine @ b
 
-        # the matrix multiplication above should propogate space and geometry info
+        # the matrix multiplication above should propagate space and geometry info
         # correctly, but in a few cases, the matmul is skipped, so let's just return
         # a new affine object with the correct information
         return Affine(affine.matrix, source=source, target=target, space=space)
@@ -820,7 +820,7 @@ def random_affine(
     check_array(scale_range, shape=2, name='scale range')
     check_array(shear_range, shape=2, name='shear range')
 
-    # compose from random paramters
+    # compose from random parameters
     aff = compose_affine(
         translation=np.random.uniform(*translation_range, size=ndim),
         rotation=np.random.uniform(*rotation_range, size=(1 if ndim == 2 else 3)),
