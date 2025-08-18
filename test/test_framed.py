@@ -223,13 +223,12 @@ def test_data_functions():
         assert np.array_equal(fa.clip(0.4, 0.6), np.clip(fa.data, 0.4, 0.6))
         assert np.array_equal(fa.zeros(), np.zeros(fa.shape, dtype=fa.dtype))
 
-        # TODO: update for newer numpy - seems to be throwing warnings
         p = [0.2, 0.4, 0.6, 0.8]
         for method in ('linear', 'midpoint'):
             assert np.array_equal(fa.percentile(p, method=method),
-                                  np.percentile(fa.data, p, interpolation=method))
+                                  np.percentile(fa.data, p, method=method))
             assert np.array_equal(fa.percentile(p, method=method, nonzero=True),
-                                  np.percentile(fa.data[fa.data != 0], p, interpolation=method))
+                                  np.percentile(fa.data[fa.data != 0], p, method=method))
 
         # make sure the original array hasn't changes
         assert np.array_equal(backup.data, fa.data)
