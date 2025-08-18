@@ -263,3 +263,69 @@ def test_label_encoding():
         b = a.collapse(unique)
 
         assert np.array_equal(seg.data, b.data)
+
+
+def test_bbox_full():
+    """
+    Test bounding box of full or empty volume.
+    """
+    shape = (4, 5, 6)
+
+    for values in (np.zeros, np.ones):
+        slices = sf.Volume(data=values(shape)).bbox()
+
+        # expect the full volume
+        for ind, width in zip(slices, shape):
+            assert ind == slice(0, width)
+
+
+def test_bbox_subvol():
+    """
+    Test bounding box computation for subvolume.
+    """
+    # input.
+    shape = (8, 8, 8)
+    inp = (slice(0, 4), slice(2, 4), slice(4, 5))
+    data = np.zeros(shape)
+    data[inp] = 1
+
+    # expect the slices set to 1
+    out = sf.Volume(data).bbox()
+    for i, o in zip(inp, out):
+        assert o == i
+
+
+def test_bbox_margin():
+    """
+    Test bounding box computation with margin.
+    """
+    # input.
+    shape = (8, 8, 8)
+    inp = (slice(3, 6), slice(2, 4), slice(4, 5))
+    data = np.zeros(shape, dtype=np.int32)
+    data[inp] = 1
+
+    # expect margin to be added
+    margin = 2
+    out = sf.Volume(data).bbox(margin)
+    for i, o in zip(inp, out):
+        assert (o.start, o.stop) == (i.start - margin, i.stop + margin)
+
+    # expect margin not to extend FOV
+    margin = (6, 7, 8)
+    slices = sf.Volume(data).bbox(margin)
+    for ind, width in zip(slices, shape):
+        assert ind == slice(0, width)
+
+
+def test_bbox_type():
+    """
+    Test bounding box margin input type.
+    """
+    v = sf.Volume(data=np.ones((1, 2, 3)))
+
+    # expect error for non-integer margin
+    with pytest.raises(TypeError):
+        v.bbox(margin='hi')
+    with pytest.raises(TypeError):
+        v.bbox(margin=0.1)
