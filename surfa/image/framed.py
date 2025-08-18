@@ -30,7 +30,7 @@ class FramedImage(FramedArray):
     def __init__(self, basedim, data, geometry=None, **kwargs):
         """
         Abstract class defining an ND image array with data frames and associated geometry (i.e. data
-        elements have a mapable relationship to a world-space coordinate system). This base class includes
+        elements have a mappable relationship to a world-space coordinate system). This base class includes
         generic support for 3D and 2D FramedArray classes, which are later defined by Volume and Slice classes.
 
         Parameters
@@ -377,7 +377,7 @@ class FramedImage(FramedArray):
                 target_stop -= delta
                 source_stop -= delta
 
-                # convert to actual array slicings
+                # convert to actual array slices
                 target_slicing = tuple([slice(a, b) for a, b in zip(target_start, target_stop)])
                 source_slicing = tuple([slice(a, b) for a, b in zip(source_start, source_stop)])
 
@@ -609,7 +609,7 @@ class FramedImage(FramedArray):
 
     def fit_to_shape(self, shape, center=None, copy=True):
         """
-        This is an alias to `reshape()` for backwards compatability.
+        This is an alias to `reshape()` for backwards compatibility.
 
         Parameters
         ----------

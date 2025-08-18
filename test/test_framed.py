@@ -98,7 +98,7 @@ def test_operators_and_assignment():
 
     def array_equal(a, b, expected=sf.core.FramedArray):
         """
-        Exact array comparison funtion
+        Exact array comparison function
 
         Parameters
         ----------

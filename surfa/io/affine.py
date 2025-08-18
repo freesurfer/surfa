@@ -91,7 +91,7 @@ class LinearTransformArrayIO(protocol.IOProtocol):
             lines = [line.rstrip() for line in file]
             lines = [line for line in lines if line and not line.startswith('#')]
 
-        # determine the coodinate space
+        # determine the coordinate space
         space_id = int(lines[0].split()[2])
         space = {0: 'vox',
                  1: 'world',
@@ -131,7 +131,7 @@ class LinearTransformArrayIO(protocol.IOProtocol):
             elif aff.space == 'surf':
                 file.write('type      = 3 # LINEAR_SURF_TO_SURF\n')
             else:
-                raise NotImplementedError(f'cannot write coodinate space {aff.space} to LTA - this is a '
+                raise NotImplementedError(f'cannot write coordinate space {aff.space} to LTA - this is a '
                                            'bug, not a user error')
 
             # this is all useless legacy information

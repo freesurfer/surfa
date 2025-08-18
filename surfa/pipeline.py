@@ -9,7 +9,7 @@ import surfa as sf
 
 class CommandPipeline:
     """
-    Framework for making a dependency-checking command-line pipline.
+    Framework for making a dependency-checking command-line pipeline.
     """
 
     def __init__(self, name, log=None, keep_going=False):

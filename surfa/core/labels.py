@@ -209,7 +209,7 @@ class LabelLookup(collections.OrderedDict):
         ----------
         name : str
             String or substring to search for.
-        extact : bool
+        exact : bool
             If enabled, label must match search name exactly.
 
         Returns

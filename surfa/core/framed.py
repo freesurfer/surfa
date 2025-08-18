@@ -48,7 +48,7 @@ class FramedArray:
         data : array_like
             Internal data array.
         labels : dict or LabelLookup, optional
-            Label name lookup associated with segmentation indicies.
+            Label name lookup associated with segmentation indices.
         metadata : dict, optional
             Dictionary containing arbitrary array metadata.
         """

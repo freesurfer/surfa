@@ -20,7 +20,7 @@ To push a formal release to pypi (so that it is pip-installable), first make sur
 2. From the top-level of the tree, remove a few build-related folders if they already exist:  `rm -rf dist surfa.egg-info`.
 3. Generate a source-only (this is important) distribution by running `python setup.py sdist`.
 4. Upload to pypi using `twine upload dist/*` and provide your credentials. If you don't have twine, it can be [pip-installed](https://pypi.org/project/twine/).
-5. That's it! Somtimes it takes a few minutes for the package to be  accessible via pip. You'll want to test to make sure the install process goes ok, especially if changes are made to the setup scripts or cython code.
+5. That's it! Sometimes it takes a few minutes for the package to be  accessible via pip. You'll want to test to make sure the install process goes ok, especially if changes are made to the setup scripts or cython code.
 
 
 ### Generate online documentation

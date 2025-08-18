@@ -275,7 +275,7 @@ class Mesh:
     @cached_mesh_property
     def triangles(self):
         """
-        Triangle coordinate arrary with shape (F, 3, 3). This parameter is
+        Triangle coordinate array with shape (F, 3, 3). This parameter is
         recomputed upon retrieval if the mesh changes.
         """
         return self.vertices[self.faces]
@@ -623,7 +623,7 @@ class Mesh:
 
         # we want to compute an triangle intersection test between nearby faces, so
         # build a kd tree for the centers of each triangle and lookup closest pairs.
-        # the intesection code will be smart enough to ignore self-referencing hits
+        # the intersection code will be smart enough to ignore self-referencing hits
         # as well as immediate neighboring faces
         centers = self.triangles.mean(1)
         knn = min([centers.shape[0], knn])
@@ -673,7 +673,7 @@ class Mesh:
         for iteration in range(global_iters):
             # we want to compute an triangle intersection test between nearby faces, so
             # build a kd tree for the centers of each triangle and lookup closest pairs.
-            # the intesection code will be smart enough to ignore self-referencing hits
+            # the intersection code will be smart enough to ignore self-referencing hits
             # as well as immediate neighboring faces
             centers = vertices[faces].mean(1)
             _, neighbors = cKDTree(centers).query(centers, k=knn, workers=-1)
@@ -707,7 +707,7 @@ class Mesh:
                 pinned = self.face_to_vertex_overlay(pinned, method='min')
 
                 # if we've gone through multiple global iterations without a solution, we can
-                # try more extreme appraoches by smoothing all vertices within some radius around
+                # try more extreme approaches by smoothing all vertices within some radius around
                 # intersecting vertices
                 if iteration > 25:
                     pinned = self.smooth_overlay(pinned, iters=4) > 0.99

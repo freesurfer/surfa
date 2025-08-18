@@ -25,7 +25,7 @@ def slicing_to_coords(slicing):
     Parameters
     ----------
     slicing : tuple of slice
-        Cropping index to convert to coordintes.
+        Cropping index to convert to coordinates.
 
     Returns
     -------
@@ -138,7 +138,7 @@ def convert_slicing(slicing, baseshape, affine):
 def sane_slicing(shape, index_expression):
     """
     Clean up an index expression such that the result is a tuple with
-    the proper number of dimensions and slicings to match a target shape.
+    the proper number of dimensions and slices to match a target shape.
 
     Parameters
     ----------

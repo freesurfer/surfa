@@ -408,7 +408,7 @@ def tissue_type_recoder(extra=False, lesions=False):
     extra : bool
         Include extra-cerebral labels, like skull and eye fluid.
     lesions : bool
-        Include lesions as a seperate label.
+        Include lesions as a separate label.
 
     Returns
     -------
