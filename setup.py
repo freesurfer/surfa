@@ -64,6 +64,7 @@ emphasis on neuroimaging applications.
 setup(
     name='surfa',
     version=version,
+    license='MIT',
     description='Utilities for medical image and surface processing.',
     long_description=long_description,
     author='Andrew Hoopes',
@@ -77,7 +78,6 @@ setup(
     install_requires=requirements,
     classifiers=[
         'Development Status :: 3 - Alpha',
-        'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3',
         'Natural Language :: English',
         'Topic :: Scientific/Engineering',
