@@ -522,7 +522,7 @@ class FramedImage(FramedArray):
                 voxsize=voxsize)
             return self.new(data, target_geom)
         else:
-            self.geom.update(voxsize=voxsize, vox2world=affine)
+            self.geom = ImageGeometry(shape=data.shape[:3], voxsize=voxsize, vox2world=affine)
             self.data = data
             return self
 
