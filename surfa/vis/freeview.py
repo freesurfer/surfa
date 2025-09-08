@@ -8,6 +8,8 @@ from surfa.system import run
 from surfa.system import collect_output
 from surfa.image import cast_image
 from surfa.mesh import cast_overlay
+from surfa.mesh import cast_mesh
+from surfa.mesh import is_mesh_castable
 
 
 class Freeview:
@@ -102,13 +104,12 @@ class Freeview:
                 print(f'freeview error: mesh file {mesh} does not exist')
                 return
             mesh_filename = mesh
-        elif isinstance(mesh, Mesh):
+        else:
+            mesh = cast_mesh(mesh, allow_none=False)
             mesh_filename = _unique_filename('mesh', '', self.tempdir)
             mesh.save(mesh_filename)
             if self.debug:
                 print(f'wrote mesh to {mesh_filename}')
-        else:
-            raise ValueError(f'expected type Mesh to add_mesh, but got type {mesh.__class__.__name__}')
 
         # extra tags for the mesh
         tags = ''
@@ -250,7 +251,7 @@ def fv(*args, **kwargs):
 
     # cycle through arguments
     for arg in flatten(args):
-        if isinstance(arg, Mesh):
+        if is_mesh_castable(arg):
             fv.add_mesh(arg)
         else:
             fv.add_image(arg)
