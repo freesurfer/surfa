@@ -1,6 +1,5 @@
 # Surfa
 
-
 ![PyPi Version](https://img.shields.io/pypi/v/surfa?color=lightgrey&style=for-the-badge)
 ![Test Status](https://img.shields.io/github/actions/workflow/status/freesurfer/surfa/test.yml?branch=master&label=tests&style=for-the-badge)
 
@@ -25,11 +24,3 @@ python setup.py  build_ext --inplace
 ```
 
 Feel free to open [an issue](https://github.com/freesurfer/surfa/issues) if you encounter a bug or have a feature request.
-
-### Citation
-
-Surfa was originally built in part for the development of learning-based cortical surface reconstruction and it is a derivation of the FreeSurfer software suite. If you find this package useful in your analysis, please cite:
-
-> Hoopes et al. "TopoFit: Rapid Reconstruction of Topologically-Correct Cortical Surfaces." Medical Imaging with Deep Learning (2021)
-
-> Fischl. "FreeSurfer." NeuroImage vol. 62,2 (2012)
