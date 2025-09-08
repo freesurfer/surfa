@@ -334,7 +334,7 @@ class Affine:
 
         Returns
         -------
-        float
+        Affine
             Converted affine transform.
         """
         source = self.source if source is None else transform.cast_image_geometry(source)
