@@ -7,6 +7,7 @@ from surfa import Volume
 from surfa import Slice
 from surfa import Overlay
 from surfa import Warp
+from surfa import TimeSeries
 from surfa.core.array import pad_vector_length
 from surfa.core.framed import FramedArray
 from surfa.core.framed import FramedArrayIntents
@@ -158,13 +159,14 @@ def save_framed_array(arr, filename, fmt=None, intent=FramedArrayIntents.mri):
         iop = protocol.find_protocol_by_name(array_io_protocols, fmt)
         if iop is None:
             raise ValueError(f'unknown file format {fmt}')
-        filename = iop.enforce_extension(filename)
+        if iop.name != 'curv':
+            filename = iop.enforce_extension(filename)
 
-    # pass intent if iop() is an instance of MGHArrayIO
-    if (isinstance(iop(), MGHArrayIO)):
+    # pass intent if iop() is an instance of MGHArrayIO or NiftiArrayIO
+    if (isinstance(iop(), MGHArrayIO) or isinstance(iop(), NiftiArrayIO)):
        iop().save(arr, filename, intent=intent)
     else:
-        iop().save(arr, filename)
+       iop().save(arr, filename)
 
 
 def framed_array_from_4d(atype, data):
@@ -184,10 +186,13 @@ def framed_array_from_4d(atype, data):
         Squeezed framed array.
     """
     # this code is a bit ugly - it does the job but should probably be cleaned up
-    if atype == Volume:
+    if atype == Volume or atype == TimeSeries:
         return atype(data)
     if atype == Warp:
         if data.ndim == 4 and data.shape[-1] == 2:
+            data = data.squeeze(-2)
+        elif (data.ndim == 5):
+            # this must be NIFTI_INTENT_DISPVECT, which has shape [5, c, r, s, 1, 3]
             data = data.squeeze(-2)
         return atype(data)
     # slice
@@ -230,6 +235,7 @@ class MGHArrayIO(protocol.IOProtocol):
             3:  '>f4',  # float
             4:  '>i2',  # short
             6:  '>f4',  # tensor
+            7:  '>c8',  # complex64
             10: '>u2',  # ushort
         }
         dtype = mgh_types.get(id)
@@ -259,7 +265,7 @@ class MGHArrayIO(protocol.IOProtocol):
         with fopen(filename, 'rb') as file:
 
             # read version number, retrieve intent
-            intent = read_bytes(file, '>i4', 1) >> 8 & 0xff
+            intent = read_bytes(file, '>i4', 1) >> 8 & 0xffff
 
             # read shape and type info
             shape = read_bytes(file, '>u4', 4)
@@ -350,6 +356,16 @@ class MGHArrayIO(protocol.IOProtocol):
                     arr.metadata['target-valid'] = valid
                     arr.metadata['target-fname'] = fname
 
+                # gcamorph src & trg geoms (mgz warp)
+                elif tag == fsio.tags.gcamorph_geom_plusshear:
+                    arr.source, valid, fname = read_geom(file, shearless=False)
+                    arr.metadata['source-valid'] = valid
+                    arr.metadata['source-fname'] = fname
+
+                    arr.target, valid, fname = read_geom(file, shearless=False)
+                    arr.metadata['target-valid'] = valid
+                    arr.metadata['target-fname'] = fname
+
                 # gcamorph meta (mgz warp: int int float)
                 elif tag == fsio.tags.gcamorph_meta:
                     arr.format = read_bytes(file, dtype='>i4')
@@ -392,12 +408,13 @@ class MGHArrayIO(protocol.IOProtocol):
 
             # determine supported dtype to save as (order here is very important)
             type_map = {
-                np.uint8: 0,
                 np.bool_: 0,
+                np.uint8: 0,
                 np.int32: 1,
                 np.floating: 3,
                 np.int16: 4,
                 np.uint16: 10,
+                np.complex64: 7,
             }
             dtype_id = next((i for dt, i in type_map.items() if np.issubdtype(arr.dtype, dt)), None)
             if dtype_id is None:
@@ -409,7 +426,8 @@ class MGHArrayIO(protocol.IOProtocol):
             shape[-1] = arr.nframes
 
             # begin writing header
-            version = ((intent & 0xff) << 8) | 1  # encode intent in version
+            intent = arr.metadata.get('intent', intent)
+            version = ((intent & 0xffff) << 8) | 1  # encode intent in version
             write_bytes(file, version, '>u4')  # version
             write_bytes(file, shape, '>u4')  # shape
             write_bytes(file, dtype_id, '>u4')  # MGH data type
@@ -459,8 +477,10 @@ class MGHArrayIO(protocol.IOProtocol):
             write_bytes(file, arr.metadata.get('field-strength', 0.0), '>f4')
 
             # gcamorph geom and gcamorph meta for mgz warp
+            # output both fsio.tags.gcamorph_geom and fsio.tags.gcamorph_geom_plusshear
             if intent == FramedArrayIntents.warpmap:
                 # gcamorph src & trg geoms (mgz warp)
+                # fsio.tags.gcamorph_geom
                 fsio.write_tag(file, fsio.tags.gcamorph_geom)
                 write_geom(file,
                            geom=arr.source,
@@ -470,6 +490,21 @@ class MGHArrayIO(protocol.IOProtocol):
                            geom=arr.target,
                            valid=arr.metadata.get('target-valid', True),
                            fname=arr.metadata.get('target-fname', ''))
+
+                # fsio.tags.gcamorph_geom_plusshear
+                # gcamorph_geom_plusshear has a length, datalength needs to be consistent with write_geom()
+                datalength = 1200
+                fsio.write_tag(file, fsio.tags.gcamorph_geom_plusshear, datalength)
+                write_geom(file,
+                           geom=arr.source,
+                           valid=arr.metadata.get('source-valid', True),
+                           fname=arr.metadata.get('source-fname', ''),
+                           shearless=False)
+                write_geom(file,
+                           geom=arr.target,
+                           valid=arr.metadata.get('target-valid', True),
+                           fname=arr.metadata.get('target-fname', ''),
+                           shearless=False)
 
                 # gcamorph meta (mgz warp: int int float)
                 fsio.write_tag(file, fsio.tags.gcamorph_meta, 12)
@@ -532,6 +567,16 @@ class NiftiArrayIO(protocol.IOProtocol):
         data = np.asanyarray(nii.dataobj)
         arr = framed_array_from_4d(atype, data)
         if isinstance(arr, FramedImage):
+            if (atype == Warp):
+                """
+                assert (nii.header['intent_code'] == self.nib.nifti1.intent_codes['NIFTI_INTENT_DISPVECT']), \
+                    f"To load {filename} as Warp, it must have intent code 'NIFTI_INTENT_DISPVECT' ({self.nib.nifti1.intent_codes['NIFTI_INTENT_DISPVECT']})"
+                """
+                if (nii.header['intent_code'] == self.nib.nifti1.intent_codes['NIFTI_INTENT_DISPVECT']):
+                    # the displacement field vector is in ras space
+                    # if the .nii.gz has FS nifti1 header extension, the format will also be updated in FSNifti1Extension.update_framedimage()
+                    arr.format = Warp.Format.disp_ras
+
             voxsize = nii.header['pixdim'][1:4]
             arr.geom.update(vox2world=nii.affine, voxsize=voxsize)
             arr.metadata['qform_code'] = int(nii.header['qform_code'])
@@ -546,9 +591,56 @@ class NiftiArrayIO(protocol.IOProtocol):
                 arr.geom.voxsize = arr.geom.voxsize * 1000
             elif spatial_units_code == self.units_to_code['um']:
                 arr.geom.voxsize = arr.geom.voxsize * 0.001
+
+            # freesurfer saves tr as msec internally
+            time_units_factor = 0.0
+            if (arr.metadata['frame_units'] == 'sec'):
+                time_units_factor = 1000.0
+            elif (arr.metadata['frame_units'] == 'msec'):
+                time_units_factor = 1.0
+            elif (arr.metadata['frame_units'] == 'usec'):
+                time_units_factor = 0.001
+
+            arr.metadata['tr'] = arr.metadata['frame_dim'] * time_units_factor
+
+            # handle nifti1 header extension
+            niiextsions = nii.header.extensions
+            if (not niiextsions):
+                return arr
+            
+            # try to find freesurfer nifti1 header extension
+            index = -1
+            ecodes = niiextsions.get_codes()            
+            for ind, ecode in enumerate(ecodes):
+                if (ecode == 14):
+                    index = ind
+                    break
+
+            if (index < 0):
+                return arr
+
+            # found freesurfer nifti1 header extension
+            import io
+            from surfa.io.fsnifti1extension import FSNifti1Extension
+
+            # retrieve freesurfer header extension data in bytes
+            fsext = nii.header.extensions[index]
+            esize = fsext.get_sizeondisk()
+            fsext_bytedata = fsext.get_content()
+
+            # create file-like object from bytes data
+            bytes_reader = io.BytesIO(fsext_bytedata)
+
+            # read freesurfer header extension data into FSNifti1Extension.Content object
+            fsextreader = FSNifti1Extension()
+            fsextcontent = fsextreader.read(bytes_reader, esize)
+
+            # update arr metadata
+            fsextcontent.update_framedimage(arr)
+                
         return arr
 
-    def save(self, arr, filename):
+    def save(self, arr, filename, intent=FramedArrayIntents.mri):
         """
         Write array to a nifti file.
 
@@ -561,6 +653,22 @@ class NiftiArrayIO(protocol.IOProtocol):
         """
         is_image = isinstance(arr, FramedImage)
 
+        intent = arr.metadata.get('intent', intent)
+        if (intent == FramedArrayIntents.warpmap):
+            assert (isinstance(arr, Warp)), "arr needs to be a Warp object"
+            arr = arr.convert(format=Warp.Format.disp_ras)
+            shape = np.ones(5, dtype=np.int64)
+            shape[:arr.basedim] = arr.baseshape
+            shape[-2] = 1
+            shape[-1] = arr.nframes
+        else:
+            # shape must be padded, so let's pad with 4 ones then chop down to 3 dimensions if needed
+            shape = np.ones(4, dtype=np.int64)
+            shape[:arr.basedim] = arr.baseshape
+            shape[-1] = arr.nframes
+            if arr.nframes == 1:
+                shape = shape[:-1]
+
         # convert to a valid output type (for now this is only bool but there are probably more)
         type_map = {
             np.bool_: np.uint8,
@@ -568,19 +676,18 @@ class NiftiArrayIO(protocol.IOProtocol):
         dtype_id = next((i for dt, i in type_map.items() if np.issubdtype(arr.dtype, dt)), None)
         data = arr.data if dtype_id is None else arr.data.astype(dtype_id)
 
-        # shape must be padded, so let's pad with 4 ones then chop down to 3 dimensions if needed
-        shape = np.ones(4, dtype=np.int64)
-        shape[:arr.basedim] = arr.baseshape
-        shape[-1] = arr.nframes
-        if arr.nframes == 1:
-            shape = shape[:-1]
-
         # make image object and complete header data
         nii = self.nib.Nifti1Image(data.reshape(shape), np.eye(4))
+        if (intent == FramedArrayIntents.warpmap):
+           nii.header.set_intent(self.nib.nifti1.intent_codes['NIFTI_INTENT_DISPVECT']) 
 
         # initialize spatial and temporal spacing
         nii.header['pixdim'][:] = 1
         nii.header['pixdim'][4] = arr.metadata.get('frame_dim', 1)
+
+        tr = arr.metadata.get('tr')
+        if (tr is not None):
+            nii.header['pixdim'][4] = tr / 1000.0
 
         # for now we pretty much have to enforce spatial units of mm
         # and if frame units isn't specified, fallback to seconds
@@ -603,6 +710,25 @@ class NiftiArrayIO(protocol.IOProtocol):
             nii.set_sform(arr.geom.vox2world.matrix, arr.metadata.get('sform_code', 1))
             nii.set_qform(arr.geom.vox2world.matrix, arr.metadata.get('qform_code', 1))
             nii.header['pixdim'][1:4] = arr.geom.voxsize.astype(np.float32)
+
+            # add freesurfer nifti1 header extension
+            import io
+            from surfa.io.fsnifti1extension import FSNifti1Extension
+
+            # create FSNifti1Extension.Content object from arr
+            fsextcontent = FSNifti1Extension.Content(arr)
+            
+            # create file-like object
+            bytes_writer = io.BytesIO()
+
+            # write freesurfer header extension data to buffer
+            fsext = FSNifti1Extension()
+            esize = fsext.write(bytes_writer, fsextcontent)
+            
+            # convert FSNifti1Extension.Content to bytes
+            fsext_bytesdata = bytes_writer.getvalue()
+            niiext = self.nib.nifti1.Nifti1Extension(14, fsext_bytesdata)
+            nii.header.extensions.append(niiext)
 
         # write
         self.nib.save(nii, filename)

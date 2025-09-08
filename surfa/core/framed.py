@@ -6,7 +6,7 @@ from surfa.core.labels import LabelLookup
 
 
 # mgz now has its intent encoded in the version number
-# version = (intent & 0xff ) << 8) | MGH_VERSION
+# version = (intent & 0xffff ) << 8) | MGH_VERSION
 # MGH_VERSION = 1
 class FramedArrayIntents:
     unknown     = -1
@@ -15,6 +15,7 @@ class FramedArrayIntents:
     shape       = 2
     warpmap     = 3
     warpmap_inv = 4
+    timeseries  = 5
 
 
 class FramedArray:
@@ -145,7 +146,44 @@ class FramedArray:
             raise ValueError(f'labels expected LabelLookup object, but got object of type {value.__class__.__name__}')
         else:
             self._metadata['labels'] = value.copy()
+    
+    def compact_labels(self, update_labels=False):
+        """
+        Returns a LabelLookup object containing only the values from the lookup
+        table that are present in the label volume.
 
+        This expects that `self.data` contains only int-like values corresponding
+        to indices in the default `FreeSurferColorLUT.txt`.
+
+        Parameters
+        ----------
+        update_labels : bool
+            If True, updates `self.labels` to the new compacted label lookup.
+
+        Returns
+        -------
+        LabelLookup
+            A label lookup containing only the labels present in the segmentation.
+        """
+        # ensure self.labels is not None
+        assert self.labels is not None, "self.labels is None, must be a LabelLookup"
+        # ensure we're working with a label volume, containing int-like data
+        assert np.issubdtype(self.data.dtype, np.integer), "self.data must be a label volume to compact labels"
+        
+        # create empty LabelLookup
+        compact_labels = LabelLookup()
+        uniq = np.unique(self.data)
+
+        # populate empty LabelLookup with labels present in the volume
+        for i, l_idx in enumerate(uniq):
+            compact_labels[i] = self.labels[l_idx]
+
+        if update_labels:
+            self.labels = compact_labels
+
+        return compact_labels
+
+    
     @property
     def basedim(self):
         """
@@ -276,7 +314,6 @@ class FramedArray:
         """
         pass
 
-    # optional parameter to specify FramedArray intent, default is MRI data
     def save(self, filename, fmt=None, intent=FramedArrayIntents.mri):
         """
         Write array to file.

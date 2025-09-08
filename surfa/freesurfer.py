@@ -228,6 +228,176 @@ def tissue_types():
     return labels
 
 
+def nonlateral_aseg_recoder(include_lesions=False):
+    """
+    Returns a recoding table that converts default brain labels to the
+    corresponding tissue-type.
+
+    Returns:
+        RecodingLookupTable: .
+    """
+    include_list = [
+        "Unknown",
+        "Left-Cerebral-White-Matter",
+        "Left-Cerebral-Cortex",
+        "Left-Cerebellum-White-Matter",           
+        "Left-Cerebellum-Cortex",
+        "Left-Thalamus",
+        "Left-Caudate",
+        "Left-Putamen",
+        "Left-Pallidum",
+        "3rd-Ventricle",                           
+        "4th-Ventricle",
+        "Brain-Stem",                            
+        "Left-Hippocampus",
+        "Left-Amygdala",                        
+        "CSF",
+        "Left-Lesion",
+        "Left-Accumbens-area",
+        "Left-VentralDC",
+        "Left-Choroid-Plexus"
+    ]        
+    aseg = labels()
+    source_lut = labels()
+    target_lut = LabelLookup()
+    mapping = {}
+    for key in source_lut.keys():
+        if (key >= 1000 and key < 3000) or \
+           (key > 11000 and key < 13000):   # destrieux labels
+            name = 'Left-Cerebral-Cortex'
+        elif (key >= 3000 and key < 5000) or (key >= 13000 and key < 15000) or (key >= 250 and key <= 255):
+            name = 'Left-Cerebral-White-Matter'
+        elif (key >= 7000 and key <= 7020):
+            name = 'Left-Amygdala'
+        elif (key >= 8000 and key < 9000):
+            name = 'Left-Thalamus'
+        elif key < 100:
+            name = source_lut[key].name
+            if name.startswith('Right-'):
+                name = name.replace('Right-', 'Left-')
+            if (name.find('Vent') >= 0 and name.find('entral') < 0):
+                name = 'CSF'
+            if name.find('ypoint') >= 0 or name.find('esion') >= 0 or \
+               name.find('wmsa') >= 0:
+                name = 'Left-Lesion'
+        else:
+            continue
+
+        if name not in include_list:
+            continue
+
+        source_key = key
+        target_list = target_lut.search(name)
+
+        if len(target_list) == 0:  # not already
+            target_key = len(target_lut)
+            target_lut[target_key] = (name, source_lut[key].color)
+        else:
+            target_key = target_list[0]
+
+        mapping[source_key] = target_key
+
+    return LabelRecoder(mapping, target=target_lut)
+
+def lateral_aseg_recoder(include_lesions=False):
+    """
+    Returns a recoding table that converts default brain labels to the
+    corresponding tissue-type.
+
+    Returns:
+        RecodingLookupTable: .
+    """
+    include_list = [
+        "Unknown",
+        "Left-Cerebral-White-Matter",
+        "Right-Cerebral-White-Matter",
+        "Left-Cerebral-Cortex",
+        "Right-Cerebral-Cortex",
+        "Left-Cerebellum-White-Matter",
+        "Right-Cerebellum-White-Matter",           
+        "Left-Cerebellum-Cortex",
+        "Right-Cerebellum-Cortex",
+        "Left-Thalamus",
+        "Right-Thalamus",
+        "Left-Caudate",
+        "Right-Caudate",
+        "Left-Putamen",
+        "Right-Putamen",
+        "Left-Pallidum",
+        "Right-Pallidum",
+        "3rd-Ventricle",                           
+        "4th-Ventricle",
+        "Brain-Stem",                            
+        "Left-Hippocampus",
+        "Right-Hippocampus",
+        "Left-Amygdala",
+        "Right-Amygdala",                        
+        "CSF",
+        "Left-Lesion",
+        "Right-Lesion",
+        "Left-Accumbens-area",
+        "Right-Accumbens-area",
+        "Left-VentralDC",
+        "Right-VentralDC",
+        "Left-Choroid-Plexus"
+        "Right-Choroid-Plexus"
+    ] 
+    aseg = labels()
+    source_lut = labels()
+    target_lut = LabelLookup()
+    mapping = {}
+    for key in source_lut.keys():
+        l_name = source_lut[key].name
+        if (key >= 1000 and key < 3000) or \
+           (key > 11000 and key < 13000):   # destrieux labels
+            if is_r_label(l_name):
+                name = 'Right-Cerebral-Cortex'
+            else:
+                name = 'Left-Cerebral-Cortex'
+        elif (key >= 3000 and key < 5000) or (key >= 13000 and key < 15000) or (key >= 250 and key <= 255):
+            if is_r_label(l_name):
+                name = 'Right-Cerebral-White-Matter'
+            else:
+                name = 'Left-Cerebral-White-Matter'
+        elif (key >= 7000 and key <= 7020):
+            if is_r_label(l_name):
+                name = 'Right-Amygdala'
+            else:
+                name = 'Left-Amygdala'
+        elif (key >= 8000 and key < 9000):
+            if is_r_label(l_name):
+                name = 'Right-Thalamus'
+            else:
+                name = 'Left-Thalamus'
+        elif key < 100:
+            name = l_name
+            if (name.find('Vent') >= 0 and name.find('entral') < 0):
+                name = 'CSF'
+            if name.find('ypoint') >= 0 or name.find('esion') >= 0 or \
+               name.find('wmsa') >= 0:
+                if is_r_label(name):
+                    name = 'Right-Lesion'
+                else:
+                    name = 'Left-Lesion'
+        else:
+            continue
+
+        if name not in include_list:
+            continue
+
+        source_key = key
+        target_list = target_lut.search(name)
+
+        if len(target_list) == 0:  # not already
+            target_key = len(target_lut)
+            target_lut[target_key] = (name, source_lut[key].color)
+        else:
+            target_key = target_list[0]
+
+        mapping[source_key] = target_key
+
+    return LabelRecoder(mapping, target=target_lut)
+
 def tissue_type_recoder(extra=False, lesions=False):
     """
     Return a recoding lookup that converts default brain labels to the
@@ -284,6 +454,7 @@ def tissue_type_recoder(extra=False, lesions=False):
         60:   3,  # Right-VentralDC
         62:   4,  # Right-Vessel
         63:   4,  # Right-Choroid-Plexus
+        72:   4,  # 5th-Ventricle
         77:   6 if lesions else 3,  # WM-Hypointensities
         78:   3,  # Left-WM-Hypointensities
         79:   3,  # Right-WM-Hypointensities
@@ -373,3 +544,448 @@ def tissue_type_recoder(extra=False, lesions=False):
         2035: 1,  # ctx-rh-insula
     }
     return LabelRecoder(mapping, target=tissue_types())
+
+def reduced35_aseg_recoder():
+    """
+    Return a recoding lookup that converts default brain labels to the
+    corresponding labels in the ReducedLabels35.txt.
+
+    Returns
+    -------
+    recoder : LabelRecoder
+    """
+    mapping = {
+        0: 0,
+		2: 1,
+		3: 2,
+		4: 3,
+		5: 4,
+		7: 5,
+		8: 6,
+		10: 7,
+		11: 8,
+		12: 9,
+		13: 10,
+		14: 11,
+		15: 12,
+		16: 13,
+		17: 14,
+		18: 15,
+		24: 0,
+		25: 77,
+		26: 16,
+		28: 17,
+		30: 18,
+		31: 19,
+		41: 20,
+		42: 21,
+		43: 22,
+		44: 23,
+		46: 24,
+		47: 25,
+		49: 26,
+		50: 27,
+		51: 28,
+		52: 29,
+		53: 30,
+		54: 31,
+		58: 32,
+		60: 33,
+		62: 34,
+		63: 35,
+		72: 0,
+		75: 13,
+		77: 1,
+		78: 1,
+		79: 20,
+		80: 2,
+		81: 2,
+		82: 21,
+		85: 1,
+		99: 77,
+		130: 0,
+		165: 0,
+		172: 6,
+		174: 13,
+		251: 1,
+		252: 1,
+		253: 1,
+		254: 1,
+		255: 1,
+		257: 0,
+		258: 0,
+		1001: 2,
+		1002: 2,
+		1003: 2,
+		1005: 2,
+		1006: 2,
+		1007: 2,
+		1008: 2,
+		1009: 2,
+		1010: 2,
+		1011: 2,
+		1012: 2,
+		1013: 2,
+		1014: 2,
+		1015: 2,
+		1016: 2,
+		1017: 2,
+		1018: 2,
+		1019: 2,
+		1020: 2,
+		1021: 2,
+		1022: 2,
+		1023: 2,
+		1024: 2,
+		1025: 2,
+		1026: 2,
+		1027: 2,
+		1028: 2,
+		1029: 2,
+		1030: 2,
+		1031: 2,
+		1032: 2,
+		1033: 2,
+		1034: 2,
+		1035: 2,
+		2001: 21,
+		2002: 21,
+		2003: 21,
+		2005: 21,
+		2006: 21,
+		2007: 21,
+		2008: 21,
+		2009: 21,
+		2010: 21,
+		2011: 21,
+		2012: 21,
+		2013: 21,
+		2014: 21,
+		2015: 21,
+		2016: 21,
+		2017: 21,
+		2018: 21,
+		2019: 21,
+		2020: 21,
+		2021: 21,
+		2022: 21,
+		2023: 21,
+		2024: 21,
+		2025: 21,
+		2026: 21,
+		2027: 21,
+		2028: 21,
+		2029: 21,
+		2030: 21,
+		2031: 21,
+		2032: 21,
+		2033: 21,
+		2034: 21,
+		2035: 21
+    }
+    target_lut_path = os.path.join(os.environ.get('FREESURFER_HOME'),'luts/ReducedLabels35.txt')
+    target = load_label_lookup(target_lut_path)
+    return LabelRecoder(mapping, target=target)
+
+def reduced24_aseg_recoder():
+    """
+    Return a recoding lookup that converts default brain labels to the
+    corresponding labels in the ReducedLabels24.txt.
+
+    Returns
+    -------
+    recoder : LabelRecoder
+    """
+    mapping = {
+        0: 0,
+		2: 1,
+		3: 2,
+		4: 3,
+		5: 4,
+		7: 0,
+		8: 0,
+		10: 5,
+		11: 6,
+		12: 7,
+		13: 8,
+		14: 9,
+		15: 0,
+		16: 10,
+		17: 11,
+		18: 0,
+		24: 0,
+		25: 0,
+		26: 0,
+		28: 12,
+		30: 0,
+		31: 13,
+		41: 14,
+		42: 15,
+		43: 16,
+		44: 17,
+		46: 0,
+		47: 0,
+		49: 18,
+		50: 19,
+		51: 20,
+		52: 21,
+		53: 22,
+		54: 0,
+		58: 0,
+		60: 23,
+		62: 0,
+		63: 24,
+		72: 0,
+		75: 10,
+		77: 1,
+		78: 1,
+		79: 14,
+		80: 2,
+		81: 2,
+		82: 15,
+		85: 1,
+		99: 0,
+		130: 0,
+		165: 0,
+		172: 0,
+		174: 10,
+		251: 1,
+		252: 1,
+		253: 1,
+		254: 1,
+		255: 1,
+		257: 0,
+		258: 0,
+		1001: 2,
+		1002: 2,
+		1003: 2,
+		1005: 2,
+		1006: 2,
+		1007: 2,
+		1008: 2,
+		1009: 2,
+		1010: 2,
+		1011: 2,
+		1012: 2,
+		1013: 2,
+		1014: 2,
+		1015: 2,
+		1016: 2,
+		1017: 2,
+		1018: 2,
+		1019: 2,
+		1020: 2,
+		1021: 2,
+		1022: 2,
+		1023: 2,
+		1024: 2,
+		1025: 2,
+		1026: 2,
+		1027: 2,
+		1028: 2,
+		1029: 2,
+		1030: 2,
+		1031: 2,
+		1032: 2,
+		1033: 2,
+		1034: 2,
+		1035: 2,
+		2001: 15,
+		2002: 15,
+		2003: 15,
+		2005: 15,
+		2006: 15,
+		2007: 15,
+		2008: 15,
+		2009: 15,
+		2010: 15,
+		2011: 15,
+		2012: 15,
+		2013: 15,
+		2014: 15,
+		2015: 15,
+		2016: 15,
+		2017: 15,
+		2018: 15,
+		2019: 15,
+		2020: 15,
+		2021: 15,
+		2022: 15,
+		2023: 15,
+		2024: 15,
+		2025: 15,
+		2026: 15,
+		2027: 15,
+		2028: 15,
+		2029: 15,
+		2030: 15,
+		2031: 15,
+		2032: 15,
+		2033: 15,
+		2034: 15,
+		2035: 15
+    }
+
+    target_lut_path = os.path.join(os.environ.get('FREESURFER_HOME'),'luts/ReducedLabels24.txt')
+    target = load_label_lookup(target_lut_path)
+
+    return LabelRecoder(mapping, target=target)
+
+def reduced24_reduced35_recoder():
+    """
+    Return a recoding lookup that converts the ReducedLabels35 labels to the
+    corresponding labels in the ReducedLabels24.txt.
+
+    Returns
+    -------
+    recoder : LabelRecoder
+    """
+    mapping = {
+        0: 0,
+		1: 1,
+		2: 2,
+		3: 3,
+		4: 4,
+		5: 0,
+		6: 0,
+		7: 5,
+		8: 6,
+		9: 7,
+		10: 8,
+		11: 9,
+		12: 0,
+		13: 10,
+		14: 11,
+		15: 0,
+		16: 0,
+		17: 12,
+		18: 0,
+		19: 13,
+		20: 14,
+		21: 15,
+		22: 16,
+		23: 17,
+		24: 0,
+		25: 0,
+		26: 18,
+		27: 19,
+		28: 20,
+		29: 21,
+		30: 22,
+		31: 0,
+		32: 0,
+		33: 23,
+		34: 0,
+		35: 24,
+		77: 0
+    }
+    target_lut_path = os.path.join(os.environ.get('FREESURFER_HOME'), 'luts/ReducedLabels24.txt')
+    target = load_label_lookup(target_lut_path)
+
+    return LabelRecoder(mapping, target=target)
+
+def tissue_type_reduced35_recoder():
+    """
+    Return a recoding lookup that converts the ReducedLabels35 labels to the
+    corresponding tissue types.
+
+    Returns
+    -------
+    recoder : LabelRecoder
+    """
+    mapping = {
+		0: 0,
+		1: 3,
+		2: 1,
+		3: 4,
+		4: 4,
+		5: 3,
+		6: 1,
+		7: 2,
+		8: 2,
+		9: 2,
+		10: 2,
+		11: 4,
+		12: 4,
+		13: 2,
+		14: 2,
+		15: 2,
+		16: 2,
+		17: 2,
+		18: 0,
+		19: 4,
+		20: 3,
+		21: 1,
+		22: 4,
+		23: 4,
+		24: 3,
+		25: 1,
+		26: 2,
+		27: 2,
+		28: 2,
+		29: 2,
+		30: 2,
+		31: 2,
+		32: 2,
+		33: 2,
+		34: 0,
+		35: 4,
+		77: 0        
+    }
+    
+    return LabelRecoder(mapping, target=tissue_types())
+
+def tissue_type_reduced24_recoder():
+    """
+    Return a recoding lookup that converts the ReducedLabels24 labels to the
+    corresponding tissue types.
+
+    Returns
+    -------
+    recoder : LabelRecoder
+    """
+    mapping = {
+		0: 0,
+		1: 3,
+		2: 1,
+		3: 4,
+		4: 4,
+		5: 2,
+		6: 2,
+		7: 2,
+		8: 2,
+		9: 4,
+		10: 2,
+		11: 2,
+		12: 2,
+		13: 4,
+		14: 3,
+		15: 1,
+		16: 4,
+		17: 4,
+		18: 2,
+		19: 2,
+		20: 2,
+		21: 2,
+		22: 2,
+		23: 2,
+		24: 4        
+    }
+
+    return LabelRecoder(mapping, target=tissue_types())
+
+def is_r_label(label_name):
+    """
+    Returns an int corresponding to the 'sidedness' of a label name
+    
+    Returns
+    -------
+    int : 1 if name corresponds to right hemi; 0 if the name corresponds to
+          the left hemi; -1 if there is no left/right associated with the label
+    """
+    if '-rh-' in label_name or '_rh_' in label_name or 'Right-' in label_name:
+        return 1
+    elif '-lh-' in label_name or '_lh_' in label_name or 'Left-' in label_name:
+        return 0
+    else:
+        return -1

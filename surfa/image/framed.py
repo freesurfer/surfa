@@ -13,6 +13,7 @@ from surfa.core.array import pad_vector_length
 from surfa.core.array import check_array
 from surfa.core.slicing import sane_slicing
 from surfa.core.slicing import slicing_parameters
+from surfa.core.slicing import fit_slicing_to_shape
 from surfa.transform import cast_space
 from surfa.transform.geometry import ImageGeometry
 from surfa.transform.geometry import cast_image_geometry
@@ -441,7 +442,7 @@ class FramedImage(FramedArray):
 
         raise ValueError("Pass \'trf\' as either an Affine or Warp object")
 
-    def reorient(self, orientation, copy=True):
+    def reorient(self, orientation, copy=True, inplace=False):
         """
         Realigns image data and world matrix to conform to a specific slice orientation.
 
@@ -451,6 +452,8 @@ class FramedImage(FramedArray):
             Case-insensitive orientation string.
         copy : bool
             Return copy of image even if target orientation is already satisfied.
+        inplace : bool
+            Reorient the image data in place if it is True.
 
         Returns
         -------
@@ -474,11 +477,26 @@ class FramedImage(FramedArray):
         world_axes_src = get_world_axes(src_matrix[:self.basedim, :self.basedim])
 
         voxsize = np.asarray(self.geom.voxsize)
-        voxsize = voxsize[world_axes_src][world_axes_trg]
+        voxsize_swapped = np.ones(self.basedim)
+        for i in range(self.basedim):
+            c1 = trg_orientation[i]
+            for j in range(self.basedim):
+                c2 = src_orientation[j]
+                if ((c1 in 'RL' and c2 in 'RL') or
+                    (c1 in 'AP' and c2 in 'AP') or
+                    (c1 in 'SI' and c2 in 'SI')):
+                    voxsize_swapped[i] = voxsize[j]
+                    break
+        voxsize = voxsize_swapped
 
         # initialize new
-        data = self.data.copy()
-        affine = self.geom.vox2world.matrix.copy()
+        if (not inplace):
+            data = self.data.copy()
+            affine = self.geom.vox2world.matrix.copy()
+        else:
+            data = self.data
+            self.geom.vox2world.matrix.flags.writeable = True
+            affine = self.geom.vox2world.matrix            
 
         # align axes
         affine[:, world_axes_trg] = affine[:, world_axes_src]
@@ -496,21 +514,29 @@ class FramedImage(FramedArray):
                 affine[:, i] = - affine[:, i]
                 affine[:3, 3] = affine[:3, 3] - affine[:3, i] * (data.shape[i] - 1)
 
-        # update geometry
-        target_geom = ImageGeometry(
-            shape=data.shape[:3],
-            vox2world=affine,
-            voxsize=voxsize)
-        return self.new(data, target_geom)
+        if (not inplace):
+            # update geometry
+            target_geom = ImageGeometry(
+                shape=data.shape[:3],
+                vox2world=affine,
+                voxsize=voxsize)
+            return self.new(data, target_geom)
+        else:
+            self.geom = ImageGeometry(shape=data.shape[:3], voxsize=voxsize, vox2world=affine)
+            self.data = data
+            return self
 
-    def reshape(self, shape, copy=True):
+
+    def reshape(self, shape, center='image', copy=True):
         """
-        Returns a volume fit to a given shape. Image will be centered in the conformed volume.
+        Returns a volume fit to a given shape. Image will be centered in the conformed volume, or bbox of the original image.
 
         Parameters
         ----------
         shape : tuple of int
             Target shape.
+        center : str
+            Center the reshaped image on image center or bbox: ['image', 'bbox']
         copy : bool
             Return copy of image even if target shape is already satisfied.
 
@@ -527,6 +553,19 @@ class FramedImage(FramedArray):
 
         if np.array_equal(self.baseshape, shape):
             return self.copy() if copy else self
+
+        # validate 'center'
+        valid_centers = ['image', 'bbox']
+        if center not in valid_centers:
+            raise ValueError(f'Unsupported argument for "center", must be in {valid_centers}')
+
+        if center == 'bbox':
+            # get the bbox
+            c_bbox = self.bbox()
+            # reshape the bbox to the target size
+            bbox_centered_cropping = fit_slicing_to_shape(c_bbox, self.baseshape, shape)
+            # return the bbox centered cropping
+            return self[bbox_centered_cropping]
 
         delta = (np.array(shape) - np.array(self.baseshape)) / 2
         low = np.floor(delta).astype(int)
@@ -579,9 +618,7 @@ class FramedImage(FramedArray):
         arr : !class
             Reshaped image.
         """
-        if center is not None:
-            warnings.warn('fit_to_shape center argument no longer has any effect')
-        return self.reshape(shape, copy)
+        return self.reshape(shape, center, copy)
 
     def conform(self, shape=None, voxsize=None, orientation=None, dtype=None, method='linear', copy=True):
         """
@@ -792,6 +829,70 @@ class FramedImage(FramedArray):
         dt = lambda x: scipy.ndimage.distance_transform_edt(x, sampling=sampling)
         sdt = lambda x: dt(1 - x) - dt(x)
         return stack([self.new(sdt(self.framed_data[..., i])) for i in range(self.nframes)])
+    
+    def extract_sub_images(self, sub_shape):
+        """
+        Extract a list of sub images from the FramedImage with shape 'sub_shape'
+
+        Parameters
+        ----------
+        sub_shape : array like
+            Shape to be given to the sub images that are extracted
+
+        Returns
+        -------
+        list of FramedImages
+            sub images
+        """
+        
+        # ensure valid shape for the sub images
+        if len(sub_shape) != self.basedim:
+            raise ValueError('Image and sub_shape must have same dimensions')
+
+        img_shape = np.array(self.shape)
+        sub_shape = np.array(sub_shape)
+
+        # find number of slices to take in each dim
+        to_slice = img_shape // sub_shape
+        
+        # get the the 'ordered pairs' of all croppings
+        indices = [len(range(int(to_slice[d]))) for d in range(len(img_shape))]
+        
+        sub_volumes = []
+        # extract all the sub images
+        for idx in np.ndindex(*indices):
+            slices = tuple(slice(sub_shape[d] * idx[d], sub_shape[d] * (idx[d] + 1)) for d in range(len(sub_shape)))
+            sub_volumes.append(self[slices])
+    
+        return sub_volumes
+
+
+    def erase_hemi(self, aseg, thresh=1, hemi="lh"):
+        cc_coords = np.where((aseg.data >= 251) * (aseg.data <= 255)) 
+        cmat = np.array([[x, y, z] for x, y, z in zip(cc_coords[0], cc_coords[1], cc_coords[2])])
+        cc_center = cmat.mean(axis=0)
+        
+        cov = np.cov(np.swapaxes(cmat, 0, 1))
+        eig = np.linalg.eig(cov)
+        eigvec_norm = np.real(eig[1]) / np.linalg.norm(eig[1])
+        eig_norm = np.real(eig[0])
+        plane_norm = eigvec_norm[-1] / np.linalg.norm(eigvec_norm[-1])
+        if plane_norm[np.argmax(abs(plane_norm))] < 0:
+            plane_norm *= -1   # dir of eigvec is otherwise arbitrary
+
+        all_coords = np.where(self.data >= 0)
+        x0, y0, z0 = cc_center
+        all_cmat = np.array([[x-x0, y-y0, z-z0] \
+            for x, y, z in zip(all_coords[0], all_coords[1], all_coords[2])])
+        nx, ny, nz = plane_norm
+        dots = np.array([dx*nx + dy*ny + dz*nz for dx, dy, dz in all_cmat])
+
+        if (hemi == "lh"):
+           mask = np.reshape(dots, self.shape) <= thresh 
+        else:
+           mask = np.reshape(dots, self.shape) >= thresh
+
+        return self.new((self.data * mask))
 
 
 class Slice(FramedImage):
@@ -859,6 +960,9 @@ def cast_image(obj, allow_none=True, copy=False, fallback_geom=None):
 
     if isinstance(obj, FramedImage):
         return obj.copy() if copy else obj
+
+    if hasattr(obj, 'detach') and hasattr(obj, 'numpy'):
+        obj = obj.detach().cpu().squeeze().numpy()
 
     if getattr(obj, '__array__', None) is not None:
         return Volume(np.array(obj), geometry=fallback_geom)

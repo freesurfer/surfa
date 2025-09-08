@@ -4,6 +4,8 @@ import tempfile
 import numpy as np
 
 from surfa import Mesh
+from surfa import load_volume
+from surfa import load_mesh
 from surfa.system import run
 from surfa.system import collect_output
 from surfa.image import cast_image
@@ -14,7 +16,7 @@ from surfa.mesh import is_mesh_castable
 
 class Freeview:
 
-    def __init__(self, title=None, debug=False):
+    def __init__(self, title=None, debug=False, use_vglrun=True, return_edits=False):
         """
         A visualization class that wraps the `freeview` command.
 
@@ -27,13 +29,29 @@ class Freeview:
             fv.add_mesh(mesh, overlay=overlay)
             fv.show()
 
+        To reload the data visualized inf FreeView after the viewer closes, specify
+        'return_edits=True' and assign the return value of fv.show() to be a variable:
+
+            fv = Freeview(return_edits=True)
+            fv.add_image(img)
+            fv_contents = fv.show()
+
+        This will return a tuple of lists, with the first list containing volumes and
+        the second list containing any data added to the viewer via fv.add_mesh(mesh).
+        Items will be returned in the order that they are added to FreeView.
+
         For a quicker but more limited way to wrap freeview, see the `fv()` function.
         """
         self.tempdir = None
         self.debug = debug
         self.title = title
         self.isshown = False
+        self.use_vglrun = use_vglrun
         self.arguments = []
+        self._return_edits = return_edits
+        self._vols = []
+        self._meshes = []
+        
 
         # first check if freeview is even accessible
         self.fvpath = shutil.which('freeview')
@@ -78,11 +96,14 @@ class Freeview:
             img.save(filename)
             if self.debug:
                 print(f'wrote image to {filename}')
+        
+        # add the path to the temp vol to the internal list of volumes
+        self._vols.append(filename)
 
         # configure the corresponding freeview argument
         self.arguments.append('-v ' + filename + _convert_kwargs_to_tags(kwargs))
 
-    def add_mesh(self, mesh, overlay=None, annot=None, **kwargs):
+    def add_mesh(self, mesh, curvature=None, overlay=None, annot=None, name=None, **kwargs):
         """
         Adds an image to the freeview window. Any key/value tags allowed as a `-v` option
         in the freeview command line can be provided as an additional argument.
@@ -114,6 +135,17 @@ class Freeview:
         # extra tags for the mesh
         tags = ''
 
+        # configure any curvatures
+        if curvature is not None:
+            curvature = [curvature] if not isinstance(curvature, (list, tuple)) else curvature
+            for c in curvature:
+                c = FreeviewCurvature(c) if not isinstance(c, FreeviewCurvature) else c
+                filename = _unique_filename(c.name, '.mgz', self.tempdir)
+                c.arr.save(filename)
+                if self.debug:
+                    print(f'wrote curvature to {filename}')
+                tags += f':curvature={filename}' + c.tags()
+
         # configure any overlays
         if overlay is not None:
             overlay = [overlay] if not isinstance(overlay, (list, tuple)) else overlay
@@ -135,6 +167,12 @@ class Freeview:
                 if self.debug:
                     print(f'wrote annotation to {filename}')
                 tags += f':annot={filename}'
+
+        if name is not None:
+            tags += f':name={name}'
+        
+        # add the path to the temp vol to the internal list of volumes
+        self._meshes.append(filename)
 
         # configure the corresponding freeview argument
         self.arguments.append('-f ' + mesh_filename + tags + _convert_kwargs_to_tags(kwargs))
@@ -161,7 +199,9 @@ class Freeview:
         threads : int
             Number of OMP threads available to FreeView.
         """
-
+        # set background based on _return_edits
+        background = background if not self._return_edits else False
+        
         # compile the command
         command = self.fvpath + ' ' + ' '.join(self.arguments)
 
@@ -171,13 +211,16 @@ class Freeview:
             command = f'{command} -subtitle "{title}"'
 
         # be sure to remove the temporary directory (if it exists) after freeview closes
-        command = f'{command} ; rm -rf {self.tempdir}'
+        # need the tempdir if saving edits
+        if not self._return_edits:
+            command = f'{command} ; rm -rf {self.tempdir}'
 
         # freeview can be buggy when run remotely, so let's test if VGL is
         # available to wrap the process
-        vgl = _find_vgl()
-        if vgl is not None:
-            command = f'{vgl} {command}'
+        if self.use_vglrun:
+            vgl = _find_vgl()
+            if vgl is not None:
+                command = f'{vgl} {command}'
 
         # set number of OMP threads if provided
         if threads is not None:
@@ -191,12 +234,39 @@ class Freeview:
         self.isshown = True
 
         # run it
-        run(command, background=background)
+        ret_code = run(command, background=background)
+
+        # reload the vol/mesh data before deleting the tempdir, if necessary
+        if self._return_edits:
+            print('Reloading temp volumes into surfa')
+            vols = [load_volume(x) for x in self._vols]
+            meshes = [load_mesh(x) for x in self._meshes]
+           
+            # clean up the tempdir
+            shutil.rmtree(self.tempdir)
+
+            return vols, meshes
+
+
+class FreeviewCurvature:
+
+    def __init__(self, arr, name='curvature', method='binary'):
+        """
+        Configuration for freeview curvature.
+        """
+        self.arr = cast_overlay(arr, allow_none=False)
+        self.name = name
+        self.method = method
+
+    def tags(self):
+        tags = ''
+        tags += '' if self.method is None else f':curvature_method={self.method}'
+        return tags
 
 
 class FreeviewOverlay:
 
-    def __init__(self, arr, name='overlay', threshold=None, opacity=None):
+    def __init__(self, arr, name='overlay', threshold=None, opacity=None, color=None, custom=None):
         """
         Configuration for freeview overlays.
         """
@@ -204,11 +274,15 @@ class FreeviewOverlay:
         self.name = name
         self.threshold = threshold
         self.opacity = opacity
+        self.color = color
+        self.custom = custom
 
     def tags(self):
         tags = ''
-        tags += '' if self.threshold is None else f':overlay_threshold=' + ','.join(str(x) for x in config.threshold)
+        tags += '' if self.threshold is None else f':overlay_threshold=' + ','.join(str(x) for x in self.threshold)
         tags += '' if self.opacity is None else f':overlay_opacity={self.opacity}'
+        tags += '' if self.color is None else f':overlay_color={self.color}'
+        tags += '' if self.custom is None else f':overlay_custom={self.custom}'
         return tags
 
 

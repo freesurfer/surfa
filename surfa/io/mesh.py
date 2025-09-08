@@ -274,9 +274,9 @@ class GiftiIO(protocol.IOProtocol):
         faces = gii.agg_data('triangle')
 
         # ensure data exists
-        if not vertices:
+        if (vertices.size == 0):
             raise RuntimeError('cannot load mesh since GIFTI file does not contain pointset data')
-        if not faces:
+        if (faces.size == 0):
             raise RuntimeError('cannot load mesh since GIFTI file does not contain triangle data')
 
         # extract geometry metadata

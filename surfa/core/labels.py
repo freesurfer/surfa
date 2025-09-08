@@ -1,5 +1,6 @@
 import collections
 import numpy as np
+import warnings
 from copy import deepcopy
 import surfa as sf
 
@@ -242,7 +243,7 @@ class LabelLookup(collections.OrderedDict):
             elt = self.get(label)
             if elt is None:
                 raise ValueError(f'index {label} does not exist in the LabelLookup')
-            lookup.add(label, elt.name, elt.color)
+            lookup[label]= (elt.name, elt.color)
         return lookup
 
     def copy_colors(self, lookup):
@@ -289,3 +290,74 @@ class LabelRecoder:
         """
         self.mapping = dict(mapping)
         self.target = target
+
+    def invert(self, target_labels=None, strict=False):
+        """
+        Invert the label mapping dictionary
+
+        Parameters
+        ----------
+        target_labels : LabelLookup, optional
+            LabelLookup that will be assigned as the target of the returned LabelRecoder
+            If not assigned, the output volume using this recoder will not have a LabelMapping
+        strict : bool, optional
+            Enforce the inverted label recoding is 1-to-1
+            
+        Returns
+        -------
+        LabelRecoder
+            A LabelRecoder object with the k,v pairs of the original mapping swapped
+            
+            If the input mapping is many-to-1, the function will raise a `KeyError` unless
+            the `strict` param is set to `False`. In the case where the input mapping is
+            many-to-1 and `strict` is set to `False`, the returned LabelRecoder will map
+            to the minimum value of the 'many' labels. e.g {1:0, 2:0} the inverse will
+            be {0:1}.
+            
+        Raises
+        ------
+        KeyError
+            If `strict` is set to `True` and inverted label mapping is not 1-to-1
+
+        Examples
+        --------
+        Load an aseg volume, recode the labels to tissue types using the tissue_type_recoder,
+        then invert the tissue_type_recoder and remap the labels back.
+        Note that the tissue_type_recoder is not 1-to-1, so labels classes in the second
+        remapped volume will be merged.
+        
+        # load the aseg
+        >>> aseg = sf.load_volume('aseg.mgz')
+
+        # create the tissue_type_recoder obj
+        >>> lr = sf.freesurfer.tissue_type_recoder()
+
+        # remap the aseg labels
+        >>> aseg_to_tissue = sf.labels.recode(aseg,lr)
+
+        # invert the label recoder and assign the standard cLUT as target labels
+        >>> inv_lr = lr.invert(target_labels=sf.freesurfer.labels())
+
+        # re-remap the aseg labels
+        >>> tissue_to_aseg = sf.labels.recode(aseg,inv_lr)
+        """
+        # invert the mapping dictionary, handling many-to-1 mapping case
+        inv_mapping = {}
+        for k,v in self.mapping.items():
+            if v not in inv_mapping.keys():
+                inv_mapping[v] = [k]
+            else:
+                inv_mapping[v].append(k)
+        
+        test = [len(x) == 1 for x in inv_mapping.values()]
+
+        # raise key error if many-to-1 and strict
+        if False in test and strict:
+            raise KeyError('Cannot strictly invert a many-to-1 LabelRecoder')
+        elif False in test:
+            warnings.warn('The label remapping is not 1-to-1, some classes will be merged.')
+        
+        [x.sort() for x in inv_mapping.values()]
+        inv_mapping = {k:v[0] for k,v in inv_mapping.items()}
+
+        return LabelRecoder(inv_mapping, target_labels)

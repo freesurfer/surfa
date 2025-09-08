@@ -69,28 +69,13 @@ def interpolate(source, target_shape, method, affine=None, disp=None, fill=0):
         if not np.array_equal(disp.shape[:-1], target_shape):
             raise ValueError(f'warp shape {disp.shape[:-1]} must match target shape {target_shape}')
 
-        # TODO: figure out what would cause this
-        if not disp.flags.c_contiguous and not disp.flags.f_contiguous:
-            disp = np.asarray(disp, order='F')
-
-        # ensure that the source order is the same as the displacement field
-        order = 'F' if disp.flags.f_contiguous else 'C'
-        source = np.asarray(source, order=order)
-
-        # make sure the displacement is float32
-        disp = np.asarray(disp, dtype=np.float32)
-
-    else:
-        # TODO: figure out what would cause this
-        if not source.flags.c_contiguous and not source.flags.f_contiguous:
-            source = np.asarray(source, order='F')
+        disp = np.asfortranarray(disp, dtype=np.float32)
 
     # find corresponding function
-    order = 'contiguous' if source.flags.c_contiguous else 'fortran'
-    interp_func = globals().get(f'interp_3d_{order}_{method}')
+    interp_func = globals().get(f'interp_3d_fortran_{method}')
 
     # speeds up if conditionals are computed outside of function (TODO is this even true?)
-    shape = np.asarray(target_shape).astype('int64')
+    shape = np.asarray(target_shape).astype('int')
 
     # ensure correct byteorder
     # TODO maybe this should be done at read-time?
@@ -108,26 +93,8 @@ def interpolate(source, target_shape, method, affine=None, disp=None, fill=0):
     # these should be split up for simplicity sake (might optimize things a bit too)
     resampled = interp_func(source, shape, affine, disp, fill, use_affine, use_disp)
 
-    # if the input type was unsupported but nearest-neighbor interpolation was used,
-    # convert back to the original dtype
-    if method == 'nearest' and unsupported_dtype is not None:
-        resampled = resampled.astype(unsupported_dtype)
-
-    return resampled
-
-
-# data types to compile for
-ctypedef fused datatype:
-    cython.char
-    cython.uchar
-    cython.short
-    cython.ushort
-    cython.int
-    cython.uint
-    cython.long
-    cython.ulong
-    cython.float
-    cython.double
+    # convert back to original type
+    return resampled.astype(source.dtype)
 
 
 @cython.boundscheck(False)
@@ -152,7 +119,7 @@ def interp_3d_fortran_nearest(const datatype[::1, :, :, :] source,
     cdef Py_ssize_t z_max = target_shape[2]
 
     # fill value
-    cdef datatype fill = fill_value
+    cdef float fill = fill_value
 
     # intermediate variables
     cdef Py_ssize_t x, y, z, f
@@ -161,20 +128,8 @@ def interp_3d_fortran_nearest(const datatype[::1, :, :, :] source,
     cdef float ix, iy, iz
     cdef Py_ssize_t sx_idx, sy_idx, sz_idx
 
-    # allocate the target image
-    if   datatype is cython.char:   np_type = np.int8
-    elif datatype is cython.uchar:  np_type = np.uint8
-    elif datatype is cython.short:  np_type = np.int16
-    elif datatype is cython.ushort: np_type = np.uint16
-    elif datatype is cython.int:    np_type = np.int32
-    elif datatype is cython.uint:   np_type = np.uint32
-    elif datatype is cython.long:   np_type = np.int64
-    elif datatype is cython.ulong:  np_type = np.uint64
-    elif datatype is cython.float:  np_type = np.float32
-    elif datatype is cython.double: np_type = np.float64
-
-    target = np.zeros([x_max, y_max, z_max, frames], dtype=np_type, order='F')
-    cdef datatype[::1, :, :, :] target_view = target
+    target = np.zeros([x_max, y_max, z_max, frames], dtype=np.float32, order='F')
+    cdef float[::1, :, :, :] target_view = target
 
     # extract affine matrix values
     cdef float mat00, mat01, mat02, mat03

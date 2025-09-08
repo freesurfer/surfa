@@ -19,6 +19,7 @@ class tags:
     gcamorph_labels = 12
     gcamorph_meta = 13    # introduced for mgz warpfield
     gcamorph_affine = 14  # introduced for mgz warpfield (m3z outputs the same information under xform)
+    gcamorph_geom_plusshear = 15  # information output under gcamorph_geom + shear components
     old_surf_geom = 20
     surf_geom = 21
     surf_dataspace = 22   # surface tag - surface [x y z] space
@@ -123,7 +124,9 @@ def read_binary_lookup_table(file):
     version = iou.read_bytes(file, '>i4')
     max_id = iou.read_bytes(file, '>i4')
     file_name_size = iou.read_bytes(file, '>i4')
-    file.read(file_name_size).decode('utf-8')
+    # if the file comes from surfa.io.fsio.write_binary_lookup_table(), file_name_size = 0.
+    # if the file comes from freesurfer/utils/colortab.cpp::znzCTABwriteIntoBinaryV2(), file_name_size > 0.
+    file.read(file_name_size)#.decode('utf-8')
     
     total = iou.read_bytes(file, '>i4')
     if total < 1:
@@ -154,6 +157,8 @@ def write_binary_lookup_table(file, labels):
     iou.write_bytes(file, -2, '>i4')
     iou.write_bytes(file, max(labels) + 1, '>i4')
     iou.write_bytes(file, 0, '>i4')
+    # filename length is set to 0, here filename associated with Labels is not output.
+    # this is different from freesurfer/utils/colortab.cpp::znzCTABwriteIntoBinaryV2().
     iou.write_bytes(file, len(labels), '>i4')
     for index, element in labels.items():
         iou.write_bytes(file, index, '>i4')
