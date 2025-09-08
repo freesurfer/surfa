@@ -726,3 +726,84 @@ class Mesh:
         unfixed = self.copy()
         unfixed.vertices = vertices
         return unfixed
+
+
+def is_mesh_castable(obj):
+    """
+    Determine if an object is castable to a `Mesh`
+
+    Parameters
+    ----------
+    obj : any
+        Object to cast.
+
+    Returns
+    -------
+    bool
+        True if castable to `Mesh`.
+    """
+    if isinstance(obj, Mesh):
+        return True
+
+    # check if the input is a voxel mesh
+    try:
+        import voxel as vx
+        if isinstance(obj, vx.Mesh):
+            return True
+    except ImportError:
+        pass
+
+    # as a final test, check if the input is a trimesh
+    try:
+        import trimesh
+        if isinstance(obj, trimesh.Trimesh):
+            return True
+    except ImportError:
+        pass
+
+    return False
+
+
+def cast_mesh(obj, allow_none=True, copy=False):
+    """
+    Cast object to `Mesh`
+
+    Parameters
+    ----------
+    obj : any
+        Object to cast.
+    allow_none : bool
+        Allow for `None` to be successfully passed and returned by cast.
+    copy : bool
+        Return copy if object is already the correct type.
+
+    Returns
+    -------
+    Mesh or None
+        Casted mesh.
+    """
+    if obj is None and allow_none:
+        return obj
+
+    if isinstance(obj, Mesh):
+        return obj.copy() if copy else obj
+
+    # check if the input is a voxel mesh
+    try:
+        import voxel as vx
+        if isinstance(obj, vx.Mesh):
+            return Mesh(obj.vertices.detach().cpu().numpy(),
+                        obj.faces.detach().cpu().numpy(),
+                        space='world')
+    except ImportError:
+        pass
+
+    # as a final test, check if the input is a trimesh
+    try:
+        import trimesh
+        if isinstance(obj, trimesh.Trimesh):
+            return Mesh(obj.vertices, obj.faces, space='world')
+    except ImportError:
+        pass
+
+    raise ValueError('cannot convert type %s to mesh' % type(obj).__name__)
