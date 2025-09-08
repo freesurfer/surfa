@@ -1,0 +1,3 @@
+include pyproject.toml
+recursive-include surfa *.pyx *.pxd *.pxi *.h
+recursive-exclude surfa *.c
