@@ -393,7 +393,7 @@ class MGHArrayIO(protocol.IOProtocol):
             # determine supported dtype to save as (order here is very important)
             type_map = {
                 np.uint8: 0,
-                np.bool8: 0,
+                np.bool_: 0,
                 np.int32: 1,
                 np.floating: 3,
                 np.int16: 4,
@@ -563,7 +563,7 @@ class NiftiArrayIO(protocol.IOProtocol):
 
         # convert to a valid output type (for now this is only bool but there are probably more)
         type_map = {
-            np.bool8: np.uint8,
+            np.bool_: np.uint8,
         }
         dtype_id = next((i for dt, i in type_map.items() if np.issubdtype(arr.dtype, dt)), None)
         data = arr.data if dtype_id is None else arr.data.astype(dtype_id)

@@ -4,6 +4,8 @@ import numpy as np
 cimport cython
 cimport numpy as np
 
+np.import_array()
+
 from libc.math cimport floor
 from libc.math cimport round
 
@@ -97,7 +99,7 @@ def interpolate(source, target_shape, method, affine=None, disp=None, fill=0):
 
     # a few types aren't supported, so let's just convert to float and convert back if necessary
     unsupported_dtype = None
-    if source.dtype in (np.bool8,):
+    if source.dtype in (np.bool_,):
         unsupported_dtype = source.dtype
         source = source.astype(np.float32)
 
@@ -131,7 +133,7 @@ ctypedef fused datatype:
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def interp_3d_fortran_nearest(const datatype[::1, :, :, :] source,
-                              np.ndarray[np.int_t, ndim=1] target_shape,
+                              np.ndarray[np.intp_t, ndim=1] target_shape,
                               const float[:, ::1] mat,
                               const float[::1, :, :, :] disp,
                               datatype fill_value,
@@ -243,7 +245,7 @@ def interp_3d_fortran_nearest(const datatype[::1, :, :, :] source,
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def interp_3d_fortran_linear(const datatype[::1, :, :, :] source,
-                             np.ndarray[np.int_t, ndim=1] target_shape,
+                             np.ndarray[np.intp_t, ndim=1] target_shape,
                              const float[:, ::1] mat,
                              const float[::1, :, :, :] disp,
                              datatype fill_value,
@@ -381,7 +383,7 @@ def interp_3d_fortran_linear(const datatype[::1, :, :, :] source,
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def interp_3d_contiguous_nearest(const datatype[:, :, :, ::1] source,
-                                 np.ndarray[np.int_t, ndim=1] target_shape,
+                                 np.ndarray[np.intp_t, ndim=1] target_shape,
                                  const float[:, ::1] mat,
                                  const float[:, :, :, ::1] disp,
                                  datatype fill_value,
@@ -493,7 +495,7 @@ def interp_3d_contiguous_nearest(const datatype[:, :, :, ::1] source,
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def interp_3d_contiguous_linear(const datatype[:, :, :, ::1] source,
-                                np.ndarray[np.int_t, ndim=1] target_shape,
+                                np.ndarray[np.intp_t, ndim=1] target_shape,
                                 const float[:, ::1] mat,
                                 const float[:, :, :, ::1] disp,
                                 datatype fill_value,
