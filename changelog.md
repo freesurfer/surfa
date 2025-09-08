@@ -2,7 +2,11 @@
 
 All notable changes to the surfa package are documented in this file.
 
-## [0.6.0] - 2024-09-20
+## [0.6.2] - 2025-09-08
+- Added support for voxel package conversions
+- Added complete fix for numpy 2 builds
+
+## [0.6.1] - 2024-09-20
 - Added temporary fix to prevent numpy 2 build errors
 
 ## [0.6.0] - 2023-06-30
