@@ -863,8 +863,18 @@ def cast_image(obj, allow_none=True, copy=False, fallback_geom=None):
     if getattr(obj, '__array__', None) is not None:
         return Volume(np.array(obj), geometry=fallback_geom)
 
-    # as a final test, check if the input is possibly a nibabel image
-    # we don't want nibabel to be required though, so ignore import errors
+    # check if the input is a voxel volume
+    try:
+        import voxel as vx
+        if isinstance(obj, vx.Volume):
+            data = obj.tensor.movedim(0, -1).cpu().detach().numpy()
+            matrix = obj.geometry.tensor.cpu().detach().numpy()
+            geometry = ImageGeometry(data.shape[:3], vox2world=matrix)
+            return Volume(data, geometry=geometry)
+    except ImportError:
+        pass
+
+    # as a final test, check if the input is a nibabel image
     try:
         import nibabel as nib
         if isinstance(obj, nib.spatialimages.SpatialImage):
