@@ -301,7 +301,7 @@ class MGHArrayIO(protocol.IOProtocol):
             scan_params = {}
             fbytes = file.read(np.dtype('>f4').itemsize)
             if fbytes:
-                scan_params['tr'] = np.fromstring(fbytes, dtype='>f4')
+                scan_params['tr'] = np.frombuffer(fbytes, dtype='>f4')
                 scan_params['fa'] = read_bytes(file, dtype='>f4')
                 scan_params['te'] = read_bytes(file, dtype='>f4')
                 scan_params['ti'] = read_bytes(file, dtype='>f4')
