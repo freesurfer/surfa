@@ -1,2 +1,7 @@
 [build-system]
-requires = ['setuptools', 'wheel', 'Cython>=3.0', 'numpy']
+requires = ['setuptools', 'wheel', 'Cython>=3.0', 'numpy>=2']
+
+[tool.cibuildwheel]
+skip = ["*-musllinux*", "cp38-*", "cp39-*", "cp314t-*"]
+archs = "native"
+test-command = "python -c \"import surfa; print(surfa.__version__)\""
