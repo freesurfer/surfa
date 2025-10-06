@@ -36,9 +36,6 @@ extensions = [
     Extension('surfa.mesh.intersection', [f'surfa/mesh/intersection.pyx'], **ext_opts),
 ]
 
-from Cython.Build import cythonize
-extensions = cythonize(extensions, compiler_directives={'language_level' : '3'})
-
 # since we interface the c stuff with numpy, it's another hard
 # requirement at build-time
 import numpy as np

@@ -1,0 +1,97 @@
+# Build wheels, sdist, and upload to PyPI
+
+# code adapted from antio and openmeeg
+
+name: Build
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number }}-${{ github.event.ref }}
+  cancel-in-progress: true
+on:  # yamllint disable-line rule:truthy
+  pull_request:
+  push:
+    branches: [main, cbw]
+  workflow_dispatch:
+  release:
+    types: [published]
+
+jobs:
+  build_wheels:
+    name: Wheels ${{ matrix.os }} ${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, windows-latest, macos-15-intel, macos-latest]  # windows-11-arm
+        arch: [native]
+        # TODO: Someday this can be enabled, but need to add emulation and it's slow,
+        # can use docker/setup-qemu-action
+        # include:
+        #   - os: ubuntu-latest
+        #     arch: aarch64
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pypa/cibuildwheel@v3.2.0
+        with:
+          output-dir: wheelhouse
+        env:
+          CIBW_ARCHS: ${{ matrix.arch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
+          path: ./wheelhouse/*.whl
+
+  sdist:
+    timeout-minutes: 10
+    name: Create sdist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv build --sdist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cibw-wheels-sdist
+          path: ./dist/*.tar.gz
+
+  check:
+    needs: [build_wheels, sdist]
+    timeout-minutes: 10
+    name: run twine check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: cibw-wheels-*
+          merge-multiple: true
+          path: dist
+      - run: ls -alt . && ls -alt dist/
+      - uses: astral-sh/setup-uv@v6
+        with:
+          activate-environment: true
+      - run: uv pip install twine -q --upgrade
+      - run: twine check --strict dist/*
+
+  publish:
+    if: ${{ github.repository == 'freesurfer/surfa' && github.event_name == 'release' }}
+    needs: [check]
+    name: publish PyPI
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    environment:
+      name: pypi
+      url: https://pypi.org/p/surfa
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: cibw-wheels-*
+          merge-multiple: true
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          tag_name: ${{ github.event.release.tag_name }}
