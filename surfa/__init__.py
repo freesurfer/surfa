@@ -37,3 +37,7 @@ from .io import load_timeseries
 from . import vis
 from . import freesurfer
 from . import pipeline
+
+from .logger import get_logger
+from .logger import get_log_level
+from .logger import set_log_level
