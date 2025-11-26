@@ -2,6 +2,27 @@
 requires = ['setuptools', 'wheel', 'Cython>=3.0', 'numpy>=2']
 
 [tool.cibuildwheel]
-skip = ["*-musllinux*", "cp38-*", "cp39-*", "cp314t-*"]
+build = ["cp3{10,11}-*"]
 archs = "native"
+before-build = "pip install abi3audit"
 test-command = "python -c \"import surfa; print(surfa.__version__)\""
+
+[tool.cibuildwheel.linux]
+repair-wheel-command = [
+  "auditwheel repair -w {dest_dir} {wheel}",
+  "bash tools/audit_wheel.sh {wheel}",
+]
+
+[tool.cibuildwheel.macos]
+archs = ["native"]
+repair-wheel-command = [
+  "delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}",
+  "bash tools/audit_wheel.sh {wheel}",
+]
+
+[tool.cibuildwheel.windows]
+before-build = "pip install delvewheel abi3audit"
+repair-wheel-command = [
+  "delvewheel repair -w {dest_dir} {wheel}",
+  "bash tools/audit_wheel.sh {wheel}",
+]
