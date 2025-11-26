@@ -2,10 +2,24 @@
 
 import re
 import pathlib
+import platform
+import sys
 
 from setuptools import setup
 from setuptools import dist
 from setuptools.extension import Extension
+from wheel.bdist_wheel import bdist_wheel
+
+
+# https://github.com/joerick/python-abi3-package-sample/blob/main/setup.py
+class bdist_wheel_abi3(bdist_wheel):  # noqa: D101
+    def get_tag(self):  # noqa: D102
+        python, abi, plat = super().get_tag()
+
+        if python.startswith("cp"):
+            return "cp311", "abi3", plat
+
+        return python, abi, plat
 
 
 requirements = [
@@ -30,7 +44,17 @@ packages = [
 base_dir = pathlib.Path(__file__).parent.resolve()
 
 # configure c extensions
-ext_opts = dict(extra_compile_args=['-O3', '-std=c99'])
+ext_opts = dict(
+    extra_compile_args=['-O3', '-std=c99'],
+    define_macros=[('NPY_NO_DEPRECATED_API', 'NPY_1_7_API_VERSION')],
+)
+macros = []
+setup_opts = {}
+if sys.version_info.minor >= 11 and platform.python_implementation() == "CPython":
+    # Can create an abi3 wheel (typed memoryviews first available in 3.11)!
+    ext_opts["define_macros"].append(("Py_LIMITED_API", "0x030B0000"))
+    ext_opts["py_limited_api"] = True
+    setup_opts["cmdclass"] = {"bdist_wheel": bdist_wheel_abi3}
 extensions = [
     Extension('surfa.image.interp', [f'surfa/image/interp.pyx'], **ext_opts),
     Extension('surfa.mesh.intersection', [f'surfa/mesh/intersection.pyx'], **ext_opts),
@@ -81,4 +105,5 @@ setup(
         'Natural Language :: English',
         'Topic :: Scientific/Engineering',
     ],
+    **setup_opts,
 )
