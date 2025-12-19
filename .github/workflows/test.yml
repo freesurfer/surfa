@@ -36,7 +36,7 @@ jobs:
       run : python -c "import surfa; print('surfa imported successfully')"
 
     - name: Run tests
-      working-directory: test
+      #working-directory: test
       # simple test for now checking whether general import works
       # we should soon get some actual pytest scripts running
       run: |
