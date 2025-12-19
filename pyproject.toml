@@ -1,5 +1,5 @@
 [build-system]
-requires = ['setuptools', 'wheel', 'Cython>=3.0', 'numpy>=2']
+requires = ['setuptools', 'wheel', 'Cython>=3.0', 'numpy']
 
 [tool.cibuildwheel]
 build = ["cp3{10,11}-*"]
