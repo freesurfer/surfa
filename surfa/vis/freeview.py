@@ -126,7 +126,7 @@ class Freeview:
             mesh_filename = mesh
         else:
             mesh = cast_mesh(mesh, allow_none=False)
-            mesh_filename = _unique_filename('mesh', '', self.tempdir)
+            mesh_filename = _unique_filename('mesh', 'srf', self.tempdir)
             mesh.save(mesh_filename)
             if self.debug:
                 print(f'wrote mesh to {mesh_filename}')
@@ -170,8 +170,8 @@ class Freeview:
         if name is not None:
             tags += f':name={name}'
         
-        # add the path to the temp vol to the internal list of volumes
-        self._meshes.append(filename)
+        # add the path to the temp mesh to the internal list of meshes
+        self._meshes.append(mesh_filename)
 
         # configure the corresponding freeview argument
         self.arguments.append('-f ' + mesh_filename + tags + _convert_kwargs_to_tags(kwargs))
