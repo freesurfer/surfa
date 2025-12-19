@@ -24,7 +24,7 @@ jobs:
     
     - name: Display python and system info
       run: |
-        python -c "import sys; print(f'python {sys.version}'})"
+        python -c "import sys; print(f'python {sys.version}}')"
         python -c "import platform; print(f'platform {platform.machine()}')"
 
     - name: Install package
@@ -33,7 +33,7 @@ jobs:
 
     - name: Import test
       # simple test for now checking whether general import works
-      run : python -c 'import surfa'; print("surfa imported successfully")
+      run : python -c "import surfa; print('surfa imported successfully')"
 
     - name: Run tests
       working-directory: test
