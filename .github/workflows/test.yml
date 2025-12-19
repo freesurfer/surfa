@@ -24,7 +24,7 @@ jobs:
     
     - name: Display python and system info
       run: |
-        python -c "import sys; print(f'python {sys.version}}')"
+        python -c "import sys; print(f'python {sys.version}')"
         python -c "import platform; print(f'platform {platform.machine()}')"
 
     - name: Install package
