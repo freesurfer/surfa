@@ -11,7 +11,7 @@ jobs:
       max-parallel: 5
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04, ubuntu-22.04, ubuntu-24.04, macos-13, macos-14]
+        os: [ubuntu-22.04, ubuntu-24.04, macos-14, macos-15, macos-15-intel]
         python-version: ['3.8', '3.9', '3.10', '3.11']
 
     steps:
@@ -24,7 +24,7 @@ jobs:
     
     - name: Display python and system info
       run: |
-        python -c "import sys; print(f'python {sys.version}}')"
+        python -c "import sys; print(f'python {sys.version}')"
         python -c "import platform; print(f'platform {platform.machine()}')"
 
     - name: Install package
@@ -36,7 +36,7 @@ jobs:
       run : python -c "import surfa; print('surfa imported successfully')"
 
     - name: Run tests
-      working-directory: test
+      #working-directory: test
       # simple test for now checking whether general import works
       # we should soon get some actual pytest scripts running
       run: |
