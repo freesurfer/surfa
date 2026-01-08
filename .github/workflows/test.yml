@@ -1,26 +1,49 @@
 name: Package Test
 
-on: [push]
+on:
+  push:
+  pull_request:
 
 jobs:
-  build-linux:
-    runs-on: ubuntu-latest
+  test:
+    runs-on: ${{ matrix.os }}
     strategy:
       max-parallel: 5
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04, macos-14, macos-15, macos-15-intel]
+        python-version: ['3.8', '3.9', '3.10', '3.11']
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
-    - name: Set up Python 3.8
-      uses: actions/setup-python@v3
+    - name: Set up Python
+      uses: actions/setup-python@v5
       with:
-        python-version: 3.8
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Display python and system info
+      run: |
+        python -c "import sys; print(f'python {sys.version}')"
+        python -c "import platform; print(f'platform {platform.machine()}')"
 
     - name: Install package
-      run: pip install .
+      # need the -e flag so pytest can report coverage
+      run: pip install -e .
+
+    - name: Import test
+      # simple test for now checking whether general import works
+      run : python -c "import surfa; print('surfa imported successfully')"
 
     - name: Run tests
-      working-directory: test
+      #working-directory: test
       # simple test for now checking whether general import works
       # we should soon get some actual pytest scripts running
-      run: python -c 'import surfa'
+      run: |
+        pip install pytest pytest-cov
+        if [ -d "test" ]; then
+          pytest --cov=surfa --cov-report=term -v
+        else
+          echo "No test directory, skipping"
+        fi
+      shell: bash
