@@ -1,8 +1,13 @@
 [build-system]
-requires = ['setuptools', 'wheel', 'Cython>=3.0', 'numpy']
+# Cython 3.1+ needed for proper abi3 support
+# Should change to `numpy >=2,<3` when NumPy 1.x support is dropped
+requires = ['setuptools', 'wheel', 'Cython>=3.1', 'numpy']
 
 [tool.cibuildwheel]
 build = ["cp3{8,9,10,11}-*"]
+skip = [
+  "cp38-*musl*",  # no SciPy wheels, no need to make them for us
+]
 archs = "native"
 before-build = "pip install abi3audit"
 test-command = "python -c \"import surfa; print(surfa.__version__)\""
