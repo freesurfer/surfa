@@ -125,7 +125,7 @@ jobs:
   check:
     needs: [build_wheels, sdist]
     timeout-minutes: 10
-    name: run twine check
+    name: Twine check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
