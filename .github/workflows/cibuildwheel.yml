@@ -13,8 +13,10 @@ on:  # yamllint disable-line rule:truthy
       - 'v*.*.*'
     branches:
       - master
-  # In a PR, needs "[wheels]" in the message to run
-  # In a PR, needs "[musl]" in the message to build musl wheels
+  # A PR's commit message:
+  # - Containing "[wheels]" will build all wheels
+  # - Containing "[wheels thin]" will build just the wheels required for testing
+  # Non-PR triggers build all wheels.
   pull_request:
     branches:
       - master
@@ -44,11 +46,11 @@ jobs:
             echo "Got commit message: $MSG"
             if echo "$MSG" | grep -iq '\[wheels\]'; then
               PROCEED=true
+            elif echo "$MSG" | grep -iq '\[wheels thin\]'; then
+              PROCEED=true
+              CIBW_SKIP="*musllinux* cp39-* cp310-*"
             else
               PROCEED=false
-            fi
-            if ! echo "$MSG" | grep -iq '\[musl\]'; then
-              CIBW_SKIP="*musllinux*"
             fi
           fi
           echo "PROCEED=$PROCEED" | tee -a $GITHUB_OUTPUT
@@ -65,11 +67,11 @@ jobs:
         os: [ubuntu-latest, ubuntu-24.04-arm, macos-15, macos-15-intel, windows-latest]  # windows-11-arm
       fail-fast: false
     steps:
-      - uses: actions/checkout@v5
-      - uses: pypa/cibuildwheel@v3.2.0
+      - uses: actions/checkout@v6
+      - uses: pypa/cibuildwheel@v3.3.1
         env:
           CIBW_SKIP: ${{ needs.check-commit.outputs.cibw_skip }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
           path: ./wheelhouse/*.whl
@@ -89,7 +91,7 @@ jobs:
         python: ['3.8', '3.14']
       fail-fast: false
     steps:
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v6
         with:
           pattern: cibw-wheels-*
           merge-multiple: true
@@ -123,10 +125,10 @@ jobs:
     name: Create sdist
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v6
       - run: uv build --sdist
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: cibw-wheels-sdist
           path: ./dist/*.tar.gz
@@ -137,8 +139,8 @@ jobs:
     name: Twine check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v5
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v6
         with:
           pattern: cibw-wheels-*
           merge-multiple: true
@@ -162,7 +164,7 @@ jobs:
       url: https://pypi.org/p/surfa
     timeout-minutes: 10
     steps:
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v6
         with:
           pattern: cibw-wheels-*
           merge-multiple: true
