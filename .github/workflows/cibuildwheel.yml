@@ -7,6 +7,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.number }}-${{ github.event.ref }}
   cancel-in-progress: true
 on:  # yamllint disable-line rule:truthy
+  # Non-PR triggers build all wheels.
   workflow_dispatch:
   push:
     tags:
@@ -15,8 +16,7 @@ on:  # yamllint disable-line rule:truthy
       - master
   # A PR's commit message:
   # - Containing "[wheels]" will build all wheels
-  # - Containing "[wheels thin]" will build just the wheels required for testing
-  # Non-PR triggers build all wheels.
+  # - Containing "[wheels thin]" will build just the wheels required for testing (3.8, 3.11-abi3)
   pull_request:
     branches:
       - master
@@ -24,7 +24,7 @@ on:  # yamllint disable-line rule:truthy
 jobs:
   # Adapted from dipy (BSD)
   check-commit:
-    name: Check [wheels] and [musl] in commit message
+    name: Triage wheel build
     runs-on: ubuntu-latest
     outputs:
       proceed: ${{ steps.commit-message.outputs.PROCEED }}
@@ -48,7 +48,8 @@ jobs:
               PROCEED=true
             elif echo "$MSG" | grep -iq '\[wheels thin\]'; then
               PROCEED=true
-              CIBW_SKIP="*musllinux* cp39-* cp310-*"
+              # We don't need the Intel macOS or Ubuntu aarch64 builds at all
+              CIBW_SKIP="*musllinux* cp39-* cp310-* cp*-macosx_*_x86_64" cp*-*linux*aarch64"
             else
               PROCEED=false
             fi
@@ -71,6 +72,7 @@ jobs:
       - uses: pypa/cibuildwheel@v3.3.1
         env:
           CIBW_SKIP: ${{ needs.check-commit.outputs.cibw_skip }}
+          CIBW_ALLOW_EMPTY: "True"
       - uses: actions/upload-artifact@v6
         with:
           name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
