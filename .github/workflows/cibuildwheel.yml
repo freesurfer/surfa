@@ -86,7 +86,7 @@ jobs:
       matrix:
         os: [ubuntu-22.04, macos-14, windows-2022]
         # oldest using oldest deps, one with newest using prerelease deps
-        python: ['3.8', '3.11', '3.14']
+        python: ['3.8', '3.14']
       fail-fast: false
     steps:
       - uses: actions/download-artifact@v5
