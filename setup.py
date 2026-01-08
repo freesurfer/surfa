@@ -93,7 +93,7 @@ setup(
     author='Andrew Hoopes',
     author_email='freesurfer@nmr.mgh.harvard.edu',
     url='https://github.com/freesurfer/surfa',
-    python_requires='>=3.6',
+    python_requires='>=3.8',
     packages=packages,
     ext_modules=extensions,
     include_dirs=include_dirs,
