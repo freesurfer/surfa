@@ -109,7 +109,7 @@ jobs:
           if [[ "${{ matrix.python }}" == "3.8" ]]; then
             NUMPY_SCIPY="numpy==1.23 scipy==1.8"
           elif [[ "${{ matrix.python }}" == "3.14" ]]; then
-            NUMPY_SCIPY="numpy scipy --pre --extra-index-url=https://pypi.anaconda.org/scipy-wheels-nightly/simple"
+            NUMPY_SCIPY="numpy scipy --pre --extra-index-url="https://pypi.anaconda.org/scientific-python-nightly-wheels/simple"
           fi
           echo "NUMPY_SCIPY=$NUMPY_SCIPY" | tee -a $GITHUB_ENV
           if [[ "${{ runner.os }}" == "Windows"* ]]; then
