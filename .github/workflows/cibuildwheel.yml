@@ -1,26 +1,26 @@
 # Build wheels, sdist, and upload to PyPI
 
 # code adapted from antio and openmeeg
+# TODO: once numpy 1 support is dropped, enable these jobs; set to only run on
+# tagged releases, and only if the test.yml workflow is successful 
 
 name: Build
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.number }}-${{ github.event.ref }}
   cancel-in-progress: true
 on:  # yamllint disable-line rule:truthy
-  pull_request:
-  push:
-    branches: [main, cbw]
   workflow_dispatch:
   release:
     types: [published]
 
 jobs:
   build_wheels:
+    if: false # disabeling until we can drop support for numpy 1
     name: Wheels ${{ matrix.os }} ${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm, windows-latest, macos-15-intel, macos-latest]  # windows-11-arm
+        os: [ubuntu-22.04, ubuntu-24.04, macos-14, macos-15, macos-15-intel]  # windows-11 windows-11-arm
         arch: [native]
         # TODO: Someday this can be enabled, but need to add emulation and it's slow,
         # can use docker/setup-qemu-action
