@@ -13,6 +13,8 @@ on:  # yamllint disable-line rule:truthy
       - 'v*.*.*'
     branches:
       - master
+  # In a PR, needs "[wheels]" in the message to run
+  # In a PR, needs "[musl]" in the message to build musl wheels
   pull_request:
     branches:
       - master
@@ -20,10 +22,11 @@ on:  # yamllint disable-line rule:truthy
 jobs:
   # Adapted from dipy (BSD)
   check-commit:
-    name: Check [wheels] in commit message
+    name: Check [wheels] and [musl] in commit message
     runs-on: ubuntu-latest
     outputs:
       proceed: ${{ steps.commit-message.outputs.PROCEED }}
+      cibw_skip: ${{ steps.commit-message.outputs.CIBW_SKIP }}
     defaults:
       run:
         shell: bash -el {0}
@@ -34,6 +37,8 @@ jobs:
       - name: Check commit message for [wheels]
         id: commit-message
         run: |
+          PROCEED=true
+          CIBW_SKIP="cp38-*musllinux* cp39-musllinux_aarch64"
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             MSG=$(git show -s --format=%s ${{ github.event.pull_request.head.sha }})
             echo "Got commit message: $MSG"
@@ -42,13 +47,15 @@ jobs:
             else
               PROCEED=false
             fi
-          else
-            PROCEED=true
+            if ! echo "$MSG" | grep -iq '\[musl\]'; then
+              CIBW_SKIP="*musllinux*"
+            fi
           fi
           echo "PROCEED=$PROCEED" | tee -a $GITHUB_OUTPUT
+          echo "CIBW_SKIP=$CIBW_SKIP" | tee -a $GITHUB_OUTPUT
 
   build_wheels:
-    name: Wheels ${{ matrix.os }} ${{ matrix.arch }}
+    name: Wheels ${{ matrix.os }}
     needs: [check-commit]
     if: needs.check-commit.outputs.proceed == 'true'
     runs-on: ${{ matrix.os }}
@@ -56,24 +63,15 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, ubuntu-24.04-arm, macos-15, macos-15-intel, windows-latest]  # windows-11-arm
-        arch: [native]
-        # TODO: Someday this can be enabled, but need to add emulation and it's slow,
-        # can use docker/setup-qemu-action
-        # include:
-        #   - os: ubuntu-latest
-        #     arch: aarch64
       fail-fast: false
-
     steps:
       - uses: actions/checkout@v5
       - uses: pypa/cibuildwheel@v3.2.0
-        with:
-          output-dir: wheelhouse
         env:
-          CIBW_ARCHS: ${{ matrix.arch }}
+          CIBW_SKIP: ${{ needs.check-commit.outputs.cibw_skip }}
       - uses: actions/upload-artifact@v4
         with:
-          name: cibw-wheels-${{ runner.os }}-${{ strategy.job-index }}
+          name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
           path: ./wheelhouse/*.whl
 
   test_wheels:
@@ -87,8 +85,9 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-22.04, macos-14, macos-14-intel, windows-11]
-        python: [3.8, 3.14]  # old, newest (including pip-prelease)
-        arch: [native]
+        # oldest using oldest deps, newest using prerelease deps
+        python: ['3.8', '3.14']
+      fail-fast: false
     steps:
       - uses: actions/download-artifact@v5
         with:
