@@ -84,9 +84,9 @@ jobs:
         shell: bash -el {0}
     strategy:
       matrix:
-        os: [ubuntu-22.04, macos-14, macos-14-intel, windows-11]
-        # oldest using oldest deps, newest using prerelease deps
-        python: ['3.8', '3.14']
+        os: [ubuntu-22.04, macos-14, windows-2022]
+        # oldest using oldest deps, one with newest using prerelease deps
+        python: ['3.8', '3.11', '3.14']
       fail-fast: false
     steps:
       - uses: actions/download-artifact@v5
@@ -97,10 +97,15 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       # Choose versions from 2022 (somewhat arbitrarily)
-      - run: python -m pip install numpy==1.23 scipy=1.8 nibabel pillow xxhash --only-binary="numpy,scipy,nibabel,pillow,xxhash"
-        if: matrix.python == '3.8'
-      - run: python -m pip install --pre --upgrade numpy scipy nibabel pillow xxhash --only-binary="numpy,scipy,nibabel,pillow,xxhash" --extra-index-url=https://pypi.anaconda.org/scipy-wheels-nightly/simple
-        if: matrix.python == '3.14'
+      - run: |
+          NUMPY_SCIPY="numpy scipy"
+          if [[ "${{ matrix.python }}" == "3.8" ]]; then
+            NUMPY_SCIPY="numpy==1.23 scipy==1.8"
+          elif [[ "${{ matrix.python }}" == "3.14" ]]; then
+            NUMPY_SCIPY="numpy scipy --pre --extra-index-url=https://pypi.anaconda.org/scipy-wheels-nightly/simple"
+          fi
+          set -x
+          python -m pip install $NUMPY_SCIPY nibabel pillow xxhash --only-binary=":all:"
       - run: pip install --no-index --find-links=file://${PWD}/dist surfa
       - run: python -c "import surfa; print(surfa.__version__)"
 
