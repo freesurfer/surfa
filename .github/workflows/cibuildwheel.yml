@@ -14,9 +14,9 @@ on:  # yamllint disable-line rule:truthy
       - 'v*.*.*'
     branches:
       - master
-  # A PR's commit message:
-  # - Containing "[wheels]" will build all wheels
-  # - Containing "[wheels thin]" will build just the wheels required for testing (3.8, 3.11-abi3)
+  # A PR's commit message containing the following text will build:
+  # - "[wheels]" : all wheels
+  # - "[wheels thin]" : just the wheels required for the test_wheels jobs (3.8, 3.11-abi3)
   pull_request:
     branches:
       - master
@@ -119,7 +119,7 @@ jobs:
           fi
           echo "FIND_LINKS=$FIND_LINKS" | tee -a $GITHUB_ENV
       - run: pip install $NUMPY_SCIPY nibabel pillow xxhash --only-binary=":all:"
-      - run: pip install --no-index $FIND_LINKS surfa
+      - run: pip install --no-index --find-links=$FIND_LINKS surfa
       - run: python -c "import surfa; print(surfa.__version__)"
 
   sdist:
