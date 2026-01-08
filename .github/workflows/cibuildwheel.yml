@@ -49,7 +49,7 @@ jobs:
             elif echo "$MSG" | grep -iq '\[wheels thin\]'; then
               PROCEED=true
               # We don't need the Intel macOS or Ubuntu aarch64 builds at all
-              CIBW_SKIP="*musllinux* cp39-* cp310-* *-macosx_*_x86_64 *-*linux*aarch64"
+              CIBW_SKIP="*musllinux* cp39-* cp310-* *-macosx*x86_64 *-*linux*aarch64"
             else
               PROCEED=false
             fi
