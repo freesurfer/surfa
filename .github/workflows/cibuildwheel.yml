@@ -93,15 +93,15 @@ jobs:
         python: ['3.8', '3.14']
       fail-fast: false
     steps:
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python }}
       - uses: actions/download-artifact@v6
         with:
           pattern: cibw-wheels-*
           merge-multiple: true
           path: dist
       - run: ls -alt dist/
-      - uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python }}
       # Choose versions from 2022 (somewhat arbitrarily)
       - name: Triage env vars
         run: |
