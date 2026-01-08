@@ -112,14 +112,8 @@ jobs:
             NUMPY_SCIPY="numpy scipy --pre --extra-index-url=https://pypi.anaconda.org/scientific-python-nightly-wheels/simple"
           fi
           echo "NUMPY_SCIPY=$NUMPY_SCIPY" | tee -a $GITHUB_ENV
-          if [[ "${{ runner.os }}" == "Windows"* ]]; then
-            FIND_LINKS="file://$(cygpath -w ${PWD})\dist"
-          else
-            FIND_LINKS="file://${PWD}/dist"
-          fi
-          echo "FIND_LINKS=$FIND_LINKS" | tee -a $GITHUB_ENV
       - run: pip install $NUMPY_SCIPY nibabel pillow xxhash --only-binary=":all:"
-      - run: pip install --no-index --find-links="$FIND_LINKS" surfa
+      - run: pip install --no-index --find-links=dist/ surfa
       - run: python -c "import surfa; print(surfa.__version__)"
 
   sdist:
