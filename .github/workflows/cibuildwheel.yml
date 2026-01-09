@@ -66,7 +66,7 @@ jobs:
     timeout-minutes: 20
     strategy:
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm, macos-15, macos-15-intel, windows-latest]  # windows-11-arm
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, macos-15-intel, windows-latest]  # windows-11-arm
       fail-fast: false
     steps:
       - uses: actions/checkout@v6
