@@ -150,7 +150,9 @@ jobs:
       - run: twine check --strict dist/*
 
   publish:
-    if: ${{ github.repository == 'freesurfer/surfa' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+    # once ready to cut wheels to PyPI (e.g., numpy 1 support is dropped), remove the
+    # "false &&" below
+    if: false && github.repository == 'freesurfer/surfa' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     needs: [check]
     name: publish PyPI
     runs-on: ubuntu-latest
