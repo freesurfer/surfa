@@ -29,7 +29,7 @@ repair-wheel-command = [
 ]
 
 [tool.cibuildwheel.windows]
-before-build = "pip install delvewheel abi3audit numpy scipy --only-binary=:all:\"numpy,scipy\""
+before-build = "pip install delvewheel abi3audit numpy scipy --only-binary=\"numpy,scipy\""
 repair-wheel-command = [
   "delvewheel repair -w {dest_dir} {wheel}",
   "bash tools/audit_wheel.sh {wheel}",

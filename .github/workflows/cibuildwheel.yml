@@ -14,7 +14,8 @@ on:  # yamllint disable-line rule:truthy
       - 'v*.*.*'
     branches:
       - master
-  # A PR's commit message containing the following text will build:
+  # By default, PRs do not build wheels (for speed/efficiency). However,
+  # a PR's commit message containing the following text will build:
   # - "[wheels]" : all wheels
   # - "[wheels thin]" : just the wheels required for the test_wheels jobs (3.8, 3.11-abi3)
   pull_request:
