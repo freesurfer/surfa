@@ -2,6 +2,14 @@ import warnings
 import gzip
 import numpy as np
 
+# NumPy compatibility: handle np.bool_ removal in NumPy 2.0
+# In NumPy 1.x, np.bool_ is the proper numpy boolean type
+# In NumPy 2.x, np.bool_ was removed and np.bool is the scalar type
+if hasattr(np, 'bool_'):
+    _np_bool_dtype = np.bool_  # NumPy 1.x
+else:
+    _np_bool_dtype = np.bool   # NumPy 2.x
+
 from surfa import Volume
 from surfa import Slice
 from surfa import Overlay
@@ -407,7 +415,7 @@ class MGHArrayIO(protocol.IOProtocol):
 
             # determine supported dtype to save as (order here is very important)
             type_map = {
-                np.bool_: 0,
+                _np_bool_dtype: 0,
                 np.uint8: 0,
                 np.int32: 1,
                 np.floating: 3,
@@ -670,7 +678,7 @@ class NiftiArrayIO(protocol.IOProtocol):
 
         # convert to a valid output type (for now this is only bool but there are probably more)
         type_map = {
-            np.bool_: np.uint8,
+            _np_bool_dtype: np.uint8,
         }
         dtype_id = next((i for dt, i in type_map.items() if np.issubdtype(arr.dtype, dt)), None)
         data = arr.data if dtype_id is None else arr.data.astype(dtype_id)

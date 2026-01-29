@@ -1,5 +1,13 @@
 import numpy as np
 
+# NumPy compatibility: handle np.int_ removal in NumPy 2.0
+# In NumPy 1.x, np.int_ is an alias for the platform's native int type
+# In NumPy 2.x, np.int_ was removed; use np.integer for type checking
+if hasattr(np, 'int_'):
+    _np_int_types = (np.int_, np.integer)  # NumPy 1.x: check both for safety
+else:
+    _np_int_types = (np.integer,)          # NumPy 2.x: only np.integer exists
+
 from surfa.io import fsio
 from surfa.io import utils as iou
 from surfa.transform.geometry import ImageGeometry
@@ -566,7 +574,7 @@ class FSNifti1Extension:
             self.version = 1
             self.intent = image.metadata.get('intent', FramedArrayIntents.mri)
             self.dof = 1
-            if isinstance(self.intent, np.int_):
+            if isinstance(self.intent, _np_int_types):
                 self.intent = self.intent.item()  # convert numpy int to python int
 
             if self.intent == FramedArrayIntents.warpmap:
