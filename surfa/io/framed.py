@@ -2,9 +2,8 @@ import warnings
 import gzip
 import numpy as np
 
-# NumPy compatibility: handle np.bool_ removal in NumPy 2.0
-# In NumPy 1.x, np.bool_ is the proper numpy boolean type
-# In NumPy 2.x, np.bool_ was removed and np.bool is the scalar type
+# NumPy compatibility: prefer the numpy boolean scalar dtype object.
+# `np.bool_` exists in both NumPy 1.x and 2.x; keep a fallback for safety.
 if hasattr(np, 'bool_'):
     _np_bool_dtype = np.bool_  # NumPy 1.x
 else:
