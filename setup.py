@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 import re
 import pathlib
 import platform
@@ -16,10 +17,14 @@ class bdist_wheel_abi3(bdist_wheel):  # noqa: D101
     def get_tag(self):  # noqa: D102
         python, abi, plat = super().get_tag()
 
+        # Only meaningful when we are *actually* building an abi3 wheel.
+        # We target cp311 as the minimum CPython that supports the features
+        # this project relies on for limited API mode.
         if python.startswith("cp"):
             return "cp311", "abi3", plat
 
         return python, abi, plat
+
 
 
 requirements = [
@@ -50,8 +55,10 @@ ext_opts = dict(
 )
 macros = []
 setup_opts = {}
-if sys.version_info.minor >= 11 and platform.python_implementation() == "CPython":
-    # Can create an abi3 wheel (typed memoryviews first available in 3.11)!
+
+ABI3 = (os.environ.get("SURFA_ABI3", "0") == "1")
+
+if ABI3 and sys.version_info >= (3, 11) and platform.python_implementation() == "CPython":
     ext_opts["define_macros"].append(("Py_LIMITED_API", "0x030B0000"))
     ext_opts["py_limited_api"] = True
     setup_opts["cmdclass"] = {"bdist_wheel": bdist_wheel_abi3}
@@ -63,6 +70,7 @@ extensions = [
 # since we interface the c stuff with numpy, it's another hard
 # requirement at build-time
 import numpy as np
+
 include_dirs = [np.get_include()]
 
 # extract the current version
@@ -97,7 +105,7 @@ setup(
     packages=packages,
     ext_modules=extensions,
     include_dirs=include_dirs,
-    package_data={'': ['*.pyx'], '': ['*.h']},
+    package_data={'': ['*.pyx', '*.h']},
     install_requires=requirements,
     classifiers=[
         'Development Status :: 3 - Alpha',

@@ -509,8 +509,18 @@ class FramedImage(FramedArray):
         for i in range(self.basedim):
             if world_axes_src[i] != world_axes_trg[i]:
                 data = np.swapaxes(data, world_axes_src[i], world_axes_trg[i])
-                swapped_axis_idx = np.where(world_axes_src == world_axes_trg[i])
-                world_axes_src[swapped_axis_idx], world_axes_src[i] = world_axes_src[i], world_axes_src[swapped_axis_idx]
+                # NumPy 2.x no longer supports mixed scalar/sequence tuple-assignment
+                # with np.where tuple indexing here, so resolve a scalar index first.
+                swapped_axis_idx = np.where(world_axes_src == world_axes_trg[i])[0]
+                if swapped_axis_idx.size == 0:
+                    raise RuntimeError(
+                        "Failed to resolve source axis during reorientation."
+                    )
+                swapped_axis = int(swapped_axis_idx[0])
+                world_axes_src[swapped_axis], world_axes_src[i] = (
+                    world_axes_src[i],
+                    world_axes_src[swapped_axis],
+                )
 
         # align directions
         dot_products = np.sum(affine[:3, :3] * trg_matrix[:3, :3], axis=0)
