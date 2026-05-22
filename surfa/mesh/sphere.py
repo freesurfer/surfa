@@ -113,7 +113,7 @@ def spherical_to_cartesian(points):
     return np.stack([x, y, z], axis=1)
 
 
-def barycentric_spherical_map(source, target, neighborhood=10):
+def barycentric_spherical_map(source, target, neighborhood=30):
     """
     Map the points of a target sphere to the barycentric coordinates of the nearest
     triangle on a source sphere.
@@ -125,7 +125,7 @@ def barycentric_spherical_map(source, target, neighborhood=10):
     target : Mesh
         Target sphere mesh.
     neighborhood : int, optional
-        Max number of nearest triangles to consider for each target point.
+        Max number of nearest triangles to consider for each target point. 
 
     Returns
     -------
@@ -214,12 +214,12 @@ def barycentric_spherical_map(source, target, neighborhood=10):
         intersecting_faces[remaining] = faces[hits]
         intersecting_barycenters[remaining] = barycentric[hits]
 
-    # if any target points were not assigned a face, just assign them the
-    # center of the nearest face
-    if np.count_nonzero(remaining) != 0:
-        missing = intersecting_faces == -1
+    # If any target points were not assigned a face, 
+    # fall back to the nearest face (barycentric centroid).
+    missing = intersecting_faces == -1
+    if np.count_nonzero(missing) != 0:
         intersecting_faces[missing] = nearest[0][missing]
-        intersecting_barycenters[missing] = 0.33333333
+        intersecting_barycenters[missing] = 1.0 / 3.0
 
     return intersecting_faces, intersecting_barycenters
 
