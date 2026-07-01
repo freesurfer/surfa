@@ -1,5 +1,35 @@
 class Space:
 
+    """
+    Here are the 3 spaces supported (see https://github.com/freesurfer/freesurfer/blob/dev/include/mri.h)
+        FS_COORDS_UNKNOWN
+        FS_COORDS_TKREG_RAS   - Freesurfer surface RAS space
+        FS_COORDS_SCANNER_RAS - scanner RAS space
+        FS_COORDS_VOXEL       - voxel space
+    """
+    # see defines in https://github.com/freesurfer/freesurfer/blob/dev/include/mri.h
+    FS_COORDS_UNKNOWN = 0
+    FS_COORDS_TKREG_RAS = 1
+    FS_COORDS_SCANNER_RAS = 2
+    FS_COORDS_VOXEL = 3
+
+    # to be consistent with sf.transform.Space
+    # 'voxel'   = voxel space
+    # 'world'   = scanner RAS space
+    # 'surface' = Freesurfer surface RAS space (tkreg space)
+    LETTER_TO_CODE = {
+        'voxel'   : FS_COORDS_VOXEL,
+        'world'   : FS_COORDS_SCANNER_RAS,
+        'surface' : FS_COORDS_TKREG_RAS,
+        }
+    
+    # consistent with sf.transform.Space
+    CODE_TO_LETTER = {
+        FS_COORDS_VOXEL       : 'voxel',
+        FS_COORDS_SCANNER_RAS : 'world',
+        FS_COORDS_TKREG_RAS   : 'surface',
+        }    
+
     def __init__(self, name):
         """
         Coordinate space representation. Supported spaces are:
