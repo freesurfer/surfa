@@ -330,7 +330,7 @@ def fv(*args, **kwargs):
             fv.add_image(arg)
 
     # show the window
-    fv.show(background=background)
+    return fv.show(background=background)
 
 
 def _find_vgl():
