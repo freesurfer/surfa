@@ -310,8 +310,50 @@ class Freeview:
         """
         TODO: wlrite the doc strings
         """
+        mrisp_filepath = None
+        sphere_filepath = None
+
+        # if we have an mrisp, handle that and pass to kwargs of add_mesh
+        if mrisp is not None:
+            mrisps = list(mrisp) if isinstance(mrisp, (list,tuple)) else [overlay]
+            for mrisp in mrisps:
+                # handle file name case
+                if isinstance(mrisp, str):
+                    if not os.path.isfile(mrisp):
+                        print(f'freeview error: the mrisp file {mrisp} could not be located')
+                        return
+                    mrisp_filepath = mrisp
+                else:
+                    _mrisp = cast_image(mrisp, allow_none=False)
+                    mrisp_filepath = _unique_filename('mrisp','.mgz', self.tempdir)
+                    _mrisp.save(mrisp_filepath)
+
+                # hack to exploit kwargs to tags functionality to stack mrisp files
+                if 'mrisp' in kwargs:
+                    kwargs['mrisp'] += f':mrisp={mrisp_filepath}'
+                else:
+                    kwargs['mrisp'] = mrisp_filepath
         
-        return
+        if sphere is not None:
+            spheres = list(sphere) if isinstance(sphere, (list,tuple)) else [sphere]
+            for sphere in spheres:
+                if isinstance(sphere, str):
+                    if not os.path.isfile(sphere):
+                        print(f'freeview error: the sphere file {sphere} could not be located')
+                        return
+                    sphere_filepath = sphere
+                else:
+                    _sphere = cast_mesh(sphere, allow_none=False)
+                    sphere_filepath = _unique_filename('sphere', 'sph', self.tempdir)
+                    _sphere.save(sphere_filepath)
+                
+                # hack to exploit kwargs to tags functionality to stack sphere files
+                if 'sphere' in kwargs:
+                    kwargs['sphere'] += f':sphere={sphere_filepath}'
+                else:
+                    kwargs['sphere'] = sphere_filepath
+        
+        self.add_mesh(surface, curvature=curvature, overlay=overlay, annot=annot, **kwargs)
 
 
 class FreeviewCurvature:
