@@ -3,6 +3,7 @@ import shutil
 import tempfile
 
 from surfa import Mesh
+from surfa import LabelLookup
 from surfa import load_volume
 from surfa import load_mesh
 from surfa.system import run
@@ -246,6 +247,114 @@ class Freeview:
 
             return vols, meshes
 
+    ### Methods for 'parity' with the legacy freesurfer module
+    def vol(self, volume, swap_batch_dim=False, lut=None, **kwargs):
+        """
+        TODO: wlrite the doc strings
+        """
+        # handle the lut, if vol path is passed, don't change what's on disk,
+        # just add the lut via the fv CLI opts
+        _lut_flag = None
+        if lut is not None:
+            # if file path, make sure it exists or is in the luts/ dir
+            if isinstance(lut, str):
+                if not os.path.isfile(lut):
+                    _lut = os.path.join(os.environ.get('FREESURFER_HOME'), f'luts/{lut}')
+                    if os.path.isfile(_lut):
+                        lut = _lut
+                    else:
+                        print(f'freeview error: specified lookup {lut} could not be located.')
+                        return
+                _lut_flag = f':lut={lut}'
+
+            # if LabelLookup object, save as temp file
+            elif isinstance(lut, LabelLookup):
+                _lut_file = _unique_filename('lut','.txt', self.tempdir)
+                if self.debug:
+                    print(f'Wrote lut to {_lut_file}')
+                lut.save(_lut_file)
+                _lut_flag = f':lut={_lut_file}'
+            
+            # if not file of LabelLookup, invalid lut
+            else:
+                print(f'freeview error: specified lut type {lut.type} not valid, must be of type str or LabelLookup')
+                return
+
+        # check if we have a file path or vol-like object
+        if isinstance(volume, str):
+            if not os.path.isfile(volume):
+                print(f'freeview error: image file {volume} does not exist')
+                return
+            filename = volume
+
+        else:
+            img = cast_image(volume, allow_none=False)
+            filename = _unique_filename('image', '.mgz', self.tempdir)
+            img.save(filename)
+            if self.debug:
+                print(f'wrote image to {filename}')        
+
+        # append temp vol to internal list of vols
+        self._vols.append(filename)
+
+        # configure the corresponding freeview argument
+        _fv_arg = '-v ' + filename + _convert_kwargs_to_tags(kwargs)
+        # set colormap=lut if a lut is passed
+        if _lut_flag is not None:
+            _fv_arg += ':colormap=lut'
+        if self.debug:
+            print(f'Adding to freeview CLI call: {_fv_arg}')
+        self.arguments.append(_fv_arg)
+
+    def surf(self, surface, overlay=None, annot=None, mrisp=None, sphere=None, curvature=None, **kwargs):
+        """
+        TODO: wlrite the doc strings
+        """
+        mrisp_filepath = None
+        sphere_filepath = None
+
+        # if we have an mrisp, handle that and pass to kwargs of add_mesh
+        if mrisp is not None:
+            mrisps = list(mrisp) if isinstance(mrisp, (list,tuple)) else [overlay]
+            for mrisp in mrisps:
+                # handle file name case
+                if isinstance(mrisp, str):
+                    if not os.path.isfile(mrisp):
+                        print(f'freeview error: the mrisp file {mrisp} could not be located')
+                        return
+                    mrisp_filepath = mrisp
+                else:
+                    _mrisp = cast_image(mrisp, allow_none=False)
+                    mrisp_filepath = _unique_filename('mrisp','.mgz', self.tempdir)
+                    _mrisp.save(mrisp_filepath)
+
+                # hack to exploit kwargs to tags functionality to stack mrisp files
+                if 'mrisp' in kwargs:
+                    kwargs['mrisp'] += f':mrisp={mrisp_filepath}'
+                else:
+                    kwargs['mrisp'] = mrisp_filepath
+        
+        if sphere is not None:
+            spheres = list(sphere) if isinstance(sphere, (list,tuple)) else [sphere]
+            for sphere in spheres:
+                if isinstance(sphere, str):
+                    if not os.path.isfile(sphere):
+                        print(f'freeview error: the sphere file {sphere} could not be located')
+                        return
+                    sphere_filepath = sphere
+                else:
+                    _sphere = cast_mesh(sphere, allow_none=False)
+                    sphere_filepath = _unique_filename('sphere', 'sph', self.tempdir)
+                    _sphere.save(sphere_filepath)
+                
+                # hack to exploit kwargs to tags functionality to stack sphere files
+                if 'sphere' in kwargs:
+                    kwargs['sphere'] += f':sphere={sphere_filepath}'
+                else:
+                    kwargs['sphere'] = sphere_filepath
+        
+        self.add_mesh(surface, curvature=curvature, overlay=overlay, annot=annot, **kwargs)
+
 
 class FreeviewCurvature:
 
@@ -330,7 +439,7 @@ def fv(*args, **kwargs):
             fv.add_image(arg)
 
     # show the window
-    fv.show(background=background)
+    return fv.show(background=background)
 
 
 def _find_vgl():
