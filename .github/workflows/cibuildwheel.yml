@@ -1,55 +1,131 @@
 # Build wheels, sdist, and upload to PyPI
 
 # code adapted from antio and openmeeg
-# TODO: once numpy 1 support is dropped, enable these jobs; set to only run on
-# tagged releases, and only if the test.yml workflow is successful 
 
 name: Build
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.number }}-${{ github.event.ref }}
   cancel-in-progress: true
 on:  # yamllint disable-line rule:truthy
+  # Non-PR triggers build all wheels.
   workflow_dispatch:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'v*.*.*'
+    branches:
+      - master
+  # By default, PRs do not build wheels (for speed/efficiency). However,
+  # a PR's commit message containing the following text will build:
+  # - "[wheels]" : all wheels
+  # - "[wheels thin]" : just the wheels required for the test_wheels jobs (3.8, 3.11-abi3)
+  pull_request:
+    branches:
+      - master
 
 jobs:
+  # Adapted from dipy (BSD)
+  check-commit:
+    name: Triage wheel build
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.commit-message.outputs.PROCEED }}
+      cibw_skip: ${{ steps.commit-message.outputs.CIBW_SKIP }}
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
+      - name: Check commit message for [wheels]
+        id: commit-message
+        run: |
+          PROCEED=true
+          CIBW_SKIP="cp38-*musllinux* cp39-musllinux_aarch64"
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            MSG=$(git show -s --format=%s ${{ github.event.pull_request.head.sha }})
+            echo "Got commit message: $MSG"
+            if echo "$MSG" | grep -iq '\[wheels\]'; then
+              PROCEED=true
+            elif echo "$MSG" | grep -iq '\[wheels thin\]'; then
+              PROCEED=true
+              # We don't need the Intel macOS or Ubuntu aarch64 builds at all
+              CIBW_SKIP="*musllinux* cp39-* cp310-* *-macosx*x86_64 *-*linux*aarch64"
+            else
+              PROCEED=false
+            fi
+          fi
+          echo "PROCEED=$PROCEED" | tee -a $GITHUB_OUTPUT
+          echo "CIBW_SKIP=$CIBW_SKIP" | tee -a $GITHUB_OUTPUT
+
   build_wheels:
-    if: false # disabeling until we can drop support for numpy 1
-    name: Wheels ${{ matrix.os }} ${{ matrix.arch }}
+    name: Wheels ${{ matrix.os }}
+    needs: [check-commit]
+    if: needs.check-commit.outputs.proceed == 'true'
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     strategy:
       matrix:
-        os: [ubuntu-22.04, ubuntu-24.04, macos-14, macos-15, macos-15-intel]  # windows-11 windows-11-arm
-        arch: [native]
-        # TODO: Someday this can be enabled, but need to add emulation and it's slow,
-        # can use docker/setup-qemu-action
-        # include:
-        #   - os: ubuntu-latest
-        #     arch: aarch64
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, macos-15-intel, windows-latest]  # windows-11-arm
       fail-fast: false
-
     steps:
-      - uses: actions/checkout@v5
-      - uses: pypa/cibuildwheel@v3.2.0
-        with:
-          output-dir: wheelhouse
+      - uses: actions/checkout@v6
+      - uses: pypa/cibuildwheel@v3.3.1
         env:
-          CIBW_ARCHS: ${{ matrix.arch }}
-      - uses: actions/upload-artifact@v4
+          CIBW_SKIP: ${{ needs.check-commit.outputs.cibw_skip }}
+          CIBW_ALLOW_EMPTY: "True"
+      - uses: actions/upload-artifact@v6
         with:
           name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
           path: ./wheelhouse/*.whl
+
+  test_wheels:
+    needs: [build_wheels]
+    name: Test wheels
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    defaults:
+      run:
+        shell: bash -el {0}
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, macos-14, windows-2022]
+        # oldest using oldest deps, one with newest using prerelease deps
+        python: ['3.8', '3.14']
+      fail-fast: false
+    steps:
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/download-artifact@v6
+        with:
+          pattern: cibw-wheels-*
+          merge-multiple: true
+          path: dist
+      - run: ls -alt dist/
+      # Choose versions from 2022 (somewhat arbitrarily)
+      - name: Triage env vars
+        run: |
+          NUMPY_SCIPY="numpy scipy"
+          if [[ "${{ matrix.python }}" == "3.8" ]]; then
+            NUMPY_SCIPY="numpy==1.23 scipy==1.8"
+          elif [[ "${{ matrix.python }}" == "3.14" ]]; then
+            NUMPY_SCIPY="numpy scipy --pre --extra-index-url=https://pypi.anaconda.org/scientific-python-nightly-wheels/simple"
+          fi
+          echo "NUMPY_SCIPY=$NUMPY_SCIPY" | tee -a $GITHUB_ENV
+      - run: pip install $NUMPY_SCIPY nibabel pillow xxhash --only-binary=":all:"
+      - run: pip install --no-index --find-links=dist/ surfa
+      - run: python -c "import surfa; print(surfa.__version__)"
 
   sdist:
     timeout-minutes: 10
     name: Create sdist
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v6
       - run: uv build --sdist
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: cibw-wheels-sdist
           path: ./dist/*.tar.gz
@@ -57,11 +133,11 @@ jobs:
   check:
     needs: [build_wheels, sdist]
     timeout-minutes: 10
-    name: run twine check
+    name: Twine check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v5
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v6
         with:
           pattern: cibw-wheels-*
           merge-multiple: true
@@ -74,7 +150,9 @@ jobs:
       - run: twine check --strict dist/*
 
   publish:
-    if: ${{ github.repository == 'freesurfer/surfa' && github.event_name == 'release' }}
+    # once ready to cut wheels to PyPI (e.g., numpy 1 support is dropped), remove the
+    # "false &&" below
+    if: false && github.repository == 'freesurfer/surfa' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     needs: [check]
     name: publish PyPI
     runs-on: ubuntu-latest
@@ -85,7 +163,7 @@ jobs:
       url: https://pypi.org/p/surfa
     timeout-minutes: 10
     steps:
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v6
         with:
           pattern: cibw-wheels-*
           merge-multiple: true
