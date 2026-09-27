@@ -7,6 +7,7 @@ from scipy.sparse import coo_matrix
 from surfa.core.array import check_array
 from surfa.core.array import normalize
 from surfa.core.array import make_writeable
+from surfa.system import kdtree_workers
 from surfa.mesh.cache import cached_mesh_property
 from surfa.mesh.overlay import cast_overlay
 from surfa.mesh.overlay import Overlay
@@ -427,7 +428,7 @@ class Mesh:
         dists : (n,) float
             Distance to vertex.
         """
-        dist, nn = self.kdtree.query(points, k=k, workers=-1)
+        dist, nn = self.kdtree.query(points, k=k, workers=kdtree_workers())
         return (nn, dist)
 
     def smooth_overlay(self, overlay, iters=10, step=0.5, weighted=True, pinned=None):
@@ -626,7 +627,7 @@ class Mesh:
         # as well as immediate neighboring faces
         centers = self.triangles.mean(1)
         knn = min([centers.shape[0], knn])
-        _, neighbors = cKDTree(centers).query(centers, k=knn, workers=-1)
+        _, neighbors = cKDTree(centers).query(centers, k=knn, workers=kdtree_workers())
 
         # given this list of neighboring faces, compute triangle-triangle intersections
         neighbors = np.ascontiguousarray(neighbors.astype(np.int32))
@@ -675,7 +676,7 @@ class Mesh:
             # the intersection code will be smart enough to ignore self-referencing hits
             # as well as immediate neighboring faces
             centers = vertices[faces].mean(1)
-            _, neighbors = cKDTree(centers).query(centers, k=knn, workers=-1)
+            _, neighbors = cKDTree(centers).query(centers, k=knn, workers=kdtree_workers())
             neighbors = np.ascontiguousarray(neighbors).astype(np.int32)
 
             # within each global loop is a set of local iterations, which operate only on a narrowed

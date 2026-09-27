@@ -5,6 +5,7 @@ from scipy.spatial import cKDTree
 from scipy.interpolate import RegularGridInterpolator
 
 from surfa.core.array import normalize
+from surfa.system import kdtree_workers
 from surfa.mesh.overlay import cast_overlay
 from surfa.image.framed import cast_slice
 
@@ -137,7 +138,7 @@ def barycentric_spherical_map(source, target, neighborhood=30):
     # compute the k-nearest triangles to each target point. this is used to limit the
     # number of triangles that are considered for each target point
     centers = source.triangles.mean(1)
-    nearest = cKDTree(centers).query(target.vertices, k=neighborhood, workers=-1)[1].T
+    nearest = cKDTree(centers).query(target.vertices, k=neighborhood, workers=kdtree_workers())[1].T
 
     # ensure nearest is a 2D array
     if neighborhood == 1:

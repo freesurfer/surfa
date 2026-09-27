@@ -149,3 +149,30 @@ def readlines(filename):
     with open(filename) as file:
         content = file.read().splitlines()
     return content
+
+
+def kdtree_workers():
+    """
+    Number of workers to use for SciPy KD-tree queries.
+
+    Reads the optional ``SURFA_NUM_THREADS`` environment variable so that a
+    process-level CPU cap (e.g. the cores allocated to a batch job) can be
+    respected. SciPy interprets ``-1`` as "use all CPUs reported by the OS",
+    which oversubscribes shared or cgroup-limited nodes.
+
+    Returns
+    -------
+    int
+        ``-1`` (all CPUs; the default when the variable is unset) or a
+        positive number of workers.
+    """
+    value = os.environ.get('SURFA_NUM_THREADS', '').strip()
+    if not value:
+        return -1
+    try:
+        workers = int(value)
+    except ValueError:
+        workers = 0
+    if workers == 0 or workers < -1:
+        raise ValueError(f'SURFA_NUM_THREADS must be -1 or a positive integer, got {value!r}')
+    return workers

@@ -2,6 +2,8 @@ import numpy as np
 
 from scipy.spatial import cKDTree
 
+from surfa.system import kdtree_workers
+
 from .mesh import Mesh
 from .overlay import Overlay
 
@@ -31,7 +33,7 @@ def surface_distance(points, target, neighborhood=5):
     # compute the k-nearest triangles to each target point. this is used to limit the
     # number of triangles that are considered for each target point
     centers = target.triangles.mean(1)
-    nearest = cKDTree(centers).query(points, k=neighborhood, workers=-1)[1].T
+    nearest = cKDTree(centers).query(points, k=neighborhood, workers=kdtree_workers())[1].T
 
     # ensure nearest is a 2D array
     if neighborhood == 1:
