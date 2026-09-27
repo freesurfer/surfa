@@ -842,7 +842,7 @@ class FreeSurferAnnotationIO(protocol.IOProtocol):
 
         # make sure all indices exist in the label lookup
         cleaned = arr.data[np.logical_not(unknown_mask)]
-        found = np.in1d(cleaned, list(arr.labels.keys()))
+        found = np.isin(cleaned, list(arr.labels.keys()))
         if not np.all(found):
             missing = list(np.unique(cleaned[found == False]))
             raise ValueError('cannot save overlay as annotation because it contains the following values '

@@ -93,11 +93,19 @@ class Affine:
         square[: mat.shape[0], :] = mat
         self._matrix = square
 
-    def __array__(self):
+    def __array__(self, dtype=None, copy=None):
         """
         Ensure affines can be cleanly casted to np.ndarray
         """
-        return self.matrix
+        matrix = self.matrix
+        if dtype is not None:
+            dtype = np.dtype(dtype)
+            if copy is False and dtype != matrix.dtype:
+                raise ValueError('unable to avoid copy while creating an array as requested')
+            matrix = matrix.astype(dtype, copy=copy is True)
+        elif copy is True:
+            matrix = matrix.copy()
+        return matrix
 
     def __getitem__(self, index):
         """
@@ -491,7 +499,7 @@ class Affine:
         eye = np.eye(self.ndim, dtype=ftype)
         out = (aff[:-1, :-1] - eye) @ grid + aff[:-1, -1:]
         out = np.transpose(out)
-        out = np.reshape(out, newshape=(*self.target.shape, -1))
+        out = np.reshape(out, (*self.target.shape, -1))
 
         out = Warp(out, source=self.source, target=self.target)
         if format is not None:
