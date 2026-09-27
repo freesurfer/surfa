@@ -531,31 +531,35 @@ class Mesh:
             raise ValueError(f'expected overlay to have {self.nfaces} points to match '
                              f'the number of mesh faces, but instead got {overlay.shape[0]}')
         overlay = cast_overlay(overlay)
-  
+
         shape = (self.nvertices, overlay.nframes)
+        # Scalar overlays are stored as (nfaces,), whereas the accumulation
+        # buffer always has an explicit frame axis. Restore that axis before
+        # the indexed reductions so that the values broadcast exactly.
+        values = np.asarray(overlay).reshape(self.nfaces, overlay.nframes)
 
         method = str(method).lower()
         if method == 'mean':
             buffer = np.zeros(shape)
-            np.add.at(buffer, self.faces[:, 0], overlay)
-            np.add.at(buffer, self.faces[:, 1], overlay)
-            np.add.at(buffer, self.faces[:, 2], overlay)
+            np.add.at(buffer, self.faces[:, 0], values)
+            np.add.at(buffer, self.faces[:, 1], values)
+            np.add.at(buffer, self.faces[:, 2], values)
             buffer /= np.bincount(self.faces.flat).reshape(-1, 1)
         elif method == 'max':
             buffer = np.full(shape, overlay.min(), dtype=overlay.dtype)
-            np.maximum.at(buffer, self.faces[:, 0], overlay)
-            np.maximum.at(buffer, self.faces[:, 1], overlay)
-            np.maximum.at(buffer, self.faces[:, 2], overlay)
+            np.maximum.at(buffer, self.faces[:, 0], values)
+            np.maximum.at(buffer, self.faces[:, 1], values)
+            np.maximum.at(buffer, self.faces[:, 2], values)
         elif method == 'min':
             buffer = np.full(shape, overlay.max(), dtype=overlay.dtype)
-            np.minimum.at(buffer, self.faces[:, 0], overlay)
-            np.minimum.at(buffer, self.faces[:, 1], overlay)
-            np.minimum.at(buffer, self.faces[:, 2], overlay)
+            np.minimum.at(buffer, self.faces[:, 0], values)
+            np.minimum.at(buffer, self.faces[:, 1], values)
+            np.minimum.at(buffer, self.faces[:, 2], values)
         elif method == 'sum':
             buffer = np.zeros(shape, dtype=overlay.dtype)
-            np.add.at(buffer, self.faces[:, 0], overlay)
-            np.add.at(buffer, self.faces[:, 1], overlay)
-            np.add.at(buffer, self.faces[:, 2], overlay)
+            np.add.at(buffer, self.faces[:, 0], values)
+            np.add.at(buffer, self.faces[:, 1], values)
+            np.add.at(buffer, self.faces[:, 2], values)
         else:
             raise ValueError(f'unknown method `{method}`, expected one of: mean/min/max/sum')
 
