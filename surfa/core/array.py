@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 
 
@@ -19,7 +20,7 @@ def conform_ndim(arr, ndim):
     """
     arr = np.asarray(arr)
     if arr.ndim > ndim:
-        raise ValueError(f'cannot conform array of shape {arr.shape} to {ndmi}D')
+        raise ValueError(f'cannot conform array of shape {arr.shape} to {ndim}D')
     for _ in range(ndim - arr.ndim):
         arr = np.expand_dims(arr, axis=-1)
     return arr
@@ -148,3 +149,39 @@ def make_writeable(arr):
     except ValueError:
         arr = arr.copy()
     return arr
+
+def convert_from_tensor(arr):
+    """
+    Convert array-like input to a numpy array, with support for torch tensors.
+
+    If the input is already an ndarray, it is returned unchanged. If it is a torch
+    Tensor, it is detached, moved to the CPU, and copied into a new ndarray object.
+    Torch Tensors passed with dtype bfloat16 will be converted to float, as numpy
+    does not have support for bfloat16 type objects. Any other objects will be
+    converted with np.asarray.
+    Torch is never loaded by this call, and only detects tensors if torch detected
+    in the environment.
+
+    Parameters
+    ----------
+    arr : ndarray or torch.Tensor
+        Array to check and convert
+
+    Returns
+    -------
+    ndarray
+        Input data as a numpy array
+    """
+
+    if isinstance(arr, np.ndarray):
+        return arr
+
+    # get a ref to the torch module in the environment if it is present
+    torch = sys.modules.get('torch')
+    if torch is not None and isinstance(arr, torch.Tensor):
+        arr = arr.detach().cpu()
+        if arr.dtype == torch.bfloat16:
+            arr = arr.float()
+        return arr.numpy().copy()
+    
+    return np.asarray(arr)

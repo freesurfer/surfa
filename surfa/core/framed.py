@@ -1,7 +1,7 @@
 from copy import deepcopy
 import numpy as np
 
-from surfa.core.array import conform_ndim
+from surfa.core.array import conform_ndim, convert_from_tensor
 from surfa.core.labels import LabelLookup
 
 
@@ -61,7 +61,7 @@ class FramedArray:
         self._basedim = basedim
 
         # set data array
-        self.data = data
+        self.data = convert_from_tensor(data)
 
         # initialize and set the private metadata dictionary
         self._metadata = {}
