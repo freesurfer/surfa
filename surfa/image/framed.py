@@ -10,6 +10,7 @@ from surfa.core import stack
 from surfa.core.framed import FramedArray
 from surfa.core.array import pad_vector_length
 from surfa.core.array import check_array
+from surfa.core.array import convert_from_tensor
 from surfa.core.slicing import sane_slicing
 from surfa.core.slicing import slicing_parameters
 from surfa.core.slicing import fit_slicing_to_shape
@@ -1005,7 +1006,7 @@ def cast_image(obj, allow_none=True, copy=False, fallback_geom=None):
         return obj.copy() if copy else obj
 
     if hasattr(obj, 'detach') and hasattr(obj, 'numpy'):
-        obj = obj.detach().cpu().squeeze().numpy()
+        obj = convert_from_tensor(obj)
 
     if getattr(obj, '__array__', None) is not None:
         return Volume(np.array(obj), geometry=fallback_geom)
