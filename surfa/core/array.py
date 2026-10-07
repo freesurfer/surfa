@@ -152,15 +152,25 @@ def make_writeable(arr):
 
 def convert_from_tensor(arr):
     """
-    Handle converting torch tensor type objects. This will simply return the original
-    data array if it is not of type torch.tensor. If the object is a tensor, it will
-    be detatched and moved to the CPU. Tensors with dtype torch.bfloat16 will be
-    converted to normal floats.
+    Convert array-like input to a numpy array, with support for torch tensors.
+
+    If the input is already an ndarray, it is returned unchanged. If it is a torch
+    Tensor, it is detached, moved to the CPU, and copied into a new ndarray object.
+    Torch Tensors passed with dtype bfloat16 will be converted to float, as numpy
+    does not have support for bfloat16 type objects. Any other objects will be
+    converted with np.asarray.
+    Torch is never loaded by this call, and only detects tensors if torch detected
+    in the environment.
 
     Parameters
     ----------
-    arr : ndarray,
+    arr : ndarray or torch.Tensor
         Array to check and convert
+
+    Returns
+    -------
+    ndarray
+        Input data as a numpy array
     """
 
     if isinstance(arr, np.ndarray):
