@@ -1,6 +1,7 @@
 import os
 import shutil
 import tempfile
+import inspect
 
 from surfa import Mesh
 from surfa import LabelLookup
@@ -91,8 +92,10 @@ class Freeview:
                 return
             filename = img
         else:
+            name = _guess_var_name(img)
+            name = name if name is not None else 'image'
             img = cast_image(img, allow_none=False)
-            filename = _unique_filename('image', '.mgz', self.tempdir)
+            filename = _unique_filename(name, '.mgz', self.tempdir)
             img.save(filename)
             if self.debug:
                 print(f'wrote image to {filename}')
@@ -288,8 +291,10 @@ class Freeview:
             filename = volume
 
         else:
+            name = _guess_var_name(volume)
+            name = name if name is not None else 'image'
             img = cast_image(volume, allow_none=False)
-            filename = _unique_filename('image', '.mgz', self.tempdir)
+            filename = _unique_filename(name, '.mgz', self.tempdir)
             img.save(filename)
             if self.debug:
                 print(f'wrote image to {filename}')        
@@ -497,3 +502,30 @@ def _unique_filename(filename, extension, directory):
         if not os.path.exists(fullpath):
             return fullpath
     raise RuntimeError(f'could not generate a unique filename for {filename} after trying many times')
+
+def _guess_var_name(var):
+    """
+    Attempt to find name of variable passed by finding first non-surfa frame in
+    the call stack and checking the value of variables against what is passed to
+    this function.
+    Note: This could be exceptionally slow if there are a lot of locals in the
+          frame, or the comparison operation is expensive.
+    """
+    # get the current frame from the call stack
+    frame = inspect.currentframe()
+    try:
+        # try to trace back the call stack until we're outside of surfa,
+        # where the user passed in the var to visualize
+        while frame is not None and frame.f_globals.get('__name__','').startswith('surfa'):
+            frame = frame.f_back
+        # if we run out of frames, return None
+        if frame is None:
+            return None
+        # process the first non-surfa frame
+        for name, val in frame.f_locals.items():
+            if val is var and not name.startswith('_'):
+                return name
+    except Exception:
+        print('Failed to deduce variable name, falling back on generic default.')
+    finally:
+        del frame
