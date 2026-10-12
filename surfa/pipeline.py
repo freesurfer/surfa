@@ -40,7 +40,7 @@ class CommandPipeline:
             self.info(f'New invocation on {datetime.datetime.now()}')
         cmdline = ' '.join(sys.argv[1:])
         self.info(f'Command options: {cmdline}')
-        self.info(f'User: {getpass.getuser()}')
+        self.info(f'User: {self.__get_user()}')
         self.info(f'Host: {platform.node()}')
         self.info(f'System: {platform.system()} {platform.release()}')
 
@@ -81,6 +81,14 @@ class CommandPipeline:
 
         # NOTE: disabling color for now
         print(message)
+
+    @staticmethod
+    def __get_user():
+        try:
+            return getpass.getuser()
+        except KeyError as e:
+            if len(e.args) >= 1 and e.args[0].startswith('getpwuid(): uid not found:'):
+                return str(os.getuid())
 
     def info(self, message):
         """
