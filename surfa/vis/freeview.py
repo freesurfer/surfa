@@ -1,4 +1,5 @@
 import os
+import shlex
 import shutil
 import tempfile
 import inspect
@@ -210,8 +211,8 @@ class Freeview:
 
         # add window title
         if self.title is not None:
-            title = self.title.replace('"', "'")
-            command = f'{command} -subtitle "{title}"'
+            title = shlex.quote(self.title)
+            command = f'{command} -subtitle {title}'
 
         # be sure to remove the temporary directory (if it exists) after freeview closes
         # need the tempdir if saving edits
