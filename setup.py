@@ -9,8 +9,8 @@ import sys
 from setuptools import setup
 from setuptools import dist
 from setuptools.extension import Extension
-from wheel.bdist_wheel import bdist_wheel
-
+#from wheel.bdist_wheel import bdist_wheel
+from setuptools.command.bdist_wheel import bdist_wheel
 
 # https://github.com/joerick/python-abi3-package-sample/blob/main/setup.py
 class bdist_wheel_abi3(bdist_wheel):  # noqa: D101
@@ -28,7 +28,7 @@ class bdist_wheel_abi3(bdist_wheel):  # noqa: D101
 
 
 requirements = [
-    'numpy',
+    'numpy>=2',
     'scipy',
     'nibabel>=2.1',
     'Pillow',
@@ -101,7 +101,7 @@ setup(
     author='Andrew Hoopes',
     author_email='freesurfer@nmr.mgh.harvard.edu',
     url='https://github.com/freesurfer/surfa',
-    python_requires='>=3.8',
+    python_requires='>=3.9',
     packages=packages,
     ext_modules=extensions,
     include_dirs=include_dirs,
@@ -110,6 +110,12 @@ setup(
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
         'Natural Language :: English',
         'Topic :: Scientific/Engineering',
     ],

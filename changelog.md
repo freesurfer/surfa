@@ -2,6 +2,12 @@
 
 All notable changes to the surfa package are documented in this file.
 
+## [0.7.0] - 2026-09-30
+- Increased minimum required python version to 3.9
+- Increased minimum required numpy version to 2.0
+- Added some convenience functions for freeview calls
+- Added Barycentric interpolation for spherical meshes
+
 ## [0.6.2] - 2025-09-08
 - Added support for voxel package conversions
 - Added complete fix for numpy 2 builds
