@@ -28,7 +28,7 @@ class bdist_wheel_abi3(bdist_wheel):  # noqa: D101
 
 
 requirements = [
-    'numpy>=2',
+    'numpy',
     'scipy',
     'nibabel>=2.1',
     'Pillow',
