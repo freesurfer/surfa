@@ -86,9 +86,8 @@ class CommandPipeline:
     def __get_user():
         try:
             return getpass.getuser()
-        except KeyError as e:
-            if len(e.args) >= 1 and e.args[0].startswith('getpwuid(): uid not found:'):
-                return str(os.getuid())
+        except (KeyError, OSError):
+            return str(os.getuid())
 
     def info(self, message):
         """
