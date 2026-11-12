@@ -44,3 +44,52 @@ def test_resize_non_native_endian_matches_native(method):
     assert resized_native.framed_data.shape == resized_non_native.framed_data.shape
     assert resized_native.framed_data.dtype == resized_non_native.framed_data.dtype
     _assert_machine_precision_equal(resized_native.framed_data, resized_non_native.framed_data)
+
+
+def test_array_protocol_accepts_dtype_and_copy():
+    # NumPy 2 passes `copy` to __array__ and warns (DeprecationWarning) when
+    # the implementation does not accept it.
+    import warnings
+    data = np.arange(6, dtype=np.float64)
+    overlay = sf.Overlay(data)
+    affine = sf.Affine(np.eye(4))
+    with warnings.catch_warnings():
+        warnings.simplefilter('error', DeprecationWarning)
+        copied = np.array(overlay, copy=True)
+        assert copied is not overlay.data and np.array_equal(copied, data)
+        assert np.asarray(overlay) is overlay.data
+        assert np.asarray(overlay, dtype=np.float32).dtype == np.float32
+        assert np.array(affine, copy=True) is not affine.matrix
+        assert np.asarray(affine) is affine.matrix
+        if np.lib.NumpyVersion(np.__version__) >= '2.0.0':
+            # NumPy 2 semantics: copy=False must never copy
+            with pytest.raises(ValueError):
+                np.array(overlay, dtype=np.float32, copy=False)
+
+
+def test_onehot_no_shape_assignment():
+    seg = sf.Volume(np.array([0, 1, 2, 1, 0, 2, 2, 1], dtype=np.int32).reshape(2, 2, 2))
+    onehot = seg.onehot([0, 1, 2])
+    assert onehot.shape == (2, 2, 2, 3)
+    assert np.array_equal(np.argmax(onehot.data, axis=-1), seg.data)
+
+
+def test_affine_to_warp():
+    geom = sf.ImageGeometry(shape=(4, 5, 6))
+    affine = sf.Affine(np.eye(4), source=geom, target=geom, space='world')
+    warp = affine.to_warp()
+    assert warp.shape == (4, 5, 6, 3)
+    assert np.allclose(warp.data, 0)
+
+
+def test_annotation_roundtrip(tmp_path):
+    # np.in1d was removed in NumPy 2.4
+    lut = sf.LabelLookup()
+    lut[0] = ('unknown', [25, 5, 25])
+    lut[1] = ('a', [255, 0, 0])
+    lut[2] = ('b', [0, 255, 0])
+    overlay = sf.Overlay(np.array([0, 1, 2, 1, 0, 2], dtype=np.int32), labels=lut)
+    filename = str(tmp_path / 'test.annot')
+    overlay.save(filename)
+    loaded = sf.load_overlay(filename)
+    assert np.array_equal(loaded.data, overlay.data)

@@ -488,7 +488,7 @@ class FramedArray:
         dsize = self.data.size
         flat = np.zeros((dsize, nlabels), dtype=dtype)
         flat[np.arange(dsize), recoder[self.data.ravel()]] = 1
-        flat.shape = (*self.baseshape, nlabels)
+        flat = np.reshape(flat, (*self.baseshape, nlabels))
         return self.new(flat)
 
     def collapse(self, mapping=None):
@@ -521,8 +521,16 @@ class FramedArray:
         return self.new(seg)
 
     # numpy array wrapping
-    def __array__(self, dtype=None):
-        return self.data
+    def __array__(self, dtype=None, copy=None):
+        data = self.data
+        if dtype is not None:
+            dtype = np.dtype(dtype)
+            if copy is False and dtype != data.dtype:
+                raise ValueError('unable to avoid copy while creating an array as requested')
+            data = data.astype(dtype, copy=copy is True)
+        elif copy is True:
+            data = data.copy()
+        return data
 
     # propagate numpy indexing - return a new instance if shape is preserved
     def __getitem__(self, index_expression):
