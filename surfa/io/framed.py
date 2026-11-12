@@ -281,9 +281,11 @@ class MGHArrayIO(protocol.IOProtocol):
             # read geometry
             geom_params = {}
             unused_header_space = 254
-            valid_geometry = bool(read_bytes(file, '>u2'))
+            # the goodRASflag is a signed short: freesurfer writes -1 when the
+            # geometry is invalid and, like mghRead, we only trust it when > 0
+            valid_geometry = bool(read_bytes(file, '>i2') > 0)
 
-            # ignore geometry if flagged as invalid
+            # ignore geometry if flagged as invalid (1 mm coronal default)
             if valid_geometry:
                 geom_params = dict(
                     voxsize=read_bytes(file, '>f4', 3),
