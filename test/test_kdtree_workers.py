@@ -66,15 +66,26 @@ def test_invalid_explicit_workers_raise(monkeypatch, value):
         kdtree_workers(value)
 
 
+def _sphere(n, radius=100):
+    """
+    Fibonacci sphere; the six axis points pin its bounding box to the origin so
+    that it passes the sphere check of the resampling classes.
+    """
+    from scipy.spatial import ConvexHull
+    i = np.arange(n) + 0.5
+    z = 1 - 2 * i / n
+    r = np.sqrt(1 - z * z)
+    t = np.pi * (1 + 5 ** 0.5) * i
+    points = np.stack([r * np.cos(t), r * np.sin(t), z], axis=1)
+    points = np.concatenate([points, np.eye(3), -np.eye(3)])
+    return sf.Mesh(points * radius, ConvexHull(points).simplices)
+
+
 def test_workers_keyword_at_every_query_site(monkeypatch):
     rng = np.random.default_rng(1)
-    from scipy.spatial import ConvexHull
-    vertices = rng.normal(size=(300, 3))
-    vertices /= np.linalg.norm(vertices, axis=1, keepdims=True)
-    sphere = sf.Mesh(vertices * 100, ConvexHull(vertices).simplices)
-    other = rng.normal(size=(200, 3))
-    other /= np.linalg.norm(other, axis=1, keepdims=True)
-    target = sf.Mesh(other * 100, ConvexHull(other).simplices)
+    sphere = _sphere(300)
+    target = _sphere(200)
+    assert sphere.is_sphere and target.is_sphere
     points = rng.normal(size=(40, 3)) * 100
 
     # an invalid variable proves that the keyword, not the variable, is used
