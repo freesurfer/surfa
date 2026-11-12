@@ -8,7 +8,7 @@ from .mesh import Mesh
 from .overlay import Overlay
 
 
-def surface_distance(points, target, neighborhood=5):
+def surface_distance(points, target, neighborhood=5, workers=None):
     """
     Compute the one-directional, minimum distances from a set of points to the surface of a mesh.
 
@@ -21,6 +21,10 @@ def surface_distance(points, target, neighborhood=5):
     neighborhood : int
         Max number of nearest triangles to consider for each point. Decreasing
         this number can speed up the computation at the cost of accuracy.
+    workers : int, optional
+        Number of threads for the KD-tree query: -1 for all CPUs or a positive
+        integer. If None (default), the `SURFA_NUM_THREADS` environment variable
+        is used, and all CPUs if it is not set.
 
     Returns
     -------
@@ -33,7 +37,7 @@ def surface_distance(points, target, neighborhood=5):
     # compute the k-nearest triangles to each target point. this is used to limit the
     # number of triangles that are considered for each target point
     centers = target.triangles.mean(1)
-    nearest = cKDTree(centers).query(points, k=neighborhood, workers=kdtree_workers())[1].T
+    nearest = cKDTree(centers).query(points, k=neighborhood, workers=kdtree_workers(workers))[1].T
 
     # ensure nearest is a 2D array
     if neighborhood == 1:

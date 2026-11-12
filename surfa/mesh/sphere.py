@@ -114,7 +114,7 @@ def spherical_to_cartesian(points):
     return np.stack([x, y, z], axis=1)
 
 
-def barycentric_spherical_map(source, target, neighborhood=30):
+def barycentric_spherical_map(source, target, neighborhood=30, workers=None):
     """
     Map the points of a target sphere to the barycentric coordinates of the nearest
     triangle on a source sphere.
@@ -126,7 +126,11 @@ def barycentric_spherical_map(source, target, neighborhood=30):
     target : Mesh
         Target sphere mesh.
     neighborhood : int, optional
-        Max number of nearest triangles to consider for each target point. 
+        Max number of nearest triangles to consider for each target point.
+    workers : int, optional
+        Number of threads for the KD-tree query: -1 for all CPUs or a positive
+        integer. If None (default), the `SURFA_NUM_THREADS` environment variable
+        is used, and all CPUs if it is not set.
 
     Returns
     -------
@@ -138,7 +142,7 @@ def barycentric_spherical_map(source, target, neighborhood=30):
     # compute the k-nearest triangles to each target point. this is used to limit the
     # number of triangles that are considered for each target point
     centers = source.triangles.mean(1)
-    nearest = cKDTree(centers).query(target.vertices, k=neighborhood, workers=kdtree_workers())[1].T
+    nearest = cKDTree(centers).query(target.vertices, k=neighborhood, workers=kdtree_workers(workers))[1].T
 
     # ensure nearest is a 2D array
     if neighborhood == 1:
@@ -227,7 +231,7 @@ def barycentric_spherical_map(source, target, neighborhood=30):
 
 class SphericalResamplingNearest:
 
-    def __init__(self, source, target):
+    def __init__(self, source, target, workers=None):
         """
         Nearest-neighbor map to transfer vertex information between two aligned spheres.
         The computed map will interpolate scalars from the source surface mesh to the
@@ -236,13 +240,17 @@ class SphericalResamplingNearest:
         Parameters
         ----------
         source, target : Mesh
+        workers : int, optional
+            Number of threads for the KD-tree query: -1 for all CPUs or a positive
+            integer. If None (default), the `SURFA_NUM_THREADS` environment variable
+            is used, and all CPUs if it is not set.
         """
         require_sphere(source)
         require_sphere(target)
 
         min_radius = np.sqrt(np.sum(source.vertices ** 2, 1)).min() * 0.99
         points = normalize(target.vertices) * min_radius
-        nn, _ = source.nearest_vertex(points)
+        nn, _ = source.nearest_vertex(points, workers=workers)
         self._vertices = nn
         self._nv = source.nvertices
 
@@ -269,7 +277,7 @@ class SphericalResamplingNearest:
 
 class SphericalResamplingBarycentric:
 
-    def __init__(self, source, target):
+    def __init__(self, source, target, workers=None):
         """
         Barycentric map to transfer vertex information between two aligned spheres.
         The computed map will interpolate scalars from the source surface mesh to the
@@ -278,11 +286,15 @@ class SphericalResamplingBarycentric:
         Parameters
         ----------
         source, target : Mesh
+        workers : int, optional
+            Number of threads for the KD-tree query: -1 for all CPUs or a positive
+            integer. If None (default), the `SURFA_NUM_THREADS` environment variable
+            is used, and all CPUs if it is not set.
         """
         require_sphere(source)
         require_sphere(target)
 
-        faces, bary = barycentric_spherical_map(source, target)
+        faces, bary = barycentric_spherical_map(source, target, workers=workers)
 
         self._nv = source.nvertices
         self._vertices = source.faces[faces]
@@ -313,7 +325,7 @@ class SphericalResamplingBarycentric:
 
 class SphericalMapNearest:
 
-    def __init__(self, sphere, shape=(256, 512)):
+    def __init__(self, sphere, shape=(256, 512), workers=None):
         """
         A nearest-neighbor to map spherical surface overlays into a 2D
         image grid with (phi, theta) units.
@@ -324,6 +336,10 @@ class SphericalMapNearest:
             Spherical mesh to build parameterization map on.
         shape :  tuple of int
             2D shape of the output parameterization map.
+        workers : int, optional
+            Number of threads for the KD-tree query: -1 for all CPUs or a positive
+            integer. If None (default), the `SURFA_NUM_THREADS` environment variable
+            is used, and all CPUs if it is not set.
         """
         require_sphere(sphere)
         self._shape = shape
@@ -335,10 +351,10 @@ class SphericalMapNearest:
         points = points.reshape((-1, 2), order='C')
 
         points = spherical_to_cartesian(points) * np.sqrt(np.sum(sphere.vertices ** 2, 1)).min()
-        nn, _ = sphere.nearest_vertex(points)
+        nn, _ = sphere.nearest_vertex(points, workers=workers)
         self._map_forward = nn.reshape(shape, order='C')
 
-        nn, _ = sf.Mesh(points).nearest_vertex(sphere.vertices)
+        nn, _ = sf.Mesh(points).nearest_vertex(sphere.vertices, workers=workers)
         self._map_backward = nn
 
     def parameterize(self, overlay):
@@ -385,7 +401,7 @@ class SphericalMapNearest:
 
 class SphericalMapBarycentric:
 
-    def __init__(self, sphere, shape=(256, 512)):
+    def __init__(self, sphere, shape=(256, 512), workers=None):
         """
         A barycentric interpolator to map spherical surface overlays into a 2D
         image grid with (phi, theta) units.
@@ -396,6 +412,10 @@ class SphericalMapBarycentric:
             Spherical mesh to build parameterization map on.
         shape :  tuple of int
             2D shape of the output parameterization map.
+        workers : int, optional
+            Number of threads for the KD-tree query: -1 for all CPUs or a positive
+            integer. If None (default), the `SURFA_NUM_THREADS` environment variable
+            is used, and all CPUs if it is not set.
         """
         require_sphere(sphere)
         self._shape = shape
@@ -408,7 +428,7 @@ class SphericalMapBarycentric:
         points = points.reshape((-1, 2), order='C')
 
         dirs = spherical_to_cartesian(points)
-        faces, bary = barycentric_spherical_map(sphere, sf.Mesh(dirs))
+        faces, bary = barycentric_spherical_map(sphere, sf.Mesh(dirs), workers=workers)
 
         self._forward_vertices = sphere.faces[faces]
         self._forward_weights = bary[:, :, np.newaxis]

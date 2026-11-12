@@ -4,6 +4,8 @@ import platform
 import subprocess as sp
 import warnings
 
+import numpy as np
+
 
 # reformat default warning message to make it a bit more mininalistic
 def formatwarning(message, category, filename, lineno, line=None):
@@ -151,21 +153,34 @@ def readlines(filename):
     return content
 
 
-def kdtree_workers():
+def kdtree_workers(workers=None):
     """
     Number of workers to use for SciPy KD-tree queries.
 
-    Reads the optional ``SURFA_NUM_THREADS`` environment variable so that a
+    An explicit `workers` value takes precedence. Otherwise the optional
+    ``SURFA_NUM_THREADS`` environment variable is read, so that a
     process-level CPU cap (e.g. the cores allocated to a batch job) can be
-    respected. SciPy interprets ``-1`` as "use all CPUs reported by the OS",
-    which oversubscribes shared or cgroup-limited nodes.
+    respected without changing any code. SciPy interprets ``-1`` as "use all
+    CPUs reported by the OS", which oversubscribes shared or cgroup-limited
+    nodes.
+
+    Parameters
+    ----------
+    workers : int, optional
+        Explicit number of workers: ``-1`` (all CPUs) or a positive integer.
+        If None (default), ``SURFA_NUM_THREADS`` decides.
 
     Returns
     -------
     int
-        ``-1`` (all CPUs; the default when the variable is unset) or a
-        positive number of workers.
+        ``-1`` (all CPUs; the default when neither is given) or a positive
+        number of workers.
     """
+    if workers is not None:
+        if isinstance(workers, bool) or not isinstance(workers, (int, np.integer)) \
+                or workers == 0 or workers < -1:
+            raise ValueError(f'workers must be -1 or a positive integer, got {workers!r}')
+        return int(workers)
     value = os.environ.get('SURFA_NUM_THREADS', '').strip()
     if not value:
         return -1
